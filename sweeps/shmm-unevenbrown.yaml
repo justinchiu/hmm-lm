@@ -1,4 +1,4 @@
-name: shmm
+name: unevenbrown
 program: main.py
 method: random
 metric:
@@ -20,7 +20,7 @@ parameters:
     patience:
         values: [4]
     states_per_word:
-        values: [128]
+        values: [64]
     emb_dim:
         values: [256]
     hidden_dim:
@@ -34,13 +34,13 @@ parameters:
     log_counts:
         values: [1]
     assignments:
-        values: [uniform, brown]
+        values: [unevenbrown]
     num_common:
-        values: [0]
+        values: [1024]
     states_per_common:
-        values: [0]
+        values: [8, 16, 32]
     num_common_states:
-        values: [0]
+        values: [8191]
 early_terminate:
     type: hyperband
     min_iter: 120
