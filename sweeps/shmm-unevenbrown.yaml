@@ -1,6 +1,6 @@
 name: unevenbrown
 program: main.py
-method: random
+method: grid
 metric:
     name: best_valid_loss
     goal: maximize
@@ -20,7 +20,7 @@ parameters:
     patience:
         values: [4]
     states_per_word:
-        values: [64]
+        values: [128]
     emb_dim:
         values: [256]
     hidden_dim:
@@ -34,11 +34,11 @@ parameters:
     log_counts:
         values: [1]
     assignment:
-        values: [unevenbrown]
+        values: [unevenbrown, uniform, brown]
     num_common:
         values: [1024]
     states_per_common:
-        values: [8, 16, 32]
+        values: [8]
     num_common_states:
         values: [8191]
 early_terminate:
