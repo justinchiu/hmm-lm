@@ -16,6 +16,8 @@ from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown, assign_states, assign_states_uneven_brown
 
+import wandb
+
 class ShmmLm(nn.Module):
     def __init__(self, V, config):
         super(ShmmLm, self).__init__()
@@ -182,6 +184,9 @@ class ShmmLm(nn.Module):
         i = th.stack([word2state.view(-1), self.a])
         sparse = th.sparse.ByteTensor(i, self.v, th.Size([self.C, len(self.V)]))
         mask = sparse.to_dense().bool().to(logits.device)
+        if wandb.run.mode == "dryrun":
+            #import pdb; pdb.set_trace()
+            pass
         log_probs = logits.masked_fill(~mask, float("-inf")).log_softmax(-1)
         #log_probs[log_probs != log_probs] = float("-inf")
         log_probs = log_probs.masked_fill(log_probs != log_probs, float("-inf"))
@@ -192,11 +197,26 @@ class ShmmLm(nn.Module):
         pass
 
     def log_potentials(self, text):
+        if wandb.run.mode == "dryrun":
+            start_emit = timep.time()
         emission_logits = self.emission_logits
         word2state = self.word2state
+        if wandb.run.mode == "dryrun":
+            #print(f"total emit time: {timep.time() - start_emit}")
+            start_transm = timep.time()
         transition = self.mask_transition(self.transition_logits)
+        if wandb.run.mode == "dryrun":
+            #print(f"total trans time: {timep.time() - start_transm}")
+            start_emitm = timep.time()
         emission = self.mask_emission(emission_logits, word2state)
+        if wandb.run.mode == "dryrun":
+            #print(f"total emitm time: {timep.time() - start_emitm}")
+            start_clamp = timep.time()
         clamped_states = word2state[text]
+        if wandb.run.mode == "dryrun":
+            pass
+            #import pdb; pdb.set_trace()
+            # oops a lot of padding
         batch, time = text.shape
         timem1 = time - 1
         log_potentials = transition[
@@ -211,14 +231,24 @@ class ShmmLm(nn.Module):
         log_potentials[:,0] += init.unsqueeze(-1)
         log_potentials += obs[:,1:].transpose(-1, -2)
         log_potentials[:,0] += obs[:,0]
+        if wandb.run.mode == "dryrun":
+            #print(f"total clamp time: {timep.time() - start_clamp}")
+            pass
         return log_potentials.transpose(-1, -2)
 
 
     def score(self, text, mask=None, lengths=None):
         N, T = text.shape
-        start_pot = timep.time()
+        if wandb.run.mode == "dryrun":
+            start_pot = timep.time()
         log_potentials = self.log_potentials(text)
+        if wandb.run.mode == "dryrun":
+            #print(f"total pot time: {timep.time() - start_pot}")
+            start_marg = timep.time()
         marginals, alphas, betas, log_m = self.fb(log_potentials, mask=mask)
+        if wandb.run.mode == "dryrun":
+            #print(f"total marg time: {timep.time() - start_marg}")
+            pass
         evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
         elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
         #import pdb; pdb.set_trace()
@@ -233,6 +263,9 @@ class ShmmLm(nn.Module):
                     text.view(-1),
                     unary_marginals.view(-1, self.states_per_word).t(),
                 )
+        if wandb.run.mode == "dryrun":
+            pass
+            #import pdb; pdb.set_trace()
         return Pack(
             elbo = elbo,
             evidence = evidence,

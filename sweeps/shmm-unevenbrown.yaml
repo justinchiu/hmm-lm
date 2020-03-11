@@ -33,7 +33,7 @@ parameters:
         values: [1]
     log_counts:
         values: [1]
-    assignments:
+    assignment:
         values: [unevenbrown]
     num_common:
         values: [1024]

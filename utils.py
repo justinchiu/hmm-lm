@@ -65,6 +65,7 @@ def get_name(config):
         f"pw{config.posterior_weight}",
         f"as{config.assignment}",
         f"nc{config.num_common}",
+        f"ncs{config.num_common_states}",
         f"spc{config.states_per_common}",
     ])
 

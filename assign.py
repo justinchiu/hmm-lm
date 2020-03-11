@@ -203,8 +203,10 @@ def assign_states_uneven_brown(
 ):
     num_words = len(V)
     # assume this is less than num_states // states_per_word
-    num_clusters = len(set(word2cluster.values()))
-    num_cluster_states = num_clusters * states_per_word
+    num_clusters = len(set(word2cluster.values())) + 1
+    states_per_cluster = states_per_word - states_per_common
+    num_cluster_states = num_clusters * states_per_cluster
+    num_common_states = num_states - num_cluster_states
     # num_states cluster is padding
 
     # for now, assume states_per_word > states_per_common
@@ -218,13 +220,10 @@ def assign_states_uneven_brown(
 
     # then do clusters
     for word in range(0, num_words):
-        if word in common_words or word not in word2cluster:
-            # already filled with padding state
-            continue
-        cluster = word2cluster[word]
-        word2state[word] = range(
-            num_common_states + states_per_word * cluster,
-            num_common_states + states_per_word * (cluster + 1),
+        cluster = word2cluster[word] if word in word2cluster else num_clusters - 1
+        word2state[word,states_per_common:states_per_common+states_per_cluster] = range(
+            num_common_states + states_per_cluster * cluster,
+            num_common_states + states_per_cluster * (cluster + 1),
         )
 
     return word2state
