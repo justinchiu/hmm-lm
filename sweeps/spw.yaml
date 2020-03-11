@@ -1,0 +1,24 @@
+name: weighttie
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [128]
+    num_classes:
+        values: [8192, 16384]
+    tw:
+        values: ["slIrp", "lr", "slIlrIrp", ""]
+early_terminate:
+    type: hyperband
+    min_iter: 120

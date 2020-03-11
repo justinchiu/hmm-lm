@@ -1,0 +1,9 @@
+name: hmm-128
+type: hmm
+num_layers: 1
+emb_dim: 512
+hidden_dim: 512
+dropout: 0.0
+num_classes: 128
+semiring: FastLogSemiring
+old_res: True

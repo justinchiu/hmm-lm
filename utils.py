@@ -1,0 +1,178 @@
+
+import sys
+
+from docopt import docopt
+
+import yaml
+
+import numpy as np
+import torch as th
+
+import matplotlib.pyplot as plt
+
+
+class Pack(dict):
+    def __getattr__(self, name):
+        return self[name]
+
+    def add(self, **kwargs):
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def copy(self):
+        pack = Pack()
+        for k, v in self.items():
+            if type(v) is list:
+                pack[k] = list(v)
+            else:
+                pack[k] = v
+        return pack
+
+
+def set_seed(seed):
+    """Sets random seed everywhere."""
+    th.manual_seed(seed)
+    if th.cuda.is_available():
+        th.cuda.manual_seed(seed)
+    np.random.seed(seed)
+
+
+def get_config(path, device):
+    with open(path, "r") as f:
+        pack = Pack(yaml.load(f, Loader = yaml.Loader))
+        pack.device = device
+        return pack
+
+def get_name(config):
+    return "_".join([
+        config.model,
+        f"k{config.num_classes}",
+        f"wps{config.words_per_state}",
+        f"spw{config.states_per_word}",
+        #f"ff{config.ffnn}",
+        f"ed{config.emb_dim}",
+        f"d{config.hidden_dim}",
+        f"dp{config.dropout}",
+        f"tdp{config.transition_dropout}",
+        f"cdp{config.column_dropout}",
+        config.bsz_fn,
+        f"b{config.bsz}",
+        config.optimizer,
+        f"lr{config.lr}",
+        f"c{config.clip}",
+        f"tw{config.tw}",
+        f"nas{config.noise_anneal_steps}",
+        f"pw{config.posterior_weight}",
+        f"as{config.assignment}",
+        f"nc{config.num_common}",
+        f"spc{config.states_per_common}",
+    ])
+
+def get_args(args):
+    args = docopt(args, more_magic = True)
+    args.bsz = int(args.bsz)
+    args.eval_bsz = int(args.eval_bsz)
+    args.bptt = int(args.bptt)
+    args.devid = int(args.devid)
+    args.seed = int(args.seed)
+    args.num_epochs = int(args.num_epochs)
+    args.num_checks = int(args.num_checks)
+    args.report_every = int(args.report_every)
+    args.lr = float(args.lr)
+    args.wd = float(args.wd)
+    args.beta1 = float(args.beta1)
+    args.beta2 = float(args.beta2)
+    args.decay = float(args.decay)
+    args.patience = int(args.patience)
+    return args
+
+def get_mask_lengths(text, V):
+    mask = text != V.stoi["<pad>"]
+    lengths = mask.sum(-1)
+    n_tokens = mask.sum()
+    return mask, lengths, n_tokens
+
+# randomly assign M states to each word (out of K)
+# states have at most L words (sparsity is nice)
+def assign_states(num_states, states_per_word, num_words, words_per_state):
+    word2state = [[] for _ in range(num_words)]
+    state2word = [[] for _ in range(num_states)]
+    for w in range(num_words):
+        perm = np.random.permutation(num_states)
+        #print([len(state2word[x]) for x in range(num_states)])
+        #print(sum([len(state2word[x]) for x in range(num_states)]))
+        #print(sum([len(state2word[x]) < words_per_state for x in range(num_states)]))
+        i = 0
+        while len(word2state[w]) < states_per_word:
+            try:
+                s = perm[i]
+            except:
+                print("Try again with more states or words_per_state")
+                sys.exit()
+            if len(state2word[s]) < words_per_state:
+                word2state[w].append(s)
+                state2word[s].append(w)
+            i += 1
+    # pad state2word to words_per_state
+    for s in range(num_states):
+        while len(state2word[s]) < words_per_state:
+            state2word[s].append(num_words)
+    return np.array(word2state), np.array(state2word)
+
+# slower but avoids degenerate solutions better?
+def assign_states2(num_states, states_per_word, num_words, words_per_state):
+    word2state = [[] for _ in range(num_words)]
+    state2word = [[] for _ in range(num_states)]
+    for i in range(states_per_word):
+        for w in range(num_words):
+            p = np.array([
+                (words_per_state - len(state2word[s])) if s not in word2state[w] else 0
+                for s in range(num_states)
+            ])
+            p = p / p.sum()
+            s = np.random.choice(num_states, p = p)
+            word2state[w].append(s)
+            state2word[s].append(w)
+    # pad state2word to words_per_state
+    for s in range(num_states):
+        while len(state2word[s]) < words_per_state:
+            state2word[s].append(num_words)
+    return np.array(word2state), np.array(state2word)
+
+def assign_states3(num_states, states_per_word, num_words, words_per_state):
+    word2state = [[] for _ in range(num_words)]
+    state2word = [[] for _ in range(num_states)]
+    perm = np.random.permutation(num_states * words_per_state)
+    splits = np.split(perm, [states_per_word * x for x in range(1, num_words+1)])
+    for word, split in enumerate(splits):
+        if len(split) != states_per_word:
+            break
+        for state_flat in split:
+            #state = state_flat % num_states
+            state = state_flat // words_per_state
+            word2state[word].append(state)
+            state2word[state].append(word)
+    for s in range(num_states):
+        while len(state2word[s]) < words_per_state:
+            state2word[s].append(num_words)
+    return np.array(word2state), np.array(state2word)
+
+def log_eye(K, dtype, device):
+    x = th.empty(K, K, dtype = dtype, device = device)
+    x.fill_(float("-inf"))
+    x.diagonal().fill_(0)
+    return x
+
+def plot_counts(counts):
+    num_c, num_w = counts.shape
+    words = [
+        13, 29, 67, 111, 131, 171, 373, 567, 700, 800,
+        5617,5053,5601,5756,1482,7443,3747,8314,11,3722,7637,7916,3376,7551,
+        5391,9072,230,9244,6869,441,1076,7093,1845,201,1386,6738,2840,4909,
+    ]
+    counts = counts[:, words]
+    fig, axs = plt.subplots(1, 3)
+    axs[0].spy(counts, precision=0.0001, markersize=1, aspect="auto")
+    axs[1].spy(counts, precision=0.001, markersize=1, aspect="auto")
+    axs[2].spy(counts, precision=0.01, markersize=1, aspect="auto")
+    return plt

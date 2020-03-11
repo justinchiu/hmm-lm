@@ -1,0 +1,6 @@
+name: lstm-d650
+type: lstm
+num_layers: 2
+emb_dim: 650
+hidden_dim: 650
+dropout: 0.5

@@ -1,0 +1,26 @@
+name: dropout_8k_d512
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0, 0.1, 0.3]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [128]
+    emb_dim:
+        values: [512]
+    hidden_dim:
+        values: [512]
+    num_classes:
+        values: [8192]
+early_terminate:
+    type: hyperband
+    min_iter: 120

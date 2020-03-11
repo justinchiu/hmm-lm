@@ -1,0 +1,14 @@
+name: chmm-128
+type: chmm
+num_layers: 1
+emb_dim: 256
+hidden_dim: 256
+dropout: 0.3
+num_classes: 16384
+semiring: FastLogSemiring
+words_per_state: 512
+states_per_word: 128
+old_res: False
+do_norm: False
+pre_norm: True
+do_res: True

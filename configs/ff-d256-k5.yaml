@@ -1,0 +1,8 @@
+name: ff-d256
+type: ff
+num_layers: 2
+emb_dim: 256
+hidden_dim: 256
+dropout: 0.3
+ngrams: 5
+tie_weights: True

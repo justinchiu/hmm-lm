@@ -1,0 +1,5 @@
+type: lstm
+num_layers: 1
+emb_dim: 800
+hidden_dim: 800
+dropout: 0.3

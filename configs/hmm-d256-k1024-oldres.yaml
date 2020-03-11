@@ -1,0 +1,9 @@
+name: hmm-512
+type: hmm
+num_layers: 1
+emb_dim: 256
+hidden_dim: 256
+dropout: 0.0
+num_classes: 1024
+semiring: FastLogSemiring
+old_res: True

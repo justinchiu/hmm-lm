@@ -1,0 +1,21 @@
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    lr:
+        values: [0.001, 0.002, 0.005, 0.01, 0.02]
+    dropout:
+        values: [0, 0.1, 0.3, 0.5, 0.7]
+    clip:
+        values: [0.5, 1, 2.5, 5]
+    patience:
+        values: [4, 8]
+    states_per_word:
+        values: [64, 128]
+    num_classes:
+        values: [8192, 16384]
+early_terminate:
+    type: hyperband
+    min_iter: 40

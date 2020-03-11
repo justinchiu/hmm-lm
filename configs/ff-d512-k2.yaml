@@ -1,0 +1,8 @@
+name: ff-d512
+type: ff
+num_layers: 2
+emb_dim: 512
+hidden_dim: 512
+dropout: 0.3
+ngrams: 2
+tie_weights: True

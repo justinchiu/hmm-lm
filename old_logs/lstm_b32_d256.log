@@ -1,0 +1,41 @@
+main.py --devid 1 --model-config configs/lstm-d256.yaml --num-epochs 100 --patience 6
+{'--bptt': '35',
+ '--bsz': '32',
+ '--clip': '5',
+ '--decay': '4',
+ '--devid': '1',
+ '--eval-bsz': '1',
+ '--lr': '1e-3',
+ '--model-config': 'configs/lstm-d256.yaml',
+ '--nosave': False,
+ '--num-checks': '4',
+ '--num-epochs': '100',
+ '--overfit': False,
+ '--patience': '6',
+ '--seed': '1111'}
+LstmLm(
+  (emb): Embedding(10001, 256, padding_idx=1)
+  (lstm): LSTM(256, 256, num_layers=2, batch_first=True, dropout=0.3)
+  (dropout): Dropout(p=0.3, inplace=False)
+)
+Num params, trainable: 3612928, 3612928
+Valid eval: log_prob = -445262.31 | xent(word) = 6.04 | ppl = 418.48 | total_time = 0.29s 
+Valid eval: log_prob = -428642.91 | xent(word) = 5.81 | ppl = 334.06 | total_time = 0.30s 
+Valid eval: log_prob = -418877.53 | xent(word) = 5.68 | ppl = 292.63 | total_time = 0.27s 
+Train epoch 0: log_prob = -5903820.00 | xent(word) = 6.35 | ppl = 573.07 | total_time = 21.64s 
+Valid epoch 0: log_prob = -418826.03 | xent(word) = 5.68 | ppl = 292.43 | total_time = 0.27s 
+Saving model to checkpoints/basic/0_5.68.pth
+Valid eval: log_prob = -411793.59 | xent(word) = 5.58 | ppl = 265.84 | total_time = 0.30s 
+Valid eval: log_prob = -405844.00 | xent(word) = 5.50 | ppl = 245.24 | total_time = 0.27s 
+Valid eval: log_prob = -401409.88 | xent(word) = 5.44 | ppl = 230.93 | total_time = 0.26s 
+Train epoch 1: log_prob = -5379919.50 | xent(word) = 5.79 | ppl = 326.17 | total_time = 21.68s 
+Valid epoch 1: log_prob = -401455.12 | xent(word) = 5.44 | ppl = 231.07 | total_time = 0.27s 
+Saving model to checkpoints/basic/1_5.44.pth
+Valid eval: log_prob = -396554.50 | xent(word) = 5.38 | ppl = 216.22 | total_time = 0.27s 
+Valid eval: log_prob = -393705.47 | xent(word) = 5.34 | ppl = 208.02 | total_time = 0.27s 
+Valid eval: log_prob = -389849.22 | xent(word) = 5.29 | ppl = 197.43 | total_time = 0.29s 
+Train epoch 2: log_prob = -5185210.00 | xent(word) = 5.58 | ppl = 264.53 | total_time = 21.90s 
+Valid epoch 2: log_prob = -389827.34 | xent(word) = 5.29 | ppl = 197.37 | total_time = 0.37s 
+Saving model to checkpoints/basic/2_5.29.pth
+Valid eval: log_prob = -387064.56 | xent(word) = 5.25 | ppl = 190.11 | total_time = 0.62s 
+Valid eval: log_prob = -384796.72 | xent(word) = 5.22 | ppl = 184.36 | total_time = 0.28s 

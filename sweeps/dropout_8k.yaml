@@ -1,0 +1,22 @@
+name: dropout_8k
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0, 0.1, 0.3, 0.5]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [64, 128, 256]
+    num_classes:
+        values: [8192]
+early_terminate:
+    type: hyperband
+    min_iter: 120

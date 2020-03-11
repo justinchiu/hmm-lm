@@ -1,0 +1,44 @@
+name: shmm
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    model:
+        values: [shmm]
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0]
+    transition_dropout:
+        values: [0.5]
+    column_dropout:
+        values: [1]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [128]
+    emb_dim:
+        values: [256]
+    hidden_dim:
+        values: [256]
+    num_classes:
+        values: [16384]
+    noise_anneal_steps:
+        values: [0]
+    keep_counts:
+        values: [1]
+    log_counts:
+        values: [1]
+    assignments:
+        values: [brown, uniform, unevenbrown]
+    num_commons:
+        values: [1024]
+    states_per_common:
+        values: [8, 16, 32]
+early_terminate:
+    type: hyperband
+    min_iter: 120

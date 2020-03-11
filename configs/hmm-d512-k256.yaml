@@ -1,0 +1,8 @@
+name: hmm-256
+type: hmm
+num_layers: 1
+emb_dim: 512
+hidden_dim: 512
+dropout: 0.0
+num_classes: 256
+semiring: FastLogSemiring

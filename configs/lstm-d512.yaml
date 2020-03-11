@@ -1,0 +1,6 @@
+name: lstm-d512
+type: lstm
+num_layers: 2
+emb_dim: 512
+hidden_dim: 512
+dropout: 0.5

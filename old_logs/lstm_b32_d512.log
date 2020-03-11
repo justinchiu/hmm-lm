@@ -1,0 +1,34 @@
+main.py --devid 3 --model-config configs/lstm-d512.yaml --num-epochs 100 --patience 6
+{'--bptt': '35',
+ '--bsz': '32',
+ '--clip': '5',
+ '--decay': '4',
+ '--devid': '3',
+ '--eval-bsz': '1',
+ '--lr': '1e-3',
+ '--model-config': 'configs/lstm-d512.yaml',
+ '--nosave': False,
+ '--num-checks': '4',
+ '--num-epochs': '100',
+ '--overfit': False,
+ '--patience': '6',
+ '--seed': '1111'}
+LstmLm(
+  (emb): Embedding(10001, 512, padding_idx=1)
+  (lstm): LSTM(512, 512, num_layers=2, batch_first=True, dropout=0.5)
+  (dropout): Dropout(p=0.5, inplace=False)
+)
+Num params, trainable: 9323008, 9323008
+Valid eval: log_prob = -444591.59 | xent(word) = 6.03 | ppl = 414.69 | total_time = 0.42s 
+Valid eval: log_prob = -429235.19 | xent(word) = 5.82 | ppl = 336.75 | total_time = 0.40s 
+Valid eval: log_prob = -419582.72 | xent(word) = 5.69 | ppl = 295.45 | total_time = 0.40s 
+Train epoch 0: log_prob = -5981252.50 | xent(word) = 6.43 | ppl = 622.85 | total_time = 33.01s 
+Valid epoch 0: log_prob = -419615.12 | xent(word) = 5.69 | ppl = 295.58 | total_time = 0.40s 
+Saving model to checkpoints/lstm-d512/0_5.69.pth
+Valid eval: log_prob = -413271.47 | xent(word) = 5.60 | ppl = 271.22 | total_time = 0.42s 
+Valid eval: log_prob = -407926.16 | xent(word) = 5.53 | ppl = 252.26 | total_time = 0.41s 
+Valid eval: log_prob = -403870.38 | xent(word) = 5.48 | ppl = 238.76 | total_time = 0.47s 
+Train epoch 1: log_prob = -5480487.00 | xent(word) = 5.90 | ppl = 363.44 | total_time = 33.62s 
+Valid epoch 1: log_prob = -403836.78 | xent(word) = 5.48 | ppl = 238.65 | total_time = 0.51s 
+Saving model to checkpoints/lstm-d512/1_5.48.pth
+Valid eval: log_prob = -399442.62 | xent(word) = 5.42 | ppl = 224.85 | total_time = 0.43s 

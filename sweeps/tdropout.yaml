@@ -1,0 +1,30 @@
+name: tdropout_d256
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0]
+    transition_dropout:
+        values: [0, 0.1, 0.2, 0.3, 0.5]
+    column_dropout:
+        values: [0, 1]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [128]
+    emb_dim:
+        values: [256]
+    hidden_dim:
+        values: [256]
+    num_classes:
+        values: [8192, 16384]
+early_terminate:
+    type: hyperband
+    min_iter: 120

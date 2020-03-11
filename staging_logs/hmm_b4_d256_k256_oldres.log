@@ -1,0 +1,762 @@
+main.py --devid 0 --model-config configs/hmm-d256-k256-oldres.yaml --bsz 4 --num-epochs 100 --patience 8 --save hmm_b4_d256_k256_oldres
+{'--bptt': '35',
+ '--bsz': '4',
+ '--clip': '5',
+ '--decay': '4',
+ '--devid': '0',
+ '--eval-bsz': '1',
+ '--lr': '1e-3',
+ '--model-config': 'configs/hmm-d256-k256-oldres.yaml',
+ '--num-checks': '4',
+ '--num-epochs': '100',
+ '--overfit': False,
+ '--patience': '8',
+ '--report-every': '5000',
+ '--save': 'hmm_b4_d256_k256_oldres',
+ '--seed': '1111'}
+HmmLm(
+  (start_mlp): Sequential(
+    (0): ResidualLayerOld(
+      (lin1): Linear(in_features=256, out_features=256, bias=True)
+      (lin2): Linear(in_features=256, out_features=256, bias=True)
+      (layer_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (1): Linear(in_features=256, out_features=1, bias=True)
+  )
+  (trans_mlp): Sequential(
+    (0): ResidualLayerOld(
+      (lin1): Linear(in_features=256, out_features=256, bias=True)
+      (lin2): Linear(in_features=256, out_features=256, bias=True)
+      (layer_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (1): Linear(in_features=256, out_features=256, bias=True)
+  )
+  (terminal_mlp): Sequential(
+    (0): ResidualLayerOld(
+      (lin1): Linear(in_features=256, out_features=256, bias=True)
+      (lin2): Linear(in_features=256, out_features=256, bias=True)
+      (layer_norm): LayerNorm((256,), eps=1e-05, elementwise_affine=True)
+    )
+    (1): Linear(in_features=256, out_features=10001, bias=True)
+  )
+)
+Num params, trainable: 3229202, 3229202
+Valid eval: log_prob = -426852.72 | xent(word) = 5.79 | ppl = 326.05 | elbo = -6.54 | total_time = 7.25s
+Train batch 4999: log_prob = -2630256.50 | xent(word) = 5.95 | ppl = 385.31 | elbo = -6.85
+Valid eval: log_prob = -415480.12 | xent(word) = 5.63 | ppl = 279.46 | elbo = -6.25 | total_time = 7.42s
+Train batch 9999: log_prob = -5106245.50 | xent(word) = 5.77 | ppl = 322.14 | elbo = -6.53
+Valid eval: log_prob = -408240.34 | xent(word) = 5.53 | ppl = 253.33 | elbo = -6.11 | total_time = 7.27s
+Train epoch 0: log_prob = -5355961.00 | xent(word) = 5.76 | ppl = 317.87 | elbo = -6.51 | total_time = 257.42s
+Valid epoch 0: log_prob = -408247.94 | xent(word) = 5.53 | ppl = 253.36 | elbo = -6.11 | total_time = 7.27s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/0_5.53.pth
+Valid eval: log_prob = -406425.19 | xent(word) = 5.51 | ppl = 247.18 | elbo = -6.02 | total_time = 7.58s
+Train batch 4999: log_prob = -2408110.25 | xent(word) = 5.44 | ppl = 231.26 | elbo = -5.95
+Valid eval: log_prob = -403291.09 | xent(word) = 5.47 | ppl = 236.89 | elbo = -5.96 | total_time = 7.60s
+Train batch 9999: log_prob = -4795311.00 | xent(word) = 5.43 | ppl = 227.03 | elbo = -5.92
+Valid eval: log_prob = -401427.34 | xent(word) = 5.44 | ppl = 230.98 | elbo = -5.92 | total_time = 7.47s
+Train epoch 1: log_prob = -5041802.50 | xent(word) = 5.42 | ppl = 226.71 | elbo = -5.91 | total_time = 266.87s
+Valid epoch 1: log_prob = -401429.34 | xent(word) = 5.44 | ppl = 230.99 | elbo = -5.92 | total_time = 7.53s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/1_5.44.pth
+Valid eval: log_prob = -401369.94 | xent(word) = 5.44 | ppl = 230.80 | elbo = -5.93 | total_time = 7.49s
+Train batch 4999: log_prob = -2365929.25 | xent(word) = 5.35 | ppl = 209.81 | elbo = -5.78
+Valid eval: log_prob = -400084.16 | xent(word) = 5.42 | ppl = 226.81 | elbo = -5.88 | total_time = 7.47s
+Train batch 9999: log_prob = -4729724.50 | xent(word) = 5.35 | ppl = 209.75 | elbo = -5.78
+Valid eval: log_prob = -398525.31 | xent(word) = 5.40 | ppl = 222.07 | elbo = -5.86 | total_time = 7.61s
+Train epoch 2: log_prob = -4969652.00 | xent(word) = 5.35 | ppl = 209.78 | elbo = -5.78 | total_time = 266.60s
+Valid epoch 2: log_prob = -398518.75 | xent(word) = 5.40 | ppl = 222.05 | elbo = -5.86 | total_time = 7.53s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/2_5.40.pth
+Valid eval: log_prob = -399024.81 | xent(word) = 5.41 | ppl = 223.58 | elbo = -5.83 | total_time = 7.52s
+Train batch 4999: log_prob = -2345416.75 | xent(word) = 5.30 | ppl = 199.81 | elbo = -5.70
+Valid eval: log_prob = -399050.44 | xent(word) = 5.41 | ppl = 223.66 | elbo = -5.84 | total_time = 7.52s
+Train batch 9999: log_prob = -4697048.50 | xent(word) = 5.31 | ppl = 202.74 | elbo = -5.72
+Valid eval: log_prob = -398369.53 | xent(word) = 5.40 | ppl = 221.60 | elbo = -5.83 | total_time = 7.32s
+Train epoch 3: log_prob = -4938896.00 | xent(word) = 5.31 | ppl = 202.96 | elbo = -5.72 | total_time = 265.50s
+Valid epoch 3: log_prob = -398370.19 | xent(word) = 5.40 | ppl = 221.61 | elbo = -5.83 | total_time = 7.57s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/3_5.40.pth
+Valid eval: log_prob = -398481.34 | xent(word) = 5.40 | ppl = 221.94 | elbo = -5.83 | total_time = 7.30s
+Train batch 4999: log_prob = -2333996.75 | xent(word) = 5.29 | ppl = 197.82 | elbo = -5.68
+Valid eval: log_prob = -398099.19 | xent(word) = 5.40 | ppl = 220.79 | elbo = -5.83 | total_time = 7.28s
+Train batch 9999: log_prob = -4683088.50 | xent(word) = 5.29 | ppl = 199.25 | elbo = -5.69
+Valid eval: log_prob = -397326.12 | xent(word) = 5.39 | ppl = 218.49 | elbo = -5.79 | total_time = 7.28s
+Train epoch 4: log_prob = -4924603.50 | xent(word) = 5.30 | ppl = 199.86 | elbo = -5.69 | total_time = 265.37s
+Valid epoch 4: log_prob = -397335.28 | xent(word) = 5.39 | ppl = 218.52 | elbo = -5.79 | total_time = 7.53s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/4_5.39.pth
+Valid eval: log_prob = -398287.00 | xent(word) = 5.40 | ppl = 221.36 | elbo = -5.80 | total_time = 7.38s
+Train batch 4999: log_prob = -2342737.50 | xent(word) = 5.28 | ppl = 195.56 | elbo = -5.64
+Valid eval: log_prob = -397274.19 | xent(word) = 5.39 | ppl = 218.34 | elbo = -5.79 | total_time = 7.32s
+Train batch 9999: log_prob = -4675942.50 | xent(word) = 5.28 | ppl = 197.01 | elbo = -5.66
+Valid eval: log_prob = -397075.56 | xent(word) = 5.38 | ppl = 217.75 | elbo = -5.80 | total_time = 7.20s
+Train epoch 5: log_prob = -4912661.00 | xent(word) = 5.28 | ppl = 197.31 | elbo = -5.66 | total_time = 265.06s
+Valid epoch 5: log_prob = -397076.81 | xent(word) = 5.38 | ppl = 217.75 | elbo = -5.80 | total_time = 7.57s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/5_5.38.pth
+Valid eval: log_prob = -397566.06 | xent(word) = 5.39 | ppl = 219.20 | elbo = -5.80 | total_time = 7.31s
+Train batch 4999: log_prob = -2338783.50 | xent(word) = 5.27 | ppl = 194.12 | elbo = -5.64
+Valid eval: log_prob = -397365.12 | xent(word) = 5.39 | ppl = 218.61 | elbo = -5.79 | total_time = 7.37s
+Train batch 9999: log_prob = -4667241.00 | xent(word) = 5.28 | ppl = 196.12 | elbo = -5.65
+Valid eval: log_prob = -396652.25 | xent(word) = 5.38 | ppl = 216.50 | elbo = -5.77 | total_time = 7.57s
+Train epoch 6: log_prob = -4908629.50 | xent(word) = 5.28 | ppl = 196.45 | elbo = -5.65 | total_time = 266.76s
+Valid epoch 6: log_prob = -396638.97 | xent(word) = 5.38 | ppl = 216.46 | elbo = -5.77 | total_time = 7.58s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/6_5.38.pth
+Valid eval: log_prob = -397487.44 | xent(word) = 5.39 | ppl = 218.97 | elbo = -5.78 | total_time = 7.43s
+Train batch 4999: log_prob = -2330881.00 | xent(word) = 5.26 | ppl = 193.18 | elbo = -5.61
+Valid eval: log_prob = -396952.69 | xent(word) = 5.38 | ppl = 217.39 | elbo = -5.78 | total_time = 7.33s
+Train batch 9999: log_prob = -4663384.50 | xent(word) = 5.28 | ppl = 195.49 | elbo = -5.63
+Valid eval: log_prob = -396454.81 | xent(word) = 5.37 | ppl = 215.92 | elbo = -5.77 | total_time = 7.38s
+Train epoch 7: log_prob = -4904173.50 | xent(word) = 5.28 | ppl = 195.51 | elbo = -5.63 | total_time = 265.86s
+Valid epoch 7: log_prob = -396458.19 | xent(word) = 5.37 | ppl = 215.93 | elbo = -5.76 | total_time = 7.56s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/7_5.37.pth
+Valid eval: log_prob = -397572.75 | xent(word) = 5.39 | ppl = 219.22 | elbo = -5.79 | total_time = 7.51s
+Train batch 4999: log_prob = -2332350.75 | xent(word) = 5.26 | ppl = 192.89 | elbo = -5.63
+Valid eval: log_prob = -397241.00 | xent(word) = 5.39 | ppl = 218.24 | elbo = -5.81 | total_time = 7.35s
+Train batch 9999: log_prob = -4662486.00 | xent(word) = 5.27 | ppl = 194.94 | elbo = -5.64
+Valid eval: log_prob = -397112.69 | xent(word) = 5.38 | ppl = 217.86 | elbo = -5.80 | total_time = 7.37s
+Train epoch 8: log_prob = -4903293.50 | xent(word) = 5.27 | ppl = 195.33 | elbo = -5.64 | total_time = 266.92s
+Valid epoch 8: log_prob = -397096.53 | xent(word) = 5.38 | ppl = 217.81 | elbo = -5.80 | total_time = 7.37s
+Valid eval: log_prob = -397382.88 | xent(word) = 5.39 | ppl = 218.66 | elbo = -5.80 | total_time = 7.40s
+Train batch 4999: log_prob = -2324858.00 | xent(word) = 5.26 | ppl = 192.65 | elbo = -5.62
+Valid eval: log_prob = -396964.03 | xent(word) = 5.38 | ppl = 217.42 | elbo = -5.77 | total_time = 7.39s
+Train batch 9999: log_prob = -4660886.00 | xent(word) = 5.27 | ppl = 194.39 | elbo = -5.63
+Valid eval: log_prob = -397231.31 | xent(word) = 5.39 | ppl = 218.21 | elbo = -5.77 | total_time = 7.62s
+Train epoch 9: log_prob = -4899275.50 | xent(word) = 5.27 | ppl = 194.49 | elbo = -5.63 | total_time = 266.39s
+Valid epoch 9: log_prob = -397215.00 | xent(word) = 5.39 | ppl = 218.16 | elbo = -5.77 | total_time = 7.53s
+Valid eval: log_prob = -397605.53 | xent(word) = 5.39 | ppl = 219.32 | elbo = -5.79 | total_time = 7.51s
+Epoch    40: reducing learning rate of group 0 to 2.5000e-04.
+Train batch 4999: log_prob = -2326077.75 | xent(word) = 5.25 | ppl = 191.19 | elbo = -5.61
+Valid eval: log_prob = -394873.44 | xent(word) = 5.35 | ppl = 211.34 | elbo = -5.72 | total_time = 7.40s
+Train batch 9999: log_prob = -4632398.50 | xent(word) = 5.24 | ppl = 188.97 | elbo = -5.59
+Valid eval: log_prob = -394107.16 | xent(word) = 5.34 | ppl = 209.16 | elbo = -5.71 | total_time = 7.59s
+Train epoch 10: log_prob = -4870960.50 | xent(word) = 5.24 | ppl = 188.65 | elbo = -5.58 | total_time = 266.32s
+Valid epoch 10: log_prob = -394103.19 | xent(word) = 5.34 | ppl = 209.15 | elbo = -5.71 | total_time = 7.46s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/10_5.34.pth
+Valid eval: log_prob = -394625.12 | xent(word) = 5.35 | ppl = 210.63 | elbo = -5.71 | total_time = 7.42s
+Train batch 4999: log_prob = -2291733.25 | xent(word) = 5.20 | ppl = 180.59 | elbo = -5.51
+Valid eval: log_prob = -394543.12 | xent(word) = 5.35 | ppl = 210.40 | elbo = -5.71 | total_time = 7.45s
+Train batch 9999: log_prob = -4594117.00 | xent(word) = 5.20 | ppl = 181.49 | elbo = -5.52
+Valid eval: log_prob = -394219.69 | xent(word) = 5.34 | ppl = 209.48 | elbo = -5.70 | total_time = 7.39s
+Train epoch 11: log_prob = -4835093.50 | xent(word) = 5.20 | ppl = 181.51 | elbo = -5.52 | total_time = 266.13s
+Valid epoch 11: log_prob = -394214.53 | xent(word) = 5.34 | ppl = 209.47 | elbo = -5.70 | total_time = 7.58s
+Valid eval: log_prob = -394581.00 | xent(word) = 5.35 | ppl = 210.51 | elbo = -5.71 | total_time = 7.52s
+Train batch 4999: log_prob = -2294835.25 | xent(word) = 5.19 | ppl = 179.55 | elbo = -5.50
+Valid eval: log_prob = -394499.59 | xent(word) = 5.35 | ppl = 210.28 | elbo = -5.70 | total_time = 7.34s
+Train batch 9999: log_prob = -4596363.00 | xent(word) = 5.20 | ppl = 180.82 | elbo = -5.51
+Valid eval: log_prob = -394456.22 | xent(word) = 5.35 | ppl = 210.15 | elbo = -5.73 | total_time = 7.44s
+Train epoch 12: log_prob = -4833419.50 | xent(word) = 5.20 | ppl = 181.19 | elbo = -5.51 | total_time = 266.57s
+Valid epoch 12: log_prob = -394465.75 | xent(word) = 5.35 | ppl = 210.18 | elbo = -5.73 | total_time = 7.39s
+Valid eval: log_prob = -394612.28 | xent(word) = 5.35 | ppl = 210.60 | elbo = -5.70 | total_time = 7.39s
+Epoch    52: reducing learning rate of group 0 to 6.2500e-05.
+Train batch 4999: log_prob = -2304950.75 | xent(word) = 5.20 | ppl = 180.81 | elbo = -5.51
+Valid eval: log_prob = -394074.81 | xent(word) = 5.34 | ppl = 209.07 | elbo = -5.70 | total_time = 7.39s
+Train batch 9999: log_prob = -4586873.00 | xent(word) = 5.19 | ppl = 179.38 | elbo = -5.50
+Valid eval: log_prob = -393788.78 | xent(word) = 5.34 | ppl = 208.26 | elbo = -5.69 | total_time = 7.60s
+Train epoch 13: log_prob = -4824804.50 | xent(word) = 5.19 | ppl = 179.51 | elbo = -5.50 | total_time = 264.89s
+Valid epoch 13: log_prob = -393787.75 | xent(word) = 5.34 | ppl = 208.26 | elbo = -5.69 | total_time = 7.52s
+Saving model to checkpoints/hmm_b4_d256_k256_oldres/13_5.34.pth
+Valid eval: log_prob = -393855.59 | xent(word) = 5.34 | ppl = 208.45 | elbo = -5.68 | total_time = 7.26s
+Train batch 4999: log_prob = -2287157.25 | xent(word) = 5.17 | ppl = 175.43 | elbo = -5.47
+Valid eval: log_prob = -393842.16 | xent(word) = 5.34 | ppl = 208.41 | elbo = -5.68 | total_time = 7.36s
+Train batch 9999: log_prob = -4570044.50 | xent(word) = 5.17 | ppl = 176.44 | elbo = -5.48
+Valid eval: log_prob = -393822.31 | xent(word) = 5.34 | ppl = 208.35 | elbo = -5.69 | total_time = 7.54s
+Train epoch 14: log_prob = -4809254.50 | xent(word) = 5.17 | ppl = 176.54 | elbo = -5.48 | total_time = 266.08s
+Valid epoch 14: log_prob = -393822.41 | xent(word) = 5.34 | ppl = 208.35 | elbo = -5.69 | total_time = 7.60s
+Valid eval: log_prob = -393975.94 | xent(word) = 5.34 | ppl = 208.79 | elbo = -5.68 | total_time = 7.49s
+Train batch 4999: log_prob = -2288401.00 | xent(word) = 5.17 | ppl = 175.65 | elbo = -5.47
+Valid eval: log_prob = -393974.12 | xent(word) = 5.34 | ppl = 208.78 | elbo = -5.68 | total_time = 7.40s
+Train batch 9999: log_prob = -4570250.00 | xent(word) = 5.17 | ppl = 176.30 | elbo = -5.47
+Valid eval: log_prob = -393829.00 | xent(word) = 5.34 | ppl = 208.37 | elbo = -5.68 | total_time = 7.59s
+Train epoch 15: log_prob = -4808195.50 | xent(word) = 5.17 | ppl = 176.34 | elbo = -5.47 | total_time = 266.05s
+Valid epoch 15: log_prob = -393829.66 | xent(word) = 5.34 | ppl = 208.37 | elbo = -5.68 | total_time = 7.41s
+Valid eval: log_prob = -394031.66 | xent(word) = 5.34 | ppl = 208.95 | elbo = -5.71 | total_time = 7.20s
+Train batch 4999: log_prob = -2285390.50 | xent(word) = 5.17 | ppl = 176.01 | elbo = -5.48
+Valid eval: log_prob = -393870.28 | xent(word) = 5.34 | ppl = 208.49 | elbo = -5.68 | total_time = 7.39s
+Train batch 9999: log_prob = -4570854.00 | xent(word) = 5.17 | ppl = 176.47 | elbo = -5.48
+Valid eval: log_prob = -393957.75 | xent(word) = 5.34 | ppl = 208.74 | elbo = -5.68 | total_time = 7.40s
+Train epoch 16: log_prob = -4808204.50 | xent(word) = 5.17 | ppl = 176.34 | elbo = -5.47 | total_time = 265.43s
+Valid epoch 16: log_prob = -393960.00 | xent(word) = 5.34 | ppl = 208.74 | elbo = -5.68 | total_time = 7.21s
+Valid eval: log_prob = -393987.34 | xent(word) = 5.34 | ppl = 208.82 | elbo = -5.68 | total_time = 7.50s
+Train batch 4999: log_prob = -2284005.50 | xent(word) = 5.17 | ppl = 175.77 | elbo = -5.46
+Valid eval: log_prob = -393933.06 | xent(word) = 5.34 | ppl = 208.67 | elbo = -5.68 | total_time = 7.26s
+Train batch 9999: log_prob = -4568063.50 | xent(word) = 5.17 | ppl = 175.94 | elbo = -5.47
+Valid eval: log_prob = -394028.72 | xent(word) = 5.34 | ppl = 208.94 | elbo = -5.71 | total_time = 7.11s
+Train epoch 17: log_prob = -4808097.50 | xent(word) = 5.17 | ppl = 176.32 | elbo = -5.47 | total_time = 265.14s
+Valid epoch 17: log_prob = -394027.03 | xent(word) = 5.34 | ppl = 208.93 | elbo = -5.71 | total_time = 7.48s
+Valid eval: log_prob = -394120.84 | xent(word) = 5.34 | ppl = 209.20 | elbo = -5.68 | total_time = 7.34s
+Epoch    72: reducing learning rate of group 0 to 1.5625e-05.
+Train batch 4999: log_prob = -2275596.75 | xent(word) = 5.17 | ppl = 175.35 | elbo = -5.46
+Valid eval: log_prob = -394012.09 | xent(word) = 5.34 | ppl = 208.89 | elbo = -5.68 | total_time = 7.32s
+Train batch 9999: log_prob = -4566168.00 | xent(word) = 5.17 | ppl = 175.62 | elbo = -5.46
+Valid eval: log_prob = -393926.81 | xent(word) = 5.34 | ppl = 208.65 | elbo = -5.68 | total_time = 7.25s
+Train epoch 18: log_prob = -4804287.50 | xent(word) = 5.17 | ppl = 175.60 | elbo = -5.46 | total_time = 265.09s
+Valid epoch 18: log_prob = -393927.31 | xent(word) = 5.34 | ppl = 208.65 | elbo = -5.68 | total_time = 7.17s
+Valid eval: log_prob = -393938.91 | xent(word) = 5.34 | ppl = 208.68 | elbo = -5.68 | total_time = 7.37s
+Train batch 4999: log_prob = -2290365.00 | xent(word) = 5.16 | ppl = 174.94 | elbo = -5.46
+Valid eval: log_prob = -393929.28 | xent(word) = 5.34 | ppl = 208.66 | elbo = -5.68 | total_time = 7.46s
+Train batch 9999: log_prob = -4567581.50 | xent(word) = 5.16 | ppl = 174.44 | elbo = -5.45
+Valid eval: log_prob = -393941.28 | xent(word) = 5.34 | ppl = 208.69 | elbo = -5.68 | total_time = 7.28s
+Train epoch 19: log_prob = -4798616.50 | xent(word) = 5.16 | ppl = 174.53 | elbo = -5.45 | total_time = 266.68s
+Valid epoch 19: log_prob = -393941.28 | xent(word) = 5.34 | ppl = 208.69 | elbo = -5.68 | total_time = 7.20s
+Valid eval: log_prob = -393949.00 | xent(word) = 5.34 | ppl = 208.71 | elbo = -5.68 | total_time = 7.42s
+Train batch 4999: log_prob = -2281983.00 | xent(word) = 5.16 | ppl = 174.77 | elbo = -5.45
+Valid eval: log_prob = -393920.59 | xent(word) = 5.34 | ppl = 208.63 | elbo = -5.68 | total_time = 7.45s
+Epoch    81: reducing learning rate of group 0 to 3.9063e-06.
+Train batch 9999: log_prob = -4563603.00 | xent(word) = 5.16 | ppl = 174.28 | elbo = -5.46
+Valid eval: log_prob = -393886.91 | xent(word) = 5.34 | ppl = 208.54 | elbo = -5.68 | total_time = 7.29s
+Train epoch 20: log_prob = -4798048.00 | xent(word) = 5.16 | ppl = 174.42 | elbo = -5.46 | total_time = 264.32s
+Valid epoch 20: log_prob = -393887.00 | xent(word) = 5.34 | ppl = 208.54 | elbo = -5.68 | total_time = 7.50s
+Valid eval: log_prob = -393894.78 | xent(word) = 5.34 | ppl = 208.56 | elbo = -5.68 | total_time = 7.42s
+Train batch 4999: log_prob = -2282994.00 | xent(word) = 5.16 | ppl = 174.34 | elbo = -5.49
+Valid eval: log_prob = -394035.78 | xent(word) = 5.34 | ppl = 208.96 | elbo = -5.70 | total_time = 7.37s
+Train batch 9999: log_prob = -4557438.00 | xent(word) = 5.16 | ppl = 174.18 | elbo = -5.50
+Valid eval: log_prob = -393984.31 | xent(word) = 5.34 | ppl = 208.81 | elbo = -5.71 | total_time = 7.44s
+Train epoch 21: log_prob = -4797143.50 | xent(word) = 5.16 | ppl = 174.25 | elbo = -5.50 | total_time = 266.72s
+Valid epoch 21: log_prob = -393984.28 | xent(word) = 5.34 | ppl = 208.81 | elbo = -5.71 | total_time = 7.40s
+Valid eval: log_prob = -393961.28 | xent(word) = 5.34 | ppl = 208.75 | elbo = -5.71 | total_time = 7.39s
+Train batch 4999: log_prob = -2271979.50 | xent(word) = 5.15 | ppl = 173.25 | elbo = -5.48
+Valid eval: log_prob = -393917.97 | xent(word) = 5.34 | ppl = 208.62 | elbo = -5.71 | total_time = 7.31s
+Train batch 9999: log_prob = -4563909.50 | xent(word) = 5.16 | ppl = 174.27 | elbo = -5.48
+Valid eval: log_prob = -393893.09 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.70 | total_time = 7.37s
+Epoch    90: reducing learning rate of group 0 to 9.7656e-07.
+Train epoch 22: log_prob = -4797221.50 | xent(word) = 5.16 | ppl = 174.27 | elbo = -5.48 | total_time = 267.04s
+Valid epoch 22: log_prob = -393893.12 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.70 | total_time = 7.45s
+Valid eval: log_prob = -393890.97 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.70 | total_time = 7.46s
+Train batch 4999: log_prob = -2273778.00 | xent(word) = 5.16 | ppl = 173.40 | elbo = -5.46
+Valid eval: log_prob = -393893.09 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.70 | total_time = 7.31s
+Train batch 9999: log_prob = -4563359.00 | xent(word) = 5.16 | ppl = 173.81 | elbo = -5.46
+Valid eval: log_prob = -393892.41 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.69 | total_time = 7.19s
+Train epoch 23: log_prob = -4795092.00 | xent(word) = 5.16 | ppl = 173.87 | elbo = -5.46 | total_time = 265.38s
+Valid epoch 23: log_prob = -393892.44 | xent(word) = 5.34 | ppl = 208.55 | elbo = -5.69 | total_time = 7.37s
+Valid eval: log_prob = -393894.09 | xent(word) = 5.34 | ppl = 208.56 | elbo = -5.69 | total_time = 7.39s
+Train batch 4999: log_prob = -2280806.50 | xent(word) = 5.16 | ppl = 174.37 | elbo = -5.46
+Valid eval: log_prob = -393898.72 | xent(word) = 5.34 | ppl = 208.57 | elbo = -5.69 | total_time = 7.46s
+Train batch 9999: log_prob = -4557601.50 | xent(word) = 5.16 | ppl = 174.17 | elbo = -5.46
+Valid eval: log_prob = -393898.38 | xent(word) = 5.34 | ppl = 208.57 | elbo = -5.69 | total_time = 7.45s
+Train epoch 24: log_prob = -4794847.50 | xent(word) = 5.16 | ppl = 173.82 | elbo = -5.46 | total_time = 265.00s
+Valid epoch 24: log_prob = -393898.44 | xent(word) = 5.34 | ppl = 208.57 | elbo = -5.69 | total_time = 7.42s
+Epoch    99: reducing learning rate of group 0 to 2.4414e-07.
+Valid eval: log_prob = -393899.16 | xent(word) = 5.34 | ppl = 208.57 | elbo = -5.69 | total_time = 7.30s
+Train batch 4999: log_prob = -2281528.25 | xent(word) = 5.16 | ppl = 174.72 | elbo = -5.46
+Valid eval: log_prob = -393901.53 | xent(word) = 5.34 | ppl = 208.58 | elbo = -5.69 | total_time = 7.46s
+Train batch 9999: log_prob = -4556721.50 | xent(word) = 5.16 | ppl = 173.74 | elbo = -5.45
+Valid eval: log_prob = -393901.75 | xent(word) = 5.34 | ppl = 208.58 | elbo = -5.69 | total_time = 7.51s
+Train epoch 25: log_prob = -4794542.00 | xent(word) = 5.16 | ppl = 173.76 | elbo = -5.45 | total_time = 267.12s
+Valid epoch 25: log_prob = -393901.72 | xent(word) = 5.34 | ppl = 208.58 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393902.62 | xent(word) = 5.34 | ppl = 208.58 | elbo = -5.69 | total_time = 7.21s
+Train batch 4999: log_prob = -2276270.00 | xent(word) = 5.15 | ppl = 172.89 | elbo = -5.45
+Valid eval: log_prob = -393903.12 | xent(word) = 5.34 | ppl = 208.58 | elbo = -5.69 | total_time = 7.41s
+Train batch 9999: log_prob = -4557659.00 | xent(word) = 5.16 | ppl = 173.68 | elbo = -5.45
+Valid eval: log_prob = -393904.88 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.52s
+Train epoch 26: log_prob = -4794475.50 | xent(word) = 5.16 | ppl = 173.75 | elbo = -5.45 | total_time = 265.51s
+Valid epoch 26: log_prob = -393904.88 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.41s
+Valid eval: log_prob = -393905.50 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.53s
+Epoch   108: reducing learning rate of group 0 to 6.1035e-08.
+Train batch 4999: log_prob = -2272869.50 | xent(word) = 5.16 | ppl = 173.98 | elbo = -5.45
+Valid eval: log_prob = -393905.56 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.53s
+Train batch 9999: log_prob = -4556409.00 | xent(word) = 5.16 | ppl = 173.85 | elbo = -5.45
+Valid eval: log_prob = -393905.88 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.43s
+Train epoch 27: log_prob = -4794374.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45 | total_time = 266.37s
+Valid epoch 27: log_prob = -393905.88 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.39s
+Valid eval: log_prob = -393906.41 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.42s
+Train batch 4999: log_prob = -2275295.75 | xent(word) = 5.16 | ppl = 174.15 | elbo = -5.46
+Valid eval: log_prob = -393906.81 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.58s
+Train batch 9999: log_prob = -4554150.50 | xent(word) = 5.16 | ppl = 173.43 | elbo = -5.45
+Valid eval: log_prob = -393906.97 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.38s
+Train epoch 28: log_prob = -4794352.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45 | total_time = 265.19s
+Valid epoch 28: log_prob = -393906.97 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393907.19 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.28s
+Train batch 4999: log_prob = -2274473.50 | xent(word) = 5.15 | ppl = 173.23 | elbo = -5.45
+Valid eval: log_prob = -393907.31 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.30s
+Epoch   117: reducing learning rate of group 0 to 1.5259e-08.
+Train batch 9999: log_prob = -4558216.50 | xent(word) = 5.16 | ppl = 173.97 | elbo = -5.45
+Valid eval: log_prob = -393907.38 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.45s
+Train epoch 29: log_prob = -4794341.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45 | total_time = 264.61s
+Valid epoch 29: log_prob = -393907.38 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.36s
+Valid eval: log_prob = -393907.34 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.41s
+Train batch 4999: log_prob = -2282953.75 | xent(word) = 5.16 | ppl = 174.61 | elbo = -5.46
+Valid eval: log_prob = -393907.31 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.44s
+Train batch 9999: log_prob = -4560124.50 | xent(word) = 5.16 | ppl = 173.68 | elbo = -5.45
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.31s
+Train epoch 30: log_prob = -4794309.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.17s
+Valid epoch 30: log_prob = -393907.47 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.41s
+Valid eval: log_prob = -393907.38 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.21s
+Train batch 4999: log_prob = -2282502.25 | xent(word) = 5.16 | ppl = 174.05 | elbo = -5.45
+Valid eval: log_prob = -393907.28 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.31s
+Train batch 9999: log_prob = -4558708.00 | xent(word) = 5.16 | ppl = 173.56 | elbo = -5.45
+Valid eval: log_prob = -393907.41 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.11s
+Epoch   126: reducing learning rate of group 0 to 3.8147e-09.
+Train epoch 31: log_prob = -4794333.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45 | total_time = 264.33s
+Valid epoch 31: log_prob = -393907.41 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.30s
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.28s
+Train batch 4999: log_prob = -2282150.25 | xent(word) = 5.16 | ppl = 174.56 | elbo = -5.46
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.33s
+Train batch 9999: log_prob = -4559789.00 | xent(word) = 5.16 | ppl = 173.83 | elbo = -5.45
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.45s
+Train epoch 32: log_prob = -4794315.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.07s
+Valid epoch 32: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.30s
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.46s
+Train batch 4999: log_prob = -2273492.25 | xent(word) = 5.16 | ppl = 173.68 | elbo = -5.45
+Valid eval: log_prob = -393907.44 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.27s
+Train batch 9999: log_prob = -4557948.00 | xent(word) = 5.16 | ppl = 173.67 | elbo = -5.45
+Valid eval: log_prob = -393907.50 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.38s
+Train epoch 33: log_prob = -4794316.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.96s
+Valid epoch 33: log_prob = -393907.50 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.51s
+Valid eval: log_prob = -393907.50 | xent(word) = 5.34 | ppl = 208.59 | elbo = -5.69 | total_time = 7.34s
+Train batch 4999: log_prob = -2275521.50 | xent(word) = 5.16 | ppl = 173.32 | elbo = -5.45
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train batch 9999: log_prob = -4553488.50 | xent(word) = 5.16 | ppl = 173.87 | elbo = -5.45
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.17s
+Train epoch 34: log_prob = -4794319.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.43s
+Valid epoch 34: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train batch 4999: log_prob = -2280229.75 | xent(word) = 5.16 | ppl = 174.60 | elbo = -5.46
+Valid eval: log_prob = -393907.56 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.53s
+Train batch 9999: log_prob = -4562982.00 | xent(word) = 5.16 | ppl = 173.81 | elbo = -5.45
+Valid eval: log_prob = -393907.56 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.30s
+Train epoch 35: log_prob = -4794310.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.61s
+Valid epoch 35: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Valid eval: log_prob = -393907.56 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train batch 4999: log_prob = -2284307.50 | xent(word) = 5.15 | ppl = 173.26 | elbo = -5.45
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Train batch 9999: log_prob = -4561986.00 | xent(word) = 5.16 | ppl = 173.82 | elbo = -5.45
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train epoch 36: log_prob = -4794318.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.91s
+Valid epoch 36: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.18s
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train batch 4999: log_prob = -2287059.00 | xent(word) = 5.16 | ppl = 173.90 | elbo = -5.45
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.52s
+Train batch 9999: log_prob = -4557006.50 | xent(word) = 5.16 | ppl = 173.57 | elbo = -5.45
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.52s
+Train epoch 37: log_prob = -4794322.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.33s
+Valid epoch 37: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.23s
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 4999: log_prob = -2273154.25 | xent(word) = 5.16 | ppl = 173.59 | elbo = -5.45
+Valid eval: log_prob = -393907.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Train batch 9999: log_prob = -4559919.00 | xent(word) = 5.16 | ppl = 173.45 | elbo = -5.45
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.34s
+Train epoch 38: log_prob = -4794322.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.70s
+Valid epoch 38: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.39s
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Train batch 4999: log_prob = -2288551.75 | xent(word) = 5.16 | ppl = 173.99 | elbo = -5.45
+Valid eval: log_prob = -393907.56 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 9999: log_prob = -4557998.50 | xent(word) = 5.16 | ppl = 173.60 | elbo = -5.45
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train epoch 39: log_prob = -4794304.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.28s
+Valid epoch 39: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Valid eval: log_prob = -393907.66 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 4999: log_prob = -2284487.25 | xent(word) = 5.16 | ppl = 174.99 | elbo = -5.46
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.10s
+Train batch 9999: log_prob = -4557060.00 | xent(word) = 5.16 | ppl = 173.89 | elbo = -5.45
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train epoch 40: log_prob = -4794319.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.12s
+Valid epoch 40: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.56s
+Valid eval: log_prob = -393907.59 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 4999: log_prob = -2278867.75 | xent(word) = 5.16 | ppl = 173.44 | elbo = -5.45
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 9999: log_prob = -4562232.50 | xent(word) = 5.16 | ppl = 174.19 | elbo = -5.45
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.30s
+Train epoch 41: log_prob = -4794309.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.40s
+Valid epoch 41: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.51s
+Train batch 4999: log_prob = -2280812.25 | xent(word) = 5.15 | ppl = 173.27 | elbo = -5.45
+Valid eval: log_prob = -393907.66 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train batch 9999: log_prob = -4556023.50 | xent(word) = 5.16 | ppl = 173.44 | elbo = -5.45
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Train epoch 42: log_prob = -4794330.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.17s
+Valid epoch 42: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 4999: log_prob = -2281774.25 | xent(word) = 5.17 | ppl = 175.23 | elbo = -5.46
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 9999: log_prob = -4557864.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.15s
+Train epoch 43: log_prob = -4794311.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.02s
+Valid epoch 43: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Valid eval: log_prob = -393907.72 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.50s
+Train batch 4999: log_prob = -2272172.25 | xent(word) = 5.16 | ppl = 173.89 | elbo = -5.45
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.34s
+Train batch 9999: log_prob = -4556297.50 | xent(word) = 5.16 | ppl = 173.81 | elbo = -5.45
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train epoch 44: log_prob = -4794311.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.12s
+Valid epoch 44: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.58s
+Train batch 4999: log_prob = -2282643.50 | xent(word) = 5.16 | ppl = 174.61 | elbo = -5.46
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4559627.50 | xent(word) = 5.16 | ppl = 173.90 | elbo = -5.45
+Valid eval: log_prob = -393907.62 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Train epoch 45: log_prob = -4794309.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.31s
+Valid epoch 45: log_prob = -393907.66 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.17s
+Valid eval: log_prob = -393907.66 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Train batch 4999: log_prob = -2278573.75 | xent(word) = 5.16 | ppl = 174.05 | elbo = -5.45
+Valid eval: log_prob = -393907.69 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.57s
+Train batch 9999: log_prob = -4561360.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45
+Valid eval: log_prob = -393907.78 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train epoch 46: log_prob = -4794318.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.40s
+Valid epoch 46: log_prob = -393907.78 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Valid eval: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.49s
+Train batch 4999: log_prob = -2286247.75 | xent(word) = 5.15 | ppl = 172.93 | elbo = -5.45
+Valid eval: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4559254.50 | xent(word) = 5.16 | ppl = 173.90 | elbo = -5.45
+Valid eval: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.45s
+Train epoch 47: log_prob = -4794298.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 267.35s
+Valid epoch 47: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.54s
+Train batch 4999: log_prob = -2277127.00 | xent(word) = 5.16 | ppl = 174.44 | elbo = -5.46
+Valid eval: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train batch 9999: log_prob = -4554654.50 | xent(word) = 5.16 | ppl = 173.67 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train epoch 48: log_prob = -4794322.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.85s
+Valid epoch 48: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.58s
+Train batch 4999: log_prob = -2275800.75 | xent(word) = 5.16 | ppl = 174.33 | elbo = -5.46
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train batch 9999: log_prob = -4560831.50 | xent(word) = 5.16 | ppl = 173.75 | elbo = -5.45
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.55s
+Train epoch 49: log_prob = -4794313.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.39s
+Valid epoch 49: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 4999: log_prob = -2285420.00 | xent(word) = 5.15 | ppl = 172.13 | elbo = -5.44
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 9999: log_prob = -4559720.50 | xent(word) = 5.16 | ppl = 173.77 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train epoch 50: log_prob = -4794307.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.70s
+Valid epoch 50: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.44s
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 4999: log_prob = -2283424.25 | xent(word) = 5.16 | ppl = 174.10 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.45s
+Train batch 9999: log_prob = -4558074.50 | xent(word) = 5.16 | ppl = 173.77 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.17s
+Train epoch 51: log_prob = -4794310.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.79s
+Valid epoch 51: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.44s
+Train batch 4999: log_prob = -2281238.50 | xent(word) = 5.16 | ppl = 173.41 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Train batch 9999: log_prob = -4560201.00 | xent(word) = 5.16 | ppl = 173.76 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.33s
+Train epoch 52: log_prob = -4794327.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.48s
+Valid epoch 52: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.49s
+Train batch 4999: log_prob = -2273678.25 | xent(word) = 5.16 | ppl = 174.57 | elbo = -5.46
+Valid eval: log_prob = -393907.81 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train batch 9999: log_prob = -4558935.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.53s
+Train epoch 53: log_prob = -4794313.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.58s
+Valid epoch 53: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 4999: log_prob = -2282310.25 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.30s
+Train batch 9999: log_prob = -4560916.50 | xent(word) = 5.16 | ppl = 173.69 | elbo = -5.45
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.60s
+Train epoch 54: log_prob = -4794312.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.37s
+Valid epoch 54: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 4999: log_prob = -2284430.00 | xent(word) = 5.16 | ppl = 173.64 | elbo = -5.45
+Valid eval: log_prob = -393907.84 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.54s
+Train batch 9999: log_prob = -4558458.50 | xent(word) = 5.16 | ppl = 173.67 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.12s
+Train epoch 55: log_prob = -4794306.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.54s
+Valid epoch 55: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.61s
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Train batch 4999: log_prob = -2280728.50 | xent(word) = 5.16 | ppl = 174.11 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.23s
+Train batch 9999: log_prob = -4555770.00 | xent(word) = 5.16 | ppl = 173.65 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train epoch 56: log_prob = -4794315.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.29s
+Valid epoch 56: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.44s
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.42s
+Train batch 4999: log_prob = -2275573.50 | xent(word) = 5.16 | ppl = 174.41 | elbo = -5.46
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4555040.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.48s
+Train epoch 57: log_prob = -4794300.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.04s
+Valid epoch 57: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Train batch 4999: log_prob = -2284577.50 | xent(word) = 5.16 | ppl = 174.58 | elbo = -5.46
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train batch 9999: log_prob = -4563547.00 | xent(word) = 5.16 | ppl = 173.79 | elbo = -5.45
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train epoch 58: log_prob = -4794313.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 266.86s
+Valid epoch 58: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.57s
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Train batch 4999: log_prob = -2269639.00 | xent(word) = 5.16 | ppl = 173.59 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.23s
+Train batch 9999: log_prob = -4559269.00 | xent(word) = 5.16 | ppl = 173.77 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.39s
+Train epoch 59: log_prob = -4794316.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.76s
+Valid epoch 59: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.45s
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.51s
+Train batch 4999: log_prob = -2274293.75 | xent(word) = 5.16 | ppl = 173.38 | elbo = -5.45
+Valid eval: log_prob = -393907.88 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Train batch 9999: log_prob = -4560692.00 | xent(word) = 5.16 | ppl = 174.01 | elbo = -5.45
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.18s
+Train epoch 60: log_prob = -4794319.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 261.22s
+Valid epoch 60: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.14s
+Valid eval: log_prob = -393907.91 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 4999: log_prob = -2285022.25 | xent(word) = 5.16 | ppl = 174.35 | elbo = -5.46
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4558109.50 | xent(word) = 5.16 | ppl = 173.59 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train epoch 61: log_prob = -4794322.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 259.43s
+Valid epoch 61: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 4999: log_prob = -2275584.75 | xent(word) = 5.16 | ppl = 173.71 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.33s
+Train batch 9999: log_prob = -4556131.00 | xent(word) = 5.16 | ppl = 173.61 | elbo = -5.45
+Valid eval: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train epoch 62: log_prob = -4794317.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 259.92s
+Valid epoch 62: log_prob = -393907.94 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train batch 4999: log_prob = -2280218.25 | xent(word) = 5.15 | ppl = 173.07 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Train batch 9999: log_prob = -4559894.00 | xent(word) = 5.16 | ppl = 173.88 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Train epoch 63: log_prob = -4794312.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 259.91s
+Valid epoch 63: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Train batch 4999: log_prob = -2283025.50 | xent(word) = 5.15 | ppl = 173.25 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Train batch 9999: log_prob = -4556612.00 | xent(word) = 5.16 | ppl = 173.91 | elbo = -5.45
+Valid eval: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Train epoch 64: log_prob = -4794316.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 258.57s
+Valid epoch 64: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Valid eval: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train batch 4999: log_prob = -2286539.75 | xent(word) = 5.16 | ppl = 174.20 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 9999: log_prob = -4561531.00 | xent(word) = 5.16 | ppl = 174.02 | elbo = -5.45
+Valid eval: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train epoch 65: log_prob = -4794308.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 259.65s
+Valid epoch 65: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Train batch 4999: log_prob = -2286043.25 | xent(word) = 5.17 | ppl = 175.13 | elbo = -5.46
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Train batch 9999: log_prob = -4558208.00 | xent(word) = 5.16 | ppl = 173.96 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train epoch 66: log_prob = -4794304.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 257.53s
+Valid epoch 66: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Valid eval: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.15s
+Train batch 4999: log_prob = -2281765.00 | xent(word) = 5.16 | ppl = 173.41 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Train batch 9999: log_prob = -4559759.00 | xent(word) = 5.16 | ppl = 173.58 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Train epoch 67: log_prob = -4794322.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 260.11s
+Valid epoch 67: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Valid eval: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.56s
+Train batch 4999: log_prob = -2276118.50 | xent(word) = 5.15 | ppl = 172.59 | elbo = -5.44
+Valid eval: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train batch 9999: log_prob = -4558723.50 | xent(word) = 5.16 | ppl = 173.76 | elbo = -5.45
+Valid eval: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train epoch 68: log_prob = -4794318.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.21s
+Valid epoch 68: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.13s
+Valid eval: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.59s
+Train batch 4999: log_prob = -2278913.75 | xent(word) = 5.16 | ppl = 173.62 | elbo = -5.45
+Valid eval: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Train batch 9999: log_prob = -4559134.50 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.51s
+Train epoch 69: log_prob = -4794305.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.03s
+Valid epoch 69: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.51s
+Train batch 4999: log_prob = -2276546.00 | xent(word) = 5.16 | ppl = 173.52 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4557570.00 | xent(word) = 5.16 | ppl = 173.48 | elbo = -5.45
+Valid eval: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.42s
+Train epoch 70: log_prob = -4794325.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.60s
+Valid epoch 70: log_prob = -393907.97 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.33s
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 4999: log_prob = -2278586.25 | xent(word) = 5.16 | ppl = 173.94 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.12s
+Train batch 9999: log_prob = -4557764.00 | xent(word) = 5.16 | ppl = 173.44 | elbo = -5.45
+Valid eval: log_prob = -393908.00 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.50s
+Train epoch 71: log_prob = -4794312.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.82s
+Valid epoch 71: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Valid eval: log_prob = -393908.03 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.49s
+Train batch 4999: log_prob = -2274506.75 | xent(word) = 5.16 | ppl = 173.46 | elbo = -5.45
+Valid eval: log_prob = -393908.06 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.39s
+Train batch 9999: log_prob = -4563514.00 | xent(word) = 5.16 | ppl = 173.78 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.28s
+Train epoch 72: log_prob = -4794311.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.08s
+Valid epoch 72: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 4999: log_prob = -2288618.75 | xent(word) = 5.17 | ppl = 175.20 | elbo = -5.46
+Valid eval: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 9999: log_prob = -4560804.00 | xent(word) = 5.16 | ppl = 173.55 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.33s
+Train epoch 73: log_prob = -4794316.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.55s
+Valid epoch 73: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Train batch 4999: log_prob = -2272380.75 | xent(word) = 5.16 | ppl = 173.48 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.23s
+Train batch 9999: log_prob = -4560770.00 | xent(word) = 5.16 | ppl = 173.62 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train epoch 74: log_prob = -4794316.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.22s
+Valid epoch 74: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.09s
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.42s
+Train batch 4999: log_prob = -2275599.75 | xent(word) = 5.16 | ppl = 174.00 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train batch 9999: log_prob = -4557562.50 | xent(word) = 5.16 | ppl = 173.87 | elbo = -5.45
+Valid eval: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train epoch 75: log_prob = -4794315.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.99s
+Valid epoch 75: log_prob = -393908.09 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Valid eval: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.45s
+Train batch 4999: log_prob = -2279058.75 | xent(word) = 5.15 | ppl = 172.80 | elbo = -5.45
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.12s
+Train batch 9999: log_prob = -4557902.00 | xent(word) = 5.16 | ppl = 173.63 | elbo = -5.45
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.48s
+Train epoch 76: log_prob = -4794309.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.83s
+Valid epoch 76: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.30s
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.52s
+Train batch 4999: log_prob = -2287196.00 | xent(word) = 5.16 | ppl = 173.93 | elbo = -5.45
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Train batch 9999: log_prob = -4554012.50 | xent(word) = 5.16 | ppl = 173.51 | elbo = -5.45
+Valid eval: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.48s
+Train epoch 77: log_prob = -4794313.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.69s
+Valid epoch 77: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Valid eval: log_prob = -393908.12 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.33s
+Train batch 4999: log_prob = -2274494.00 | xent(word) = 5.16 | ppl = 173.87 | elbo = -5.45
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 9999: log_prob = -4559927.50 | xent(word) = 5.16 | ppl = 173.70 | elbo = -5.45
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Train epoch 78: log_prob = -4794320.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.80s
+Valid epoch 78: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.34s
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 4999: log_prob = -2281083.75 | xent(word) = 5.16 | ppl = 173.78 | elbo = -5.45
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 9999: log_prob = -4555665.50 | xent(word) = 5.16 | ppl = 173.46 | elbo = -5.45
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train epoch 79: log_prob = -4794317.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.63s
+Valid epoch 79: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.34s
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train batch 4999: log_prob = -2278818.75 | xent(word) = 5.16 | ppl = 173.53 | elbo = -5.45
+Valid eval: log_prob = -393908.16 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 9999: log_prob = -4556940.50 | xent(word) = 5.16 | ppl = 173.86 | elbo = -5.45
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Train epoch 80: log_prob = -4794310.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.18s
+Valid epoch 80: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.50s
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.49s
+Train batch 4999: log_prob = -2289375.75 | xent(word) = 5.17 | ppl = 175.17 | elbo = -5.46
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.42s
+Train batch 9999: log_prob = -4558845.50 | xent(word) = 5.16 | ppl = 173.64 | elbo = -5.45
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.26s
+Train epoch 81: log_prob = -4794318.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.62s
+Valid epoch 81: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.14s
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.44s
+Train batch 4999: log_prob = -2277534.00 | xent(word) = 5.16 | ppl = 174.25 | elbo = -5.46
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Train batch 9999: log_prob = -4558503.00 | xent(word) = 5.16 | ppl = 173.58 | elbo = -5.45
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train epoch 82: log_prob = -4794314.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.04s
+Valid epoch 82: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Train batch 4999: log_prob = -2292284.25 | xent(word) = 5.17 | ppl = 175.26 | elbo = -5.46
+Valid eval: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train batch 9999: log_prob = -4559824.00 | xent(word) = 5.16 | ppl = 173.80 | elbo = -5.45
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train epoch 83: log_prob = -4794315.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.11s
+Valid epoch 83: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.45s
+Train batch 4999: log_prob = -2272453.25 | xent(word) = 5.16 | ppl = 174.31 | elbo = -5.45
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.41s
+Train batch 9999: log_prob = -4559955.50 | xent(word) = 5.16 | ppl = 173.68 | elbo = -5.45
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.51s
+Train epoch 84: log_prob = -4794321.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.40s
+Valid epoch 84: log_prob = -393908.19 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train batch 4999: log_prob = -2287755.50 | xent(word) = 5.15 | ppl = 172.18 | elbo = -5.44
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.53s
+Train batch 9999: log_prob = -4565562.50 | xent(word) = 5.16 | ppl = 173.63 | elbo = -5.45
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Train epoch 85: log_prob = -4794312.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.16s
+Valid epoch 85: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Valid eval: log_prob = -393908.22 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.39s
+Train batch 4999: log_prob = -2285058.25 | xent(word) = 5.16 | ppl = 174.12 | elbo = -5.45
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 9999: log_prob = -4559337.50 | xent(word) = 5.16 | ppl = 173.62 | elbo = -5.45
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train epoch 86: log_prob = -4794319.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.62s
+Valid epoch 86: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.19s
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.28s
+Train batch 4999: log_prob = -2285055.25 | xent(word) = 5.16 | ppl = 173.94 | elbo = -5.45
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train batch 9999: log_prob = -4562891.00 | xent(word) = 5.16 | ppl = 173.69 | elbo = -5.45
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.25s
+Train epoch 87: log_prob = -4794332.00 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45 | total_time = 265.66s
+Valid epoch 87: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 4999: log_prob = -2270356.25 | xent(word) = 5.15 | ppl = 172.46 | elbo = -5.44
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train batch 9999: log_prob = -4560566.50 | xent(word) = 5.16 | ppl = 173.74 | elbo = -5.45
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Train epoch 88: log_prob = -4794324.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.11s
+Valid epoch 88: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 4999: log_prob = -2271786.00 | xent(word) = 5.16 | ppl = 173.67 | elbo = -5.45
+Valid eval: log_prob = -393908.31 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 9999: log_prob = -4558773.00 | xent(word) = 5.16 | ppl = 173.56 | elbo = -5.45
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train epoch 89: log_prob = -4794329.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.10s
+Valid epoch 89: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train batch 4999: log_prob = -2276862.25 | xent(word) = 5.16 | ppl = 173.34 | elbo = -5.45
+Valid eval: log_prob = -393908.31 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.15s
+Train batch 9999: log_prob = -4559487.00 | xent(word) = 5.16 | ppl = 173.66 | elbo = -5.45
+Valid eval: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train epoch 90: log_prob = -4794316.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.38s
+Valid epoch 90: log_prob = -393908.28 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.38s
+Valid eval: log_prob = -393908.25 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.46s
+Train batch 4999: log_prob = -2277881.75 | xent(word) = 5.15 | ppl = 172.78 | elbo = -5.45
+Valid eval: log_prob = -393908.31 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Train batch 9999: log_prob = -4555144.00 | xent(word) = 5.16 | ppl = 174.02 | elbo = -5.45
+Valid eval: log_prob = -393908.31 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Train epoch 91: log_prob = -4794318.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.07s
+Valid epoch 91: log_prob = -393908.31 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Valid eval: log_prob = -393908.34 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.17s
+Train batch 4999: log_prob = -2281971.75 | xent(word) = 5.16 | ppl = 174.03 | elbo = -5.45
+Valid eval: log_prob = -393908.34 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.40s
+Train batch 9999: log_prob = -4559914.50 | xent(word) = 5.16 | ppl = 173.82 | elbo = -5.45
+Valid eval: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.30s
+Train epoch 92: log_prob = -4794326.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.26s
+Valid epoch 92: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.43s
+Valid eval: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.24s
+Train batch 4999: log_prob = -2282513.50 | xent(word) = 5.16 | ppl = 174.96 | elbo = -5.46
+Valid eval: log_prob = -393908.44 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train batch 9999: log_prob = -4556845.50 | xent(word) = 5.16 | ppl = 173.55 | elbo = -5.45
+Valid eval: log_prob = -393908.44 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train epoch 93: log_prob = -4794323.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.75s
+Valid epoch 93: log_prob = -393908.44 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.28s
+Train batch 4999: log_prob = -2279437.50 | xent(word) = 5.16 | ppl = 173.78 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.39s
+Train batch 9999: log_prob = -4554125.50 | xent(word) = 5.16 | ppl = 173.61 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.37s
+Train epoch 94: log_prob = -4794315.50 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 265.57s
+Valid epoch 94: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.35s
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.36s
+Train batch 4999: log_prob = -2285445.25 | xent(word) = 5.17 | ppl = 175.79 | elbo = -5.46
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.22s
+Train batch 9999: log_prob = -4557882.50 | xent(word) = 5.16 | ppl = 173.70 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train epoch 95: log_prob = -4794310.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.87s
+Valid epoch 95: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.18s
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.54s
+Train batch 4999: log_prob = -2280025.25 | xent(word) = 5.16 | ppl = 174.22 | elbo = -5.45
+Valid eval: log_prob = -393908.56 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Train batch 9999: log_prob = -4559076.00 | xent(word) = 5.16 | ppl = 173.43 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.21s
+Train epoch 96: log_prob = -4794324.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 263.57s
+Valid epoch 96: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.28s
+Train batch 4999: log_prob = -2280580.75 | xent(word) = 5.15 | ppl = 172.82 | elbo = -5.45
+Valid eval: log_prob = -393908.53 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.54s
+Train batch 9999: log_prob = -4559402.50 | xent(word) = 5.16 | ppl = 173.73 | elbo = -5.45
+Valid eval: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.27s
+Train epoch 97: log_prob = -4794310.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.54s
+Valid epoch 97: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.20s
+Valid eval: log_prob = -393908.47 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s
+Train batch 4999: log_prob = -2280218.25 | xent(word) = 5.15 | ppl = 172.52 | elbo = -5.44
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.29s
+Train batch 9999: log_prob = -4565472.50 | xent(word) = 5.16 | ppl = 173.47 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.56s
+Train epoch 98: log_prob = -4794316.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.53s
+Valid epoch 98: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.12s
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.31s
+Train batch 4999: log_prob = -2275752.50 | xent(word) = 5.15 | ppl = 173.08 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.52s
+Train batch 9999: log_prob = -4555861.50 | xent(word) = 5.16 | ppl = 173.59 | elbo = -5.45
+Valid eval: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.47s
+Train epoch 99: log_prob = -4794312.00 | xent(word) = 5.16 | ppl = 173.72 | elbo = -5.45 | total_time = 264.38s
+Valid epoch 99: log_prob = -393908.50 | xent(word) = 5.34 | ppl = 208.60 | elbo = -5.69 | total_time = 7.32s

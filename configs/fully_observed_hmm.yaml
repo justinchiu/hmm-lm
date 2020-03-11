@@ -1,0 +1,7 @@
+type: hmm
+num_layers: 1
+emb_dim: 256
+hidden_dim: 256
+dropout: 0.0
+num_classes: 128
+train_features: checkpoints/basic/centroids/centroids-k65536-d256-t374205.84-v37491.50.states.npy

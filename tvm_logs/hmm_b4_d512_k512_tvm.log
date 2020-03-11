@@ -1,0 +1,16 @@
+main.py --devid 0 --model-config configs/hmm-d512-k512.yaml --num-epochs 100 --bsz 4 --patience 8 --save hmm_b4_d512_k512_tvm
+{'--bptt': '35',
+ '--bsz': '4',
+ '--clip': '5',
+ '--decay': '4',
+ '--devid': '0',
+ '--eval-bsz': '1',
+ '--lr': '1e-3',
+ '--model-config': 'configs/hmm-d512-k512.yaml',
+ '--num-checks': '4',
+ '--num-epochs': '100',
+ '--overfit': False,
+ '--patience': '8',
+ '--report-every': '5000',
+ '--save': 'hmm_b4_d512_k512_tvm',
+ '--seed': '1111'}
