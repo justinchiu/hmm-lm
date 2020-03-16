@@ -185,7 +185,9 @@ def assign_states_brown(
 
     word2state = np.ndarray((num_words, states_per_word,), dtype=np.int64)
     for word in range(0, num_words):
-        cluster = word2cluster[word] if word in word2cluster else num_clusters + 1
+        # try putting in last cluster?
+        #cluster = word2cluster[word] if word in word2cluster else num_clusters + 1
+        cluster = word2cluster[word] if word in word2cluster else num_clusters-1
         word2state[word] = range(
             states_per_word * cluster,
             states_per_word * (cluster + 1),

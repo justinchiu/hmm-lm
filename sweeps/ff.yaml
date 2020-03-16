@@ -1,0 +1,34 @@
+name: ff
+program: main.py
+method: grid
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    model:
+        values: [ff]
+    lr:
+        values: [0.001]
+    dropout:
+        values: [0.3]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [128]
+    emb_dim:
+        values: [256]
+    hidden_dim:
+        values: [256]
+    num_layers:
+        values: [2]
+    ngrams:
+        values: [2,3,4,5]
+    tie_weights:
+        values: [1]
+    num_epochs:
+        values: [100]
+early_terminate:
+    type: hyperband
+    min_iter: 120

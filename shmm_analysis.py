@@ -34,8 +34,9 @@ import plotly.graph_objects as go
 import pandas as pd
 
 
-chp_path = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5_tw_nas0_pw1_asbrown/8337_4.90.pth"
-chp_path2 = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5_tw_nas0_pw1_asuniform/8335_4.97.pth"
+chp_path = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0.0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5.0_tw_nas0_pw1_asunevenbrown_nc1024_ncs8191_spc8/12044_4.90.pth"
+chp_path2 = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0.0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5.0_tw_nas0_pw1_asuniform_nc1024_ncs8191_spc8/9242_4.98.pth"
+chp_path3 = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0.0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5.0_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/9242_4.90.pth"
 
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
@@ -71,13 +72,22 @@ model.load_state_dict(chp["model"])
 chp2 = th.load(chp_path2)
 # chp["args"] will have the args eventually...
 #config = get_args()
-config2 = chp["args"]
+config2 = chp2["args"]
 model2 = ShmmLm(V, config2)
 model2.to(device)
 model2.load_state_dict(chp2["model"])
 
+chp3 = th.load(chp_path3)
+# chp["args"] will have the args eventually...
+#config = get_args()
+config3 = chp3["args"]
+model3 = ShmmLm(V, config3)
+model3.to(device)
+model3.load_state_dict(chp3["model"])
+
 model.eval()
 model2.eval()
+model3.eval()
 
 un_counts = model.counts[:,4:]
 counts = un_counts / un_counts.sum(0)
@@ -188,7 +198,7 @@ dom5_counts = th.zeros(len(model.V)).index_add(0,
 py.plot(
     [
         go.Scatter(
-            y=dom2_counts[4:],
+            y=dom5_counts[4:],
             x=w_counts,
             mode="markers",
         ),
@@ -221,3 +231,4 @@ with th.no_grad():
 
 import pdb; pdb.set_trace()
 
+# persistent states have high entropy emissions? used for garbage collection?

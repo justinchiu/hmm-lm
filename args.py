@@ -34,11 +34,18 @@ def get_args():
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)
 
+    add_nn_args(parser)
+
     # add chmm args
     add_chmm_args(parser)
     add_dhmm_args(parser)
 
     return parser.parse_args()
+
+def add_nn_args(parser):
+    parser.add_argument_group("nn")
+    parser.add_argument("--tie_weights", default=0, type=int,)
+    parser.add_argument("--ngrams", default=5, type=int,)
 
 def add_chmm_args(parser):
     parser.add_argument_group("chmm")
@@ -56,6 +63,7 @@ def add_chmm_args(parser):
     parser.add_argument("--assignment", choices=[
         "brown", "uniform", "unevenbrown",
     ], default="brown",)
+    parser.add_argument("--num_clusters", default=0, type=int, help="number of brown clusters")
     parser.add_argument("--num_common", default=0, type=int, help="top k common words (only unevenbrown)")
     parser.add_argument("--num_common_states", default=0, type=int, help="number of common states (only unevenbrown)")
     parser.add_argument("--states_per_common", default=0, type=int, help="repeat each common word (only unevenbrown)")

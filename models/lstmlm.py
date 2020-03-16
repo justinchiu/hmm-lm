@@ -31,7 +31,7 @@ class LstmLm(ts.AutoregressiveModel):
         self.dropout = nn.Dropout(config.dropout)
 
         # default to weight tying
-        self.tie_weights = config.tie_weights if "tie_weights" in config else True
+        self.tie_weights = config.tie_weights > 0 if "tie_weights" in config else True
 
         if not self.tie_weights:
             self.proj = nn.Linear(
@@ -83,3 +83,17 @@ class LstmLm(ts.AutoregressiveModel):
             loss = loss,
             elbo = None,
         )
+
+    def lpx(self, text, mask=None, lengths=None):
+        state = self.init_state(text.shape[0])
+        dist = Autoregressive(
+            model = self,
+            initial_state = state,
+            n_classes = len(self.V),
+            normalize = True,
+            n_length = text.shape[1],
+            start_class = self.V.stoi["<bos>"],
+        )                     
+        return dist.log_prob(
+            text.unsqueeze(0), sparse=True, reduce=False, 
+        ).squeeze(0).squeeze(-1)

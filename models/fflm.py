@@ -18,7 +18,7 @@ class FfLm(ts.AutoregressiveModel):
         self.n = config.ngrams
 
         # default to weight tying
-        self.tie_weights = config.tie_weights if "tie_weights" in config else True
+        self.tie_weights = config.tie_weights > 0 if "tie_weights" in config else True
 
         # padding for beginning of sentence
         self.register_buffer(
@@ -87,3 +87,6 @@ class FfLm(ts.AutoregressiveModel):
             loss = evidence,
         )
 
+    def lpx(self, text, mask=None, lengths=None):
+        input = self.prepare_input(text[:,:-1])
+        return self(input).gather(-1, text.unsqueeze(-1)).squeeze(-1)

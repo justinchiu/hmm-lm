@@ -1,0 +1,48 @@
+name: shmm-cluster-spw
+program: main.py
+method: random
+metric:
+    name: best_valid_loss
+    goal: maximize
+parameters:
+    model:
+        values: [shmm]
+    lr:
+        values: [0.01]
+    dropout:
+        values: [0]
+    transition_dropout:
+        values: [0.5]
+    column_dropout:
+        values: [1]
+    clip:
+        values: [5]
+    patience:
+        values: [4]
+    states_per_word:
+        values: [64, 128, 256]
+    emb_dim:
+        values: [256]
+    hidden_dim:
+        values: [256]
+    num_classes:
+        values: [8192, 16384]
+    num_clusters:
+        values: [64, 128, 256]
+    noise_anneal_steps:
+        values: [0]
+    keep_counts:
+        values: [1]
+    log_counts:
+        values: [1]
+    assignment:
+        values: [brown]
+    num_common:
+        values: [0]
+    states_per_common:
+        values: [0]
+    num_common_states:
+        values: [0]
+early_terminate:
+    type: hyperband
+    min_iter: 120
