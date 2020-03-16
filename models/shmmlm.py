@@ -6,6 +6,8 @@ spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
+import numpy as np
+
 import torch as th
 import torch.nn as nn
 
@@ -71,6 +73,16 @@ class ShmmLm(nn.Module):
         elif config.assignment == "uniform":
             word2state, state2word = assign_states(                             
                 self.C, self.states_per_word, len(self.V), self.words_per_state)
+        elif config.assignment == "word2vec":
+            word2cluster_np = np.load("clusters/kmeans-vecs/word2state-k128-6b-100d.npy")
+            word2cluster = {i: x for i, x in enumerate(word2cluster_np[:,0])}
+
+            word2state = assign_states_brown(
+                self.C,
+                word2cluster,
+                V,
+                self.states_per_word,
+            )
         else:
             raise ValueError(f"No such assignment {config.assignment}")
 

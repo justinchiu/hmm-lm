@@ -61,7 +61,9 @@ def add_chmm_args(parser):
     parser.add_argument("--transition_dropout", default=0, type=float,)
     parser.add_argument("--column_dropout", default=0, type=int, help="0 = no coldrop")
     parser.add_argument("--assignment", choices=[
-        "brown", "uniform", "unevenbrown",
+        "brown", "unevenbrown",
+        "word2vec",
+        "uniform",
     ], default="brown",)
     parser.add_argument("--num_clusters", default=0, type=int, help="number of brown clusters")
     parser.add_argument("--num_common", default=0, type=int, help="top k common words (only unevenbrown)")

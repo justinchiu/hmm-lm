@@ -158,6 +158,7 @@ with th.no_grad():
             lpx.exp()[1:],
         )
 
+        """
         if lengths.item() > 10:
             print(" ".join([model.V.itos[x] for x in batch.text[0].tolist()]))
             print(lpx)
@@ -166,6 +167,7 @@ with th.no_grad():
             print(al1, al2, al3)
             import pdb; pdb.set_trace()
             word_counts = Counter(dict(model.word_counts))
+            """
 
         """
         print(" ".join([model.V.itos[x] for x in batch.text[0].tolist()]))
@@ -204,6 +206,9 @@ py.plot(
     ],
     filename="hmm - ff v length", sharing="public", auto_open=False,
 )
+
+probs_and_counts = probs_and_counts.cpu().numpy()
+nextprobs_and_counts = nextprobs_and_counts.cpu().numpy()
 
 py.plot(
     [

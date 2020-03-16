@@ -118,7 +118,6 @@ def perturb_kmax(potentials, noise_dist, k):
     # return word2state
     return idx
 
-
 def read_pmi_clusters():
     pass
 
