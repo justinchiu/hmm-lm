@@ -178,14 +178,6 @@ def _loop(
                     #cg3 = counts > 1e-3
                     cg2 = counts > 1e-2
 
-                    # state counts
-                    sc0 = (model.state_counts == 0).sum()
-                    sc1 = (model.state_counts == 1).sum()
-                    sc2 = (model.state_counts == 2).sum()
-                    sc3 = (model.state_counts == 3).sum()
-                    sc4 = (model.state_counts == 4).sum()
-                    sc5 = (model.state_counts >= 5).sum()
-
                     wandb.log({
                         #"avgcounts@1e-4": cg4.sum().item() / float(v),
                         #"avgcounts@1e-3": cg3.sum().item() / float(v),
@@ -198,12 +190,6 @@ def _loop(
                         "mincounts@1e-2": cg2.sum(0).min().item(),
                         "maxcounts": counts.sum(0).max().item(),
                         "mincounts": counts.sum(0).min().item(),
-                        "statecounts=0": sc0,
-                        "statecounts=1": sc1,
-                        "statecounts=2": sc2,
-                        "statecounts=3": sc3,
-                        "statecounts=4": sc4,
-                        "statecounts>=5": sc5,
                     }, step=WANDB_STEP)
                     del cg2
                     del counts
@@ -365,19 +351,22 @@ def main():
 
         if args.log_counts > 0 and args.keep_counts > 0:
             # TODO: FACTOR OUT
-            """
-            wandb.log({
-                "counts": plot_counts(
-                    (model.counts / model.counts.sum(0, keepdim=True)).cpu().numpy()
-                ),
-            }, step=WANDB_STEP)
-            """
             # only look at word tokens
             counts = (model.counts / model.counts.sum(0, keepdim=True))[:,4:]
             c, v = counts.shape
             #cg4 = counts > 1e-4
             #cg3 = counts > 1e-3
             cg2 = counts > 1e-2
+
+            # state counts
+            # log these once per epoch, then set back to zero
+            sc0 = (model.state_counts == 0).sum()
+            sc1 = (model.state_counts == 1).sum()
+            sc2 = (model.state_counts == 2).sum()
+            sc3 = (model.state_counts == 3).sum()
+            sc4 = (model.state_counts == 4).sum()
+            sc5 = (model.state_counts >= 5).sum()
+
             wandb.log({
                 #"avgcounts@1e-4": cg4.sum().item() / float(v),
                 #"avgcounts@1e-3": cg3.sum().item() / float(v),
@@ -390,9 +379,17 @@ def main():
                 "mincounts@1e-2": cg2.sum(0).min().item(),
                 "maxcounts": counts.sum(0).max().item(),
                 "mincounts": counts.sum(0).min().item(),
+
+                "statecounts=0": sc0,
+                "statecounts=1": sc1,
+                "statecounts=2": sc2,
+                "statecounts=3": sc3,
+                "statecounts=4": sc4,
+                "statecounts>=5": sc5,
             }, step=WANDB_STEP)
             del cg2
             del counts
+            model.state_counts.fill_(0)
 
 if __name__ == "__main__":
     print(" ".join(sys.argv))
