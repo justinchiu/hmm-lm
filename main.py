@@ -177,6 +177,15 @@ def _loop(
                     #cg4 = counts > 1e-4
                     #cg3 = counts > 1e-3
                     cg2 = counts > 1e-2
+
+                    # state counts
+                    sc0 = (model.state_counts == 0).sum()
+                    sc1 = (model.state_counts == 1).sum()
+                    sc2 = (model.state_counts == 2).sum()
+                    sc3 = (model.state_counts == 3).sum()
+                    sc4 = (model.state_counts == 4).sum()
+                    sc5 = (model.state_counts >= 5).sum()
+
                     wandb.log({
                         #"avgcounts@1e-4": cg4.sum().item() / float(v),
                         #"avgcounts@1e-3": cg3.sum().item() / float(v),
@@ -189,6 +198,12 @@ def _loop(
                         "mincounts@1e-2": cg2.sum(0).min().item(),
                         "maxcounts": counts.sum(0).max().item(),
                         "mincounts": counts.sum(0).min().item(),
+                        "statecounts=0": sc0,
+                        "statecounts=1": sc1,
+                        "statecounts=2": sc2,
+                        "statecounts=3": sc3,
+                        "statecounts=4": sc4,
+                        "statecounts>=5": sc5,
                     }, step=WANDB_STEP)
                     del cg2
                     del counts

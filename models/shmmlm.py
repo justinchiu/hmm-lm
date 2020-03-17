@@ -71,7 +71,7 @@ class ShmmLm(nn.Module):
                 config.states_per_common,
             )
         elif config.assignment == "uniform":
-            word2state, state2word = assign_states(                             
+            word2state, state2word = assign_states(
                 self.C, self.states_per_word, len(self.V), self.words_per_state)
         elif config.assignment == "word2vec":
             word2cluster_np = np.load("clusters/kmeans-vecs/word2state-k128-6b-100d.npy")
@@ -166,6 +166,10 @@ class ShmmLm(nn.Module):
             self.register_buffer(
                 "counts",
                 th.zeros(self.states_per_word, len(self.V)),
+            )
+            self.register_buffer(
+                "state_counts",
+                th.zeros(self.C, dtype=th.int),
             )
 
 
@@ -282,6 +286,11 @@ class ShmmLm(nn.Module):
                     text.view(-1),
                     unary_marginals.view(-1, self.states_per_word).t(),
                 )
+                max_states = self.word2state[text[mask]].gather(
+                    -1,
+                    unary_marginals[mask].max(-1).indices[:,None],
+                ).squeeze(-1)
+                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
         return Pack(

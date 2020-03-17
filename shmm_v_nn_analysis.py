@@ -99,8 +99,8 @@ model3.eval()
 data1 = []
 data2 = []
 data3 = []
-probs_and_counts = th.zeros((2, len(V)), device=device)
-nextprobs_and_counts = th.zeros((2, len(V)), device=device)
+probs_and_counts = th.ones((2, len(V)), device=device)
+nextprobs_and_counts = th.ones((2, len(V)), device=device)
 with th.no_grad():
     for batch in valid_iter:
         mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
@@ -108,10 +108,12 @@ with th.no_grad():
         l1 = model.score(batch.text, mask=mask, lengths=lengths)
         log_pots = model.log_potentials(batch.text)
         m, a, b, log_m = model.fb(log_pots, mask)
-        unary_marginals = th.cat([        
+        log_unary_marginals = th.cat([        
             log_m[:,0,None].logsumexp(-2),
             log_m.logsumexp(-1),          
-        ], 1).exp()
+        ], 1)
+        if lengths.item() > 10:
+            import pdb; pdb.set_trace()
 
         x0 = batch.text[0,0]
         z0 = model.word2state[batch.text[0,0]]
@@ -218,7 +220,7 @@ py.plot(
             mode="markers",
         ),
     ],
-    filename="counts vs sum(hmm prob) / counts", sharing="public", auto_open=False,
+    filename="counts vs sum(hmm prob) div counts", sharing="public", auto_open=False,
 )
 py.plot(
     [
@@ -228,5 +230,5 @@ py.plot(
             mode="markers",
         ),
     ],
-    filename="counts vs sum(next hmm prob) / counts", sharing="public", auto_open=False,
+    filename="counts vs sum(next hmm prob) div counts", sharing="public", auto_open=False,
 )
