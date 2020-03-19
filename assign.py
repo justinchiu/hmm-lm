@@ -138,6 +138,7 @@ def read_lm_clusters(V, path="clusters/lm-128/paths"):
             word2cluster[V[word]] = cluster_id
             cluster2word[cluster_id].append(V[word])
             word_counts.append((V[word], int(count)))
+        print(f"Read {id} clusters from {path}")
         return (
             word2cluster,
             sorted(word_counts, key=lambda x: x[1], reverse=True),

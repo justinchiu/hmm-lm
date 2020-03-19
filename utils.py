@@ -64,6 +64,7 @@ def get_name(config):
         f"nas{config.noise_anneal_steps}",
         f"pw{config.posterior_weight}",
         f"as{config.assignment}",
+        f"nb{config.num_clusters}",
         f"nc{config.num_common}",
         f"ncs{config.num_common_states}",
         f"spc{config.states_per_common}",

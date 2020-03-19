@@ -34,9 +34,12 @@ import plotly.graph_objects as go
 import pandas as pd
 
 
-chp_path = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0.0_tdp0.5_cdp1_tokens_b1024_adamw_lr0.01_c5.0_tw_nas0_pw1_asunevenbrown_nc1024_ncs8191_spc8/12044_4.90.pth"
+chp_path = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_tokens_b256_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/38402_4.90.pth"
 chp_path2 = "wandb_checkpoints/ff_k16384_wps512_spw128_ed256_d256_dp0.3_tdp0_cdp0_tokens_b1024_adamw_lr0.001_c5.0_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/92647_5.08.pth"
 chp_path3 = "wandb_checkpoints/lstm_k16384_wps512_spw128_ed256_d256_dp0.3_tdp0_cdp0_tokens_b512_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/93550_4.60.pth"
+
+#chp_path = "wandb_checkpoints/shmm_k16384_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_tokens_b256_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/38402_4.90.pth"
+#chp_path2 = "wandb_checkpoints/shmm_k16384_wps512_spw256_ed256_d256_dp0_tdp0.5_cdp1_tokens_b256_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nc0_ncs0_spc0/42254_4.90.pth"
 
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
@@ -96,6 +99,9 @@ model.eval()
 model2.eval()
 model3.eval()
 
+f_out = open("compare_wordprobs.log", "w")
+f_out.write("word (hmm, ff, lstm)\n")
+
 data1 = []
 data2 = []
 data3 = []
@@ -112,8 +118,6 @@ with th.no_grad():
             log_m[:,0,None].logsumexp(-2),
             log_m.logsumexp(-1),          
         ], 1)
-        if lengths.item() > 10:
-            import pdb; pdb.set_trace()
 
         x0 = batch.text[0,0]
         z0 = model.word2state[batch.text[0,0]]
@@ -159,17 +163,12 @@ with th.no_grad():
             text[:-1],
             lpx.exp()[1:],
         )
-
-        """
-        if lengths.item() > 10:
-            print(" ".join([model.V.itos[x] for x in batch.text[0].tolist()]))
-            print(lpx)
-            print(lpx2)
-            print(lpx3)
-            print(al1, al2, al3)
-            import pdb; pdb.set_trace()
-            word_counts = Counter(dict(model.word_counts))
-            """
+        f_out.write(" ".join([
+            f"{model.V.itos[x]} ({p1:.2f}, {p2:.2f}, {p3:.2f})"
+            for x, p1, p2, p3
+            in zip(batch.text[0].tolist(), lpx.tolist(), lpx2.tolist(), lpx3.tolist())
+        ]))
+        f_out.write("\n")
 
         """
         print(" ".join([model.V.itos[x] for x in batch.text[0].tolist()]))
@@ -184,6 +183,8 @@ with th.no_grad():
         data1.append((al1, n_tokens.item()))
         data2.append((al2, n_tokens.item()))
         data3.append((al3, n_tokens.item()))
+
+f_out.close()
 
 data1 = np.array(data1)
 data2 = np.array(data2)

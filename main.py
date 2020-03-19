@@ -319,6 +319,9 @@ def main():
     # training loop, factor out later if necessary
     for e in range(args.num_epochs):
         start_time = time.time()
+        if args.log_counts > 0 and args.keep_counts > 0:
+            # reset at START of epoch
+            model.state_counts.fill_(0)
         train_losses, train_n = _loop(
             args, V, train_iter, model,
             parameters, optimizer, scheduler,
@@ -389,7 +392,6 @@ def main():
             }, step=WANDB_STEP)
             del cg2
             del counts
-            model.state_counts.fill_(0)
 
 if __name__ == "__main__":
     print(" ".join(sys.argv))
