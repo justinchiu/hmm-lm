@@ -198,73 +198,84 @@ with th.no_grad():
 
 f_out.close()
 
+doplot = False
+
 data1 = np.array(data1)
 data2 = np.array(data2)
 data3 = np.array(data3)
-py.plot(
-    [
-        go.Scatter(
-            y=data1[:,0] - data3[:,0],
-            x=data1[:,1],
-            mode="markers",
-        ),
-    ],
-    filename="hmm - lstm v length", sharing="public", auto_open=False,
-)
-py.plot(
-    [
-        go.Scatter(
-            y=data1[:,0] - data2[:,0],
-            x=data1[:,1],
-            mode="markers",
-        ),
-    ],
-    filename="hmm - ff v length", sharing="public", auto_open=False,
-)
+
+if doplot:
+    py.plot(
+        [
+            go.Scatter(
+                y=data1[:,0] - data3[:,0],
+                x=data1[:,1],
+                mode="markers",
+            ),
+        ],
+        filename="hmm - lstm v length", sharing="public", auto_open=False,
+    )
+    py.plot(
+        [
+            go.Scatter(
+                y=data1[:,0] - data2[:,0],
+                x=data1[:,1],
+                mode="markers",
+            ),
+        ],
+        filename="hmm - ff v length", sharing="public", auto_open=False,
+    )
 
 probs_and_counts_ff = probs_and_counts_ff.cpu().numpy()
 nextprobs_and_counts_ff = nextprobs_and_counts_ff.cpu().numpy()
 probs_and_counts_lstm = probs_and_counts_lstm.cpu().numpy()
 nextprobs_and_counts_lstm = nextprobs_and_counts_lstm.cpu().numpy()
 
-py.plot(
-    [
-        go.Scatter(
-            y=probs_and_counts_ff[1] / probs_and_counts_ff[0],
-            x=probs_and_counts_ff[0],
-            mode="markers",
-        ),
-    ],
-    filename="counts vs mean(log hmm prob div ff prob)", sharing="public", auto_open=False,
-)
-py.plot(
-    [
-        go.Scatter(
-            y=nextprobs_and_counts_ff[1] / nextprobs_and_counts_ff[0],
-            x=nextprobs_and_counts_ff[0],
-            mode="markers",
-        ),
-    ],
-    filename="counts vs mean(log next hmm prob div ff prob) div counts", sharing="public", auto_open=False,
-)
+np.save("probs_and_counts_ff", probs_and_counts_ff)
+np.save("nextprobs_and_counts_ff", nextprobs_and_counts_ff)
+np.save("probs_and_counts_lstm", probs_and_counts_lstm)
+np.save("nextprobs_and_counts_lstm", nextprobs_and_counts_lstm)
 
-py.plot(
-    [
-        go.Scatter(
-            y=probs_and_counts_lstm[1] / probs_and_counts_lstm[0],
-            x=probs_and_counts_lstm[0],
-            mode="markers",
-        ),
-    ],
-    filename="counts vs mean(log hmm prob div lstm prob)", sharing="public", auto_open=False,
-)
-py.plot(
-    [
-        go.Scatter(
-            y=nextprobs_and_counts_lstm[1] / nextprobs_and_counts_lstm[0],
-            x=nextprobs_and_counts_lstm[0],
-            mode="markers",
-        ),
-    ],
-    filename="counts vs mean(log next hmm prob div lstm prob) div counts", sharing="public", auto_open=False,
-)
+doplot = False
+if doplot:
+    py.plot(
+        [
+            go.Scatter(
+                y=probs_and_counts_ff[1] / probs_and_counts_ff[0],
+                x=probs_and_counts_ff[0],
+                mode="markers",
+            ),
+        ],
+        filename="counts vs mean(log hmm prob div ff prob)", sharing="public", auto_open=False,
+    )
+    py.plot(
+        [
+            go.Scatter(
+                y=nextprobs_and_counts_ff[1] / nextprobs_and_counts_ff[0],
+                x=nextprobs_and_counts_ff[0],
+                mode="markers",
+            ),
+        ],
+        filename="counts vs mean(log next hmm prob div ff prob) div counts", sharing="public", auto_open=False,
+    )
+
+    py.plot(
+        [
+            go.Scatter(
+                y=probs_and_counts_lstm[1] / probs_and_counts_lstm[0],
+                x=probs_and_counts_lstm[0],
+                mode="markers",
+            ),
+        ],
+        filename="counts vs mean(log hmm prob div lstm prob)", sharing="public", auto_open=False,
+    )
+    py.plot(
+        [
+            go.Scatter(
+                y=nextprobs_and_counts_lstm[1] / nextprobs_and_counts_lstm[0],
+                x=nextprobs_and_counts_lstm[0],
+                mode="markers",
+            ),
+        ],
+        filename="counts vs mean(log next hmm prob div lstm prob) div counts", sharing="public", auto_open=False,
+    )
