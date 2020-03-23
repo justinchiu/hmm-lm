@@ -205,4 +205,21 @@ def t(m):
 def nz(x):
     return x[x > 0]
 
+def tail(sc, n):
+    return (sc > n).sum().float() / sc.nelement()
 
+ns = [5, 10, 50, 100, 200, 500]
+scs = [state_counts, state_counts2, state_counts3]
+namedict = {
+    0: "brown-128",
+    1: "brown-64",
+    2: "uniform",
+}
+
+for n in ns:
+    for i, sc in enumerate(scs):
+        print(f"{namedict[i]}: {tail(sc, n):.3f} states have more than {n} counts")
+
+
+
+import pdb; pdb.set_trace()

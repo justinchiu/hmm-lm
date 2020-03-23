@@ -105,8 +105,10 @@ f_out.write("word (hmm, ff, lstm)\n")
 data1 = []
 data2 = []
 data3 = []
-probs_and_counts = th.ones((2, len(V)), device=device)
-nextprobs_and_counts = th.ones((2, len(V)), device=device)
+probs_and_counts_ff = th.ones((2, len(V)), device=device)
+nextprobs_and_counts_ff = th.ones((2, len(V)), device=device)
+probs_and_counts_lstm = th.ones((2, len(V)), device=device)
+nextprobs_and_counts_lstm = th.ones((2, len(V)), device=device)
 with th.no_grad():
     for batch in valid_iter:
         mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
@@ -142,26 +144,36 @@ with th.no_grad():
 
         text = batch.text.squeeze()
         # probability of word vs word count
-        probs_and_counts[0].index_add_(
+        probs_and_counts_ff[0].index_add_(
             0,
             text,
             th.ones(lpx.shape[0], device=device),
         )
-        probs_and_counts[1].index_add_(
+        probs_and_counts_ff[1].index_add_(
             0,
             text,
-            lpx.exp(),
+            lpx - lpx2,
+        )
+        probs_and_counts_lstm[0].index_add_(
+            0,
+            text,
+            th.ones(lpx.shape[0], device=device),
+        )
+        probs_and_counts_lstm[1].index_add_(
+            0,
+            text,
+            lpx - lpx3,
         )
         # probability of word vs preceeding word count
-        nextprobs_and_counts[0].index_add_(
+        nextprobs_and_counts_lstm[0].index_add_(
             0,
             text[:-1],
             th.ones(lpx.shape[0], device=device)[:-1],
         )
-        nextprobs_and_counts[1].index_add_(
+        nextprobs_and_counts_lstm[1].index_add_(
             0,
             text[:-1],
-            lpx.exp()[1:],
+            (lpx - lpx3)[1:],
         )
         f_out.write(" ".join([
             f"{model.V.itos[x]} ({p1:.2f}, {p2:.2f}, {p3:.2f})"
@@ -216,20 +228,41 @@ nextprobs_and_counts = nextprobs_and_counts.cpu().numpy()
 py.plot(
     [
         go.Scatter(
-            y=probs_and_counts[1] / probs_and_counts[0],
-            x=probs_and_counts[0],
+            y=probs_and_counts_ff[1] / probs_and_counts_ff[0],
+            x=probs_and_counts_ff[0],
             mode="markers",
         ),
     ],
-    filename="counts vs sum(hmm prob) div counts", sharing="public", auto_open=False,
+    filename="counts vs mean(log hmm prob div ff prob)", sharing="public", auto_open=False,
 )
 py.plot(
     [
         go.Scatter(
-            y=nextprobs_and_counts[1] / nextprobs_and_counts[0],
-            x=nextprobs_and_counts[0],
+            y=nextprobs_and_counts_ff[1] / nextprobs_and_counts_ff[0],
+            x=nextprobs_and_counts_ff[0],
             mode="markers",
         ),
     ],
-    filename="counts vs sum(next hmm prob) div counts", sharing="public", auto_open=False,
+    filename="counts vs mean(log next hmm prob div ff prob) div counts", sharing="public", auto_open=False,
+)
+
+py.plot(
+    [
+        go.Scatter(
+            y=probs_and_counts_lstm[1] / probs_and_counts_lstm[0],
+            x=probs_and_counts_lstm[0],
+            mode="markers",
+        ),
+    ],
+    filename="counts vs mean(log hmm prob div lstm prob)", sharing="public", auto_open=False,
+)
+py.plot(
+    [
+        go.Scatter(
+            y=nextprobs_and_counts_lstm[1] / nextprobs_and_counts_lstm[0],
+            x=nextprobs_and_counts_lstm[0],
+            mode="markers",
+        ),
+    ],
+    filename="counts vs mean(log next hmm prob div lstm prob) div counts", sharing="public", auto_open=False,
 )
