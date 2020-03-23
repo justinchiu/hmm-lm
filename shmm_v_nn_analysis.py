@@ -222,8 +222,10 @@ py.plot(
     filename="hmm - ff v length", sharing="public", auto_open=False,
 )
 
-probs_and_counts = probs_and_counts.cpu().numpy()
-nextprobs_and_counts = nextprobs_and_counts.cpu().numpy()
+probs_and_counts_ff = probs_and_counts_ff.cpu().numpy()
+nextprobs_and_counts_ff = nextprobs_and_counts_ff.cpu().numpy()
+probs_and_counts_lstm = probs_and_counts_lstm.cpu().numpy()
+nextprobs_and_counts_lstm = nextprobs_and_counts_lstm.cpu().numpy()
 
 py.plot(
     [

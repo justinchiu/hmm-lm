@@ -98,112 +98,106 @@ state_counts2 = model2.state_counts
 state_counts3 = model3.state_counts
 
 # histograms of state counts
-fig = go.Figure()
-fig.add_trace(
-    go.Histogram(
-        x=state_counts.cpu().numpy(),
-    ),
-)
-# this doesn't work
-#fig.update_layout(
-    #xaxis_type="log",
-    #yaxis_type="log",
-#)
-py.plot(
-    fig,
-    filename="state counts brown 128",
-    sharing="public", auto_open=False,
-)
+doplot = False
+if doplot:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts.cpu().numpy(),
+        ),
+    )
+    # this doesn't work
+    #fig.update_layout(
+        #xaxis_type="log",
+        #yaxis_type="log",
+    #)
+    py.plot(
+        fig,
+        filename="state counts brown 128",
+        sharing="public", auto_open=False,
+    )
 
-# histograms of state counts for brown 64
-fig = go.Figure()
-fig.add_trace(
-    go.Histogram(
-        x=state_counts2.cpu().numpy(),
-    ),
-)
-# this doesn't work
-#fig.update_layout(
-    #xaxis_type="log",
-    #yaxis_type="log",
-#)
-py.plot(
-    fig,
-    filename="state counts brown 64",
-    sharing="public", auto_open=False,
-)
+    # histograms of state counts for brown 64
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts2.cpu().numpy(),
+        ),
+    )
+    # this doesn't work
+    #fig.update_layout(
+        #xaxis_type="log",
+        #yaxis_type="log",
+    #)
+    py.plot(
+        fig,
+        filename="state counts brown 64",
+        sharing="public", auto_open=False,
+    )
 
-# histograms of state counts for uniform 128
-fig = go.Figure()
-fig.add_trace(
-    go.Histogram(
-        x=state_counts3.cpu().numpy(),
-    ),
-)
-# this doesn't work
-#fig.update_layout(
-    #xaxis_type="log",
-    #yaxis_type="log",
-#)
-py.plot(
-    fig,
-    filename="state counts uniform 128",
-    sharing="public", auto_open=False,
-)
+    # histograms of state counts for uniform 128
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts3.cpu().numpy(),
+        ),
+    )
+    # this doesn't work
+    #fig.update_layout(
+        #xaxis_type="log",
+        #yaxis_type="log",
+    #)
+    py.plot(
+        fig,
+        filename="state counts uniform 128",
+        sharing="public", auto_open=False,
+    )
 
-# histograms of state counts comparing brown + uniform 128
-fig = go.Figure()
-fig.add_trace(
-    go.Histogram(
-        x=state_counts3.cpu().numpy(),
-    ),
-)
-fig.add_trace(
-    go.Histogram(
-        x=state_counts.cpu().numpy(),
-    ),
-)
-# this doesn't work
-#fig.update_layout(
-    #xaxis_type="log",
-    #yaxis_type="log",
-#)
-py.plot(
-    fig,
-    filename="state counts brown + uniform 128",
-    sharing="public", auto_open=False,
-)
+    # histograms of state counts comparing brown + uniform 128
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts3.cpu().numpy(),
+        ),
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts.cpu().numpy(),
+        ),
+    )
+    # this doesn't work
+    #fig.update_layout(
+        #xaxis_type="log",
+        #yaxis_type="log",
+    #)
+    py.plot(
+        fig,
+        filename="state counts brown + uniform 128",
+        sharing="public", auto_open=False,
+    )
 
-# histograms of state counts comparing brown + uniform 128 + brown 64
-fig = go.Figure()
-fig.add_trace(
-    go.Histogram(
-        x=state_counts.cpu().numpy(),
-    ),
-)
-fig.add_trace(
-    go.Histogram(
-        x=state_counts2.cpu().numpy(),
-    ),
-)
-# this doesn't work
-#fig.update_layout(
-    #xaxis_type="log",
-    #yaxis_type="log",
-#)
-py.plot(
-    fig,
-    filename="state counts brown 128 + brown 64",
-    sharing="public", auto_open=False,
-)
-
-
-def e(m):
-    return m.mask_emission(m.emission_logits, m.word2state).exp()
-def t(m):
-    return m.mask_transition(m.transition_logits).exp()
-def nz(x):
-    return x[x > 0]
+    # histograms of state counts comparing brown + uniform 128 + brown 64
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts.cpu().numpy(),
+        ),
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=state_counts2.cpu().numpy(),
+        ),
+    )
+    # this doesn't work
+    #fig.update_layout(
+        #xaxis_type="log",
+        #yaxis_type="log",
+    #)
+    py.plot(
+        fig,
+        filename="state counts brown 128 + brown 64",
+        sharing="public", auto_open=False,
+    )
 
 def tail(sc, n):
     return (sc > n).sum().float() / sc.nelement()
@@ -218,8 +212,66 @@ namedict = {
 
 for n in ns:
     for i, sc in enumerate(scs):
-        print(f"{namedict[i]}: {tail(sc, n):.3f} states have more than {n} counts")
+        with th.no_grad():
+            print(f"{namedict[i]}: {tail(sc, n):.3f} states have more than {n} counts")
 
+# free up memory for subsequent analysis
+del state_counts
+del state_counts2
+del state_counts3
+del model.state_counts
+del model2.state_counts
+del model3.state_counts
 
+# sparsity analysis
+
+def e(m):
+    return m.mask_emission(m.emission_logits, m.word2state)
+def t(m):
+    return m.mask_transition(m.transition_logits)
+def nz(x):
+    return x[x > 0]
+
+def H(lp):
+    h = lp.exp() * lp
+    h[h != h] = 0
+    return -h.sum(-1)
+
+models = [model, model2, model3]
+for i, m in enumerate(models):
+    with th.no_grad():
+        le = e(m)
+        hs = H(le)
+        print(f"{namedict[i]} emission entropy mean (min,med,max): {hs.mean().item():.2f} ({hs.min().item():.2f}, {hs.median().item():.2f}, {hs.max().item():.2f})")
+        del le
+        del hs
+        lt = t(m)
+        hs = H(lt)
+        print(f"{namedict[i]} transition entropy mean (min,med,max): {hs.mean().item():.2f} ({hs.min().item():.2f}, {hs.median().item():.2f}, {hs.max().item():.2f})")
+        del lt
+        del hs
+
+for i, m in enumerate([model, model2]):
+    with th.no_grad():
+        # cluster level
+        # emission is annoying to implement, need scatter_lse
+        spw = m.states_per_word
+        C = m.C
+        lt = t(m).view(C // spw, spw, C // spw, spw).logsumexp(1).logsumexp(-1).log_softmax(-1)
+        hs = H(lt)
+        print(f"{namedict[i]} cluster transition entropy mean (min,med,max): {hs.mean().item():.2f} ({hs.min().item():.2f}, {hs.median().item():.2f}, {hs.max().item():.2f})")
+
+        if doplot:
+            fig = go.Figure()
+            fig.add_trace(
+                go.Heatmap(
+                    z=lt.exp().cpu().numpy(),
+                ),
+            )
+            py.plot(
+                fig,
+                filename=f"{namedict[i]} cluster transition (source, target)",
+                sharing="public", auto_open=False,
+            )
 
 import pdb; pdb.set_trace()
