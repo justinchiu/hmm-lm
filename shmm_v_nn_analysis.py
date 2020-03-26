@@ -105,10 +105,12 @@ f_out.write("word (hmm, ff, lstm)\n")
 data1 = []
 data2 = []
 data3 = []
-probs_and_counts_ff = th.ones((2, len(V)), device=device)
-nextprobs_and_counts_ff = th.ones((2, len(V)), device=device)
-probs_and_counts_lstm = th.ones((2, len(V)), device=device)
-nextprobs_and_counts_lstm = th.ones((2, len(V)), device=device)
+probs_and_counts_ff = th.zeros((2, len(V)), device=device)
+nextprobs_and_counts_ff = th.zeros((2, len(V)), device=device)
+probs_and_counts_lstm = th.zeros((2, len(V)), device=device)
+nextprobs_and_counts_lstm = th.zeros((2, len(V)), device=device)
+probs_and_pos_ff = th.zeros((2, 50), device=device)
+probs_and_pos_lstm = th.zeros((2, 50), device=device)
 with th.no_grad():
     for batch in valid_iter:
         mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
@@ -196,6 +198,13 @@ with th.no_grad():
         data2.append((al2, n_tokens.item()))
         data3.append((al3, n_tokens.item()))
 
+        T = min(probs_and_pos_ff.shape[1], lengths.item()-1)
+        # probability of word vs position in sentence
+        probs_and_pos_ff[0,:T] += 1
+        probs_and_pos_ff[1,:T] += (lpx - lpx2)[:T]
+        probs_and_pos_lstm[0,:T] += 1
+        probs_and_pos_lstm[1,:T] += (lpx - lpx3)[:T]
+
 f_out.close()
 
 doplot = False
@@ -235,6 +244,11 @@ np.save("probs_and_counts_ff", probs_and_counts_ff)
 np.save("nextprobs_and_counts_ff", nextprobs_and_counts_ff)
 np.save("probs_and_counts_lstm", probs_and_counts_lstm)
 np.save("nextprobs_and_counts_lstm", nextprobs_and_counts_lstm)
+
+probs_and_pos_ff = probs_and_pos_ff.cpu().numpy()
+probs_and_pos_lstm = probs_and_pos_lstm.cpu().numpy()
+np.save("probs_and_pos_ff", probs_and_pos_ff)
+np.save("probs_and_pos_lstm", probs_and_pos_lstm)
 
 doplot = False
 if doplot:
