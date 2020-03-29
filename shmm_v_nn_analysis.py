@@ -167,6 +167,16 @@ with th.no_grad():
             lpx - lpx3,
         )
         # probability of word vs preceeding word count
+        nextprobs_and_counts_ff[0].index_add_(
+            0,
+            text[:-1],
+            th.ones(lpx.shape[0], device=device)[:-1],
+        )
+        nextprobs_and_counts_ff[1].index_add_(
+            0,
+            text[:-1],
+            (lpx - lpx2)[1:],
+        )
         nextprobs_and_counts_lstm[0].index_add_(
             0,
             text[:-1],

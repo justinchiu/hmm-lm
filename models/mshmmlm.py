@@ -20,9 +20,9 @@ from assign import read_lm_clusters, assign_states_brown, assign_states, assign_
 
 import wandb
 
-class ShmmLm(nn.Module):
+class MshmmLm(nn.Module):
     def __init__(self, V, config):
-        super(ShmmLm, self).__init__()
+        super(MshmmLm, self).__init__()
 
         self.config = config
         self.V = V
@@ -90,6 +90,7 @@ class ShmmLm(nn.Module):
         self.register_buffer("word2state", th.from_numpy(word2state))
 
         self.tvm_fb = "tvm_fb" in config and config.tvm_fb
+        #if self.states_per_word in [64, 128, 256, 512, 1024]:
         self.fb = foo.get_fb(self.states_per_word)
 
         # p(z0)
@@ -222,17 +223,9 @@ class ShmmLm(nn.Module):
         return lpx
 
     def log_potentials(self, text):
-        #if wandb.run.mode == "dryrun":
-            #start_emit = timep.time()
         emission_logits = self.emission_logits
         word2state = self.word2state
-        #if wandb.run.mode == "dryrun":
-            #print(f"total emit time: {timep.time() - start_emit}")
-            #start_transm = timep.time()
         transition = self.mask_transition(self.transition_logits)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total trans time: {timep.time() - start_transm}")
-            #start_emitm = timep.time()
         emission = self.mask_emission(emission_logits, word2state)
         #if wandb.run.mode == "dryrun":
             #print(f"total emitm time: {timep.time() - start_emitm}")

@@ -28,8 +28,10 @@ def get_args():
     parser.add_argument("--report_every", default=5000,)
     parser.add_argument("--overfit", action="store_true")
     parser.add_argument("--devid", default=0, type=int,)
+    parser.add_argument("--aux_devid", default=1, type=int,)
     parser.add_argument("--model", choices=[
         "shmm", "dhmm", "chmm", "hmm", "lstm", "ff",
+        "mshmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)

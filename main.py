@@ -207,6 +207,8 @@ def main():
 
     device = th.device("cpu" if args.devid < 0 else f"cuda:{args.devid}")
     args.device = device
+    aux_device = th.device("cpu" if args.aux_devid < 0 else f"cuda:{args.aux_devid}")
+    args.aux_device = aux_device
 
     TEXT = torchtext.data.Field(batch_first = True)
     train, valid, test = PennTreebank.splits(
@@ -264,6 +266,9 @@ def main():
     elif args.model == "shmm":
         from models.shmmlm import ShmmLm
         model = ShmmLm(V, args)
+    elif args.model == "mshmm":
+        from models.mshmmlm import MshmmLm
+        model = MshmmLm(V, args)
     else:
         raise ValueError("Invalid model type")
     model.to(device)
