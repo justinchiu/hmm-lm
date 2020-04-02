@@ -130,12 +130,9 @@ class HmmLm(nn.Module):
                 self.counts.index_add_(
                     1,
                     text.view(-1),
-                    unary_marginals.view(-1, self.states_per_word).t(),
+                    unary_marginals.view(-1, self.C).t(),
                 )
-                max_states = self.word2state[text[mask]].gather(
-                    -1,
-                    unary_marginals[mask].max(-1).indices[:,None],
-                ).squeeze(-1)
+                max_states = unary_marginals[mask].max(-1).indices
                 self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
 
         return Pack(

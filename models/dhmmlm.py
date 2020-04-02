@@ -276,6 +276,17 @@ class DhmmLm(nn.Module):
                 .bernoulli_()
                 .bool()
             )
+        elif self.dropout_type == "starttransition":
+            transition_mask = (th.empty(self.C, self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
         elif self.dropout_type == "column":
             transition_mask = (th.empty(self.C, device=self.device)
                 .fill_(self.transition_dropout)

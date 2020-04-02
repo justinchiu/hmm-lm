@@ -64,7 +64,7 @@ def add_chmm_args(parser):
     parser.add_argument("--column_dropout", default=0, type=int, help="0 = no coldrop")
     parser.add_argument("--start_dropout", default=0, type=float,)
     parser.add_argument("--dropout_type", choices=[
-        "transition", "column", "startcolumn", "state", "cluster",
+        "transition", "starttransition", "column", "startcolumn", "state", "cluster",
     ])
     parser.add_argument("--assignment", choices=[
         "brown", "unevenbrown",
