@@ -46,9 +46,7 @@ c2sw_d = th.LongTensor([
     list(range(c * num_repeats_d, (c+1) * num_repeats_d))
     for c in range(num_clusters)
 ])
-w2s_d = th.stack([
-    c2sw_d[x] for x in w2c
-])
+w2s_d = c2sw_d[w2c]
 
 # cool, what we needed was w2s_d.
 # now we need to compute the transitions and emissions sparse
@@ -89,7 +87,7 @@ i = th.stack([w2s_d.view(-1), a])
 sparse = th.sparse.ByteTensor(i, v, th.Size([num_states // 2, num_words]))
 emaskd = ~sparse.to_dense().bool()
 
-e_logits_d = ((temb_d[:,None] * eemb[None,:])
+e_logits_d = ((temb_d[:,None] * wemb[None,:])
     .sum(-1)
     .masked_fill(emaskd, float("-inf"))
     .log_softmax(-1)
@@ -107,7 +105,7 @@ i = th.stack([w2s.view(-1), a])
 sparse = th.sparse.ByteTensor(i, v, th.Size([num_states, num_words]))
 emaskf = ~sparse.to_dense().bool()
 
-e_logits = ((temb_f[:,None] * eemb[None,:])
+e_logits = ((temb_f[:,None] * wemb[None,:])
     .sum(-1)
     .masked_fill(emaskf, float("-inf"))
     .log_softmax(-1)

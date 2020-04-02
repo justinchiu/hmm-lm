@@ -55,6 +55,8 @@ def get_name(config):
         f"dp{config.dropout}",
         f"tdp{config.transition_dropout}",
         f"cdp{config.column_dropout}",
+        f"sdp{config.start_dropout}",
+        f"dt{config.dropout_type}",
         config.bsz_fn,
         f"b{config.bsz}",
         config.optimizer,

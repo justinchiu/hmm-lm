@@ -230,6 +230,38 @@ def assign_states_uneven_brown(
 
     return word2state
 
+def assign_states_brown_cluster(
+    num_states, word2cluster, V,
+    states_per_word,
+):
+    # must have num_states = num_clusters * num_repeats 
+    num_words = len(V)
+    # assume this is less than num_states // states_per_word
+    num_clusters = len(set(word2cluster.values()))
+    #states_per_word = num_states // num_clusters
+    w2c = np.ndarray(len(V), dtype=np.int64)
+    for word in range(len(V)):
+        w2c[word] = (word2cluster[word]
+            if word in word2cluster
+            else num_clusters-1
+        )
+    cluster2state = np.ndarray((num_clusters, states_per_word), dtype=np.int64)
+    for c in range(0, num_clusters):
+        cluster2state[c] = range(
+            states_per_word * c,
+            states_per_word * (c + 1),
+        )
+    word2state = cluster2state[w2c]
+    # the dropped cluster to words after reindexing
+    # assume states per word // 2
+    num_repeats_d = states_per_word // 2
+    c2sw_d = th.LongTensor([
+        list(range(c * num_repeats_d, (c+1) * num_repeats_d))
+        for c in range(num_clusters)
+    ])
+    return word2state, cluster2state, w2c, c2sw_d
+
+
 if __name__ == "__main__":
     num_states = int(2 ** 14)
     states_per_word = int(128)

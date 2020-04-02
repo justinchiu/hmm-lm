@@ -31,6 +31,7 @@ from models.fflm import FfLm
 
 import wandb
 
+th.autograd.set_detect_anomaly(True)
 
 valid_schedules = ["reducelronplateau"]
 
@@ -96,6 +97,8 @@ def _loop(
     parameters=None, optimizer=None, scheduler=None,
     valid_iter=None,
     verbose=False,
+    training = False,
+    env = th.enable_grad,
 ):
     global WANDB_STEP
     noise_scales = np.linspace(1, 0, args.noise_anneal_steps)
@@ -153,7 +156,11 @@ def _loop(
 
             if valid_iter is not None and i % checkpoint == checkpoint-1:
                 v_start_time = time.time()
-                valid_losses, valid_n  = _loop(args, V, valid_iter, model)
+                valid_losses, valid_n  = _loop(
+                    args, V, valid_iter, model,
+                    training = False,
+                    env = th.no_grad,
+                )
                 report(valid_losses, valid_n, "Valid eval", v_start_time)
                 wandb.log({
                     "valid_loss": valid_losses.evidence / valid_n,
@@ -266,6 +273,9 @@ def main():
     elif args.model == "shmm":
         from models.shmmlm import ShmmLm
         model = ShmmLm(V, args)
+    elif args.model == "dhmm":
+        from models.dhmmlm import DhmmLm
+        model = DhmmLm(V, args)
     elif args.model == "mshmm":
         from models.mshmmlm import MshmmLm
         model = MshmmLm(V, args)
@@ -288,7 +298,10 @@ def main():
     if args.eval_only:
         model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
-        valid_losses, valid_n = _loop(args, V, valid_iter, model)
+        valid_losses, valid_n = _loop(
+            args, V, valid_iter, model,
+            training=False, env=th.no_grad,
+        )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
         sys.exit()
 

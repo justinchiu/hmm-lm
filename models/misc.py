@@ -120,3 +120,23 @@ class LogDropout(nn.Module):
             return x.masked_fill(annihilate_mask, float("-inf"))
         else:
             return x
+
+class LogDropoutM(nn.Module):
+    def __init__(
+        self, p,
+    ):
+        super(LogDropoutM, self).__init__()
+        self.p = p
+
+    def forward(self, x, annihilate_mask=None):
+        if self.training and self.p > 0 and annihilate_mask is None:
+            return x
+            #annihilate_mask = th.empty_like(x).fill_(self.p).bernoulli().bool()
+            #return x.masked_fill(annihilate_mask, float("-inf"))
+        elif self.training and annihilate_mask is not None:
+            while annihilate_mask.dim() < x.dim():
+                annihilate_mask = annihilate_mask.unsqueeze(0)
+            annihilate_mask = annihilate_mask.expand(x.shape)
+            return x.masked_fill(annihilate_mask, float("-inf"))
+        else:
+            return x

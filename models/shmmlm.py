@@ -151,6 +151,7 @@ class ShmmLm(nn.Module):
 
         self.transition_dropout = LogDropout(config.transition_dropout)
         self.column_dropout = config.column_dropout > 0
+        self.start_dropout = LogDropout(config.start_dropout)
 
         self.a = (th.arange(0, len(self.V))[:, None]
             .expand(len(self.V), self.states_per_word)
@@ -178,7 +179,8 @@ class ShmmLm(nn.Module):
     # don't permute here, permute before passing into torch struct stuff
     @property
     def start(self):
-        return self.start_mlp(self.dropout(self.start_emb)).squeeze(-1).log_softmax(-1)
+        x = self.start_mlp(self.dropout(self.start_emb)).squeeze(-1)
+        return self.start_dropout(x, column_dropout=True).log_softmax(-1)
 
     @property
     def transition_logits(self):
