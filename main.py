@@ -1,4 +1,6 @@
 
+import time as timep
+
 import sys
 
 import math
@@ -128,14 +130,22 @@ def _loop(
                 model.noise_scale = 0
 
             mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            if model.timing:
+                start_forward = timep.time()
             losses = model.score(batch.text, mask=mask, lengths=lengths)
+            if model.timing:
+                print(f"forward time: {timep.time() - start_forward}")
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
             n += n_tokens
             if optimizer is not None:
                 loss = -losses.loss / n_tokens
+                if model.timing:
+                    start_backward = timep.time()
                 loss.backward()
+                if model.timing:
+                    print(f"backward time: {timep.time() - start_backward}")
                 clip_grad_norm_(parameters, args.clip)
                 if args.schedule not in valid_schedules:
                     # sched before opt since we want step = 1?
@@ -279,6 +289,9 @@ def main():
     elif args.model == "mshmm":
         from models.mshmmlm import MshmmLm
         model = MshmmLm(V, args)
+    elif args.model == "dshmm":
+        from models.dshmmlm import DshmmLm
+        model = DshmmLm(V, args)
     else:
         raise ValueError("Invalid model type")
     model.to(device)

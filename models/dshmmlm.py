@@ -1,3 +1,4 @@
+
 import time as timep
 
 import importlib.util
@@ -12,16 +13,16 @@ import torch.nn as nn
 
 import torch_struct as ts
 
-from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropoutM
+from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
 
 from utils import Pack
-from assign import read_lm_clusters, assign_states_brown, assign_states, assign_states_uneven_brown
+from assign import read_lm_clusters, assign_states_brown_cluster
 
 import wandb
 
-class DhmmLm(nn.Module):
+class DshmmLm(nn.Module):
     def __init__(self, V, config):
-        super(DhmmLm, self).__init__()
+        super(DshmmLm, self).__init__()
 
         self.config = config
         self.V = V
@@ -54,31 +55,12 @@ class DhmmLm(nn.Module):
 
         word2state = None
         if config.assignment == "brown":
-            word2state = assign_states_brown(
-                self.C,
+            (
+                word2state,
+                cluster2state,
                 word2cluster,
-                V,
-                self.states_per_word,
-            )
-        elif config.assignment == "unevenbrown":
-            word2state = assign_states_uneven_brown(
-                self.C,
-                word2cluster,
-                V,
-                self.states_per_word,
-                word_counts,
-                config.num_common,
-                config.num_common_states,
-                config.states_per_common,
-            )
-        elif config.assignment == "uniform":
-            word2state, state2word = assign_states(
-                self.C, self.states_per_word, len(self.V), self.words_per_state)
-        elif config.assignment == "word2vec":
-            word2cluster_np = np.load("clusters/kmeans-vecs/word2state-k128-6b-100d.npy")
-            word2cluster = {i: x for i, x in enumerate(word2cluster_np[:,0])}
-
-            word2state = assign_states_brown(
+                c2sw_d,
+            ) = assign_states_brown_cluster(
                 self.C,
                 word2cluster,
                 V,
@@ -89,8 +71,11 @@ class DhmmLm(nn.Module):
 
         # need to save this with model
         self.register_buffer("word2state", th.from_numpy(word2state))
+        self.register_buffer("cluster2state", th.from_numpy(cluster2state))
+        self.register_buffer("word2cluster", th.from_numpy(word2cluster))
 
         self.tvm_fb = "tvm_fb" in config and config.tvm_fb
+        #if self.states_per_word in [64, 128, 256, 512, 1024]:
         self.fb = foo.get_fb(self.states_per_word)
 
         # p(z0)
@@ -118,8 +103,9 @@ class DhmmLm(nn.Module):
                 dropout = config.dropout,
             ),
             nn.Dropout(config.dropout),
-            nn.Linear(config.hidden_dim, self.C),
         )
+        #self.next_state_emb = nn.Embedding(self.C, config.hidden_dim)
+        self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
 
         # p(xt | zt)
         self.preterminal_emb = nn.Embedding(
@@ -150,10 +136,12 @@ class DhmmLm(nn.Module):
         if "rp" in config.tw:
             self.preterminal_emb.weight = self.trans_mlp[-1].weight
 
-        self.transition_dropout = config.transition_dropout
-        # argument is unused
-        self.log_dropout = LogDropoutM(config.transition_dropout)
-        self.dropout_type = config.dropout_type
+        self.transition_dropout = LogDropout(config.transition_dropout)
+        self.column_dropout = config.column_dropout > 0
+        self.register_buffer(
+            "drop_probs",
+            th.empty(self.C).fill_(config.transition_dropout),
+        )
 
         self.a = (th.arange(0, len(self.V))[:, None]
             .expand(len(self.V), self.states_per_word)
@@ -174,44 +162,79 @@ class DhmmLm(nn.Module):
                 th.zeros(self.C, dtype=th.int),
             )
 
+        self.register_buffer("zero", th.zeros(1))
+        self.register_buffer("one", th.ones(1))
+
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
 
     # don't permute here, permute before passing into torch struct stuff
-    @property
-    def start_logits(self):
-        return self.start_mlp(self.dropout(self.start_emb)).squeeze(-1)
+    def start(self, states=None):
+        start_emb = (self.start_emb[states]
+            if states is not None
+            else self.start_emb
+        )
+        return self.start_mlp(self.dropout(start_emb)).squeeze(-1).log_softmax(-1)
 
-    def mask_start(self, x, mask=None):
-        return self.log_dropout(x, mask).log_softmax(-1)
+    def transition_logits(self, states=None):
+        state_emb = (self.state_emb.weight[states]
+            if states is not None
+            else self.state_emb.weight
+        )
+        next_state_proj = (self.next_state_proj.weight[states]
+            if states is not None
+            else self.next_state_proj.weight
+        )
+        x = self.trans_mlp(self.dropout(state_emb))
+        return x @ next_state_proj.t()
+        """
+        next_state_emb = (self.next_state_emb.weight[states]
+            if states is not None
+            else self.next_state_emb.weight
+        )
+        x = self.trans_mlp(self.dropout(state_emb))
+        return x @ next_state_emb.t()
+        """
+        """
+        return self.transition_dropout(
+            self.trans_mlp(self.dropout(state_emb)),
+            column_dropout = self.column_dropout,
+        )
+        """
 
-    @property
-    def transition_logits(self):
-        return self.trans_mlp(self.dropout(self.state_emb.weight))
-
-    def mask_transition(self, logits, mask=None):
+    def mask_transition(self, logits):
         # only in the weird case previously?
         # although now we may have unassigned states, oh well
-        #logits[:,-1] = float("-inf")
-        logits = self.log_dropout(logits, mask).log_softmax(-1)
+        logits[:,-1] = float("-inf")
+        logits = logits.log_softmax(-1)
         logits = logits.masked_fill(logits != logits, float("-inf"))
+        logits[-1,:] = float("-inf")
         return logits
 
-    @property
-    def emission_logits(self):
-        logits = self.terminal_mlp(self.dropout(self.preterminal_emb.weight))
+    def emission_logits(self, states=None):
+        preterminal_emb = (self.preterminal_emb.weight[states]
+            if states is not None
+            else self.preterminal_emb.weight
+        )
+        logits = self.terminal_mlp(self.dropout(preterminal_emb))
         return logits
 
     def mask_emission(self, logits, word2state):
-        if word2state is None:
-            return logits.log_softmax(-1)
-        i = th.stack([word2state.view(-1), self.a])
-        sparse = th.sparse.ByteTensor(i, self.v, th.Size([self.C, len(self.V)]))
+        a = self.a
+        v = self.v
+        #a = self.ad
+        #v = self.vd
+
+        i = th.stack([word2state.view(-1), a])
+        C = logits.shape[0]
+        sparse = th.sparse.ByteTensor(i, v, th.Size([C, len(self.V)]))
         mask = sparse.to_dense().bool().to(logits.device)
+        #if wandb.run.mode == "dryrun":
+            #import pdb; pdb.set_trace()
         log_probs = logits.masked_fill(~mask, -1e10).log_softmax(-1)
-        #log_probs[log_probs != log_probs] = float("-inf")
         log_probs = log_probs.masked_fill(log_probs != log_probs, float("-inf"))
+        log_probs[-1,:] = float("-inf")
         return log_probs
 
     def forward(self, inputs, state=None):
@@ -222,26 +245,41 @@ class DhmmLm(nn.Module):
         emission = self.mask_emission(emission_logits, word2state)
         clamped_states = word2state[text]
 
+        import pdb; pdb.set_trace()
         lpx = None
         return lpx
 
-    def log_potentials(self, text, start_mask=None, transition_mask=None):
+    def log_potentials(self, text, states=None):
+        #word2state = self.word2state
         if self.timing:
+            start_sample = timep.time()
+        if states is not None:
+            n = states.sum().item()
+            s2d = states.cumsum(0) - 1
+            s2d_pad = s2d.masked_fill(~states, n-1)
+            word2state = s2d_pad[self.word2state]
+        else:
+            word2state = self.word2state
+
+        if self.timing:
+            print(f"total sample time: {timep.time() - start_sample}")
             start_compute = timep.time()
-        emission_logits = self.emission_logits
-        word2state = self.word2state
-        start = self.mask_start(self.start_logits, start_mask)
-        transition_logits = self.transition_logits
+        start = self.start(states)
+        emission_logits = self.emission_logits(states)
+        transition_logits = self.transition_logits(states)
+
         if self.timing:
             print(f"total compute time: {timep.time() - start_compute}")
             start_mask = timep.time()
+
+        transition = self.mask_transition(transition_logits)
         emission = self.mask_emission(emission_logits, word2state)
-        transition = self.mask_transition(transition_logits, transition_mask)
         if self.timing:
             print(f"total mask time: {timep.time() - start_mask}")
             start_clamp = timep.time()
         clamped_states = word2state[text]
-        #if self.timing:
+        import pdb; pdb.set_trace()
+        #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
             # oops a lot of padding
         batch, time = text.shape
@@ -267,61 +305,21 @@ class DhmmLm(nn.Module):
         N, T = text.shape
         if self.timing:
             start_pot = timep.time()
-        start_mask, transition_mask = None, None
-        if not self.training:
-            # no dropout
-            pass
-        elif self.dropout_type == "transition":
-            transition_mask = (th.empty(self.C, self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "starttransition":
-            transition_mask = (th.empty(self.C, self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-            start_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "column":
-            transition_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "startcolumn":
-            transition_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-            start_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "state":
-            m = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-            start_mask, transition_mask = m, m
-        elif self.dropout_type == "cluster":
-            raise NotImplementedError("Will try later if necessary, didn't work in mshmm")
-            pass
+        # sample states if training
+        if self.training:
+            states = ~self.drop_probs.bernoulli().bool()
+            # padding state
+            states[-1] = 1
         else:
-            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
-        log_potentials = self.log_potentials(text, start_mask, transition_mask)
+            states = None
+
+        log_potentials = self.log_potentials(text, states)
         if self.timing:
             print(f"total pot time: {timep.time() - start_pot}")
             start_marg = timep.time()
-        marginals, alphas, betas, log_m = self.fb(log_potentials, mask=mask)
+        fb = self.fb
+        #fb = self.fb_train
+        marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
         if self.timing:
             print(f"total marg time: {timep.time() - start_marg}")
         #import pdb; pdb.set_trace()
@@ -344,7 +342,7 @@ class DhmmLm(nn.Module):
                     unary_marginals[mask].max(-1).indices[:,None],
                 ).squeeze(-1)
                 self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
-        #if self.timing:
+        #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
         return Pack(
             elbo = elbo,

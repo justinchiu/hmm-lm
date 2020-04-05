@@ -31,10 +31,12 @@ def get_args():
     parser.add_argument("--aux_devid", default=1, type=int,)
     parser.add_argument("--model", choices=[
         "shmm", "dhmm", "chmm", "hmm", "lstm", "ff",
-        "mshmm",
+        "mshmm", "dshmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)
+
+    parser.add_argument("--timing", default=0, type=int,)
 
     add_nn_args(parser)
 
@@ -64,12 +66,14 @@ def add_chmm_args(parser):
     parser.add_argument("--column_dropout", default=0, type=int, help="0 = no coldrop")
     parser.add_argument("--start_dropout", default=0, type=float,)
     parser.add_argument("--dropout_type", choices=[
-        "transition", "starttransition", "column", "startcolumn", "state", "cluster",
+        "transition", "starttransition", "column",
+        "startcolumn", "state", "cluster",
     ])
     parser.add_argument("--assignment", choices=[
         "brown", "unevenbrown",
         "word2vec",
         "uniform",
+        "none",
     ], default="brown",)
     parser.add_argument("--num_clusters", default=128, type=int, help="number of brown clusters")
     parser.add_argument("--num_common", default=0, type=int, help="top k common words (only unevenbrown)")

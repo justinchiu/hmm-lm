@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch_struct as ts
 
 #from .misc import ResidualLayer, ResidualLayerOld
-from .misc import ResidualLayerOld, LogDropout
+from .misc import ResidualLayerOld, LogDropoutM
 
 from utils import Pack
 
@@ -23,6 +23,8 @@ class HmmLm(nn.Module):
         self.device = config.device
 
         ResidualLayer = ResidualLayerOld
+
+        self.timing = config.timing > 0
 
         self.C = config.num_classes
 
@@ -55,7 +57,9 @@ class HmmLm(nn.Module):
             nn.Linear(config.hidden_dim, len(V)),
         )
 
-        self.transition_dropout = LogDropout(config.transition_dropout)
+        self.transition_dropout = config.transition_dropout
+        self.log_dropout = LogDropoutM(config.transition_dropout)
+        self.dropout_type = config.dropout_type
 
         self.keep_counts = config.keep_counts > 0
         if self.keep_counts:
@@ -76,12 +80,31 @@ class HmmLm(nn.Module):
     def start(self):
         return self.start_mlp(self.start_emb).squeeze(-1).log_softmax(-1)
 
+    def start_logits(self):
+        return self.start_mlp(self.start_emb).squeeze(-1)
+
+    def mask_start(self, x, mask=None):
+        return self.log_dropout(x, mask).log_softmax(-1)
+
+    def transition_logits(self):
+        return self.trans_mlp(self.state_emb)
+
+    def mask_transition(self, logits, mask=None):
+        # only in the weird case previously?
+        # although now we may have unassigned states, oh well
+        #logits[:,-1] = float("-inf")
+        logits = self.log_dropout(logits, mask).log_softmax(-1)
+        logits = logits.masked_fill(logits != logits, float("-inf"))
+        return logits
+
+    """
     @property
     def transition(self):
         return self.transition_dropout(
             self.trans_mlp(self.state_emb),
             column_dropout = True,
-        ).log_softmax(-1).permute(-1, -2) 
+        ).log_softmax(-1).permute(-1, -2)
+    """
 
     @property
     def emission(self):
@@ -107,10 +130,67 @@ class HmmLm(nn.Module):
 
     def score(self, text, mask=None, lengths=None):
         N, T = text.shape
+
+        start_mask, transition_mask = None, None
+        if not self.training:
+            # no dropout
+            pass
+        elif self.dropout_type == "transition":
+            transition_mask = (th.empty(self.C, self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+        elif self.dropout_type == "starttransition":
+            transition_mask = (th.empty(self.C, self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+        elif self.dropout_type == "column":
+            transition_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+        elif self.dropout_type == "startcolumn":
+            transition_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+        elif self.dropout_type == "state":
+            m = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask, transition_mask = m, m
+        else:
+            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
+
+        start_logits = self.start_logits()
+        transition_logits = self.transition_logits()
         log_potentials = ts.LinearChain.hmm(
-            transition = self.transition,
+            transition = self.mask_transition(
+                transition_logits,
+                transition_mask,
+            ),
             emission = self.emission,
-            init = self.start,
+            init = self.mask_start(
+                start_logits,
+                start_mask,
+            ),
             observations = text,
             semiring = ts.LogSemiring,
         )
