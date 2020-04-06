@@ -344,7 +344,7 @@ def main():
         raise NotImplementedError
 
     if args.eval_only:
-        #model.load_state_dict(th.load(args.eval_only)["model"])
+        model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         valid_losses, valid_n = cached_eval_loop(
