@@ -23,6 +23,9 @@ elif [[ "$1" == "lm16" ]]; then
 elif [[ "$1" == "lm10" ]]; then
     l_cluster=/n/rush_lab/jc/code/brown-cluster/wcluster
     $l_cluster --text $input --c 10 --output_dir clusters/lm-10
+elif [[ "$1" == "lm9" ]]; then
+    l_cluster=/n/rush_lab/jc/code/brown-cluster/wcluster
+    $l_cluster --text $input --c 9 --output_dir clusters/lm-9
 elif [[ "$1" == "lm8" ]]; then
     l_cluster=/n/rush_lab/jc/code/brown-cluster/wcluster
     $l_cluster --text $input --c 8 --output_dir clusters/lm-8

@@ -37,6 +37,8 @@ class MshmmLm(nn.Module):
 
         ResidualLayer = ResidualLayerOld
 
+        self.timing = config.timing > 0
+
         """
         word2state, state2word = assign_states(
             self.C, self.states_per_word, len(self.V), self.words_per_state)
@@ -253,19 +255,7 @@ class MshmmLm(nn.Module):
         lpx = None
         return lpx
 
-    def log_potentials(self, text, states=None):
-        #word2state = self.word2state
-        word2state = self.word2state_d if states is not None else self.word2state
-
-        start = self.start(states)
-        emission_logits = self.emission_logits(states)
-        transition_logits = self.transition_logits(states)
-
-        transition = self.mask_transition(transition_logits)
-        emission = self.mask_emission(emission_logits, word2state)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total emitm time: {timep.time() - start_emitm}")
-            #start_clamp = timep.time()
+    def clamp(self, text, start, transition, emission, word2state):
         clamped_states = word2state[text]
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
@@ -287,6 +277,59 @@ class MshmmLm(nn.Module):
         #if wandb.run.mode == "dryrun":
             #print(f"total clamp time: {timep.time() - start_clamp}")
         return log_potentials.transpose(-1, -2)
+
+    def compute_parameters(self, word2state, states=None):
+        start = self.start(states)
+        transition = self.mask_transition(self.transition_logits(states))
+        emission = self.mask_emission(self.emission_logits(states), word2state)
+
+        return start, transition, emission
+
+    def log_potentials(self, text, states=None):
+        #word2state = self.word2state
+        word2state = self.word2state_d if states is not None else self.word2state
+
+        start, transition, emission = self.compute_parameters(word2state, states)
+        #if wandb.run.mode == "dryrun":
+            #print(f"total emitm time: {timep.time() - start_emitm}")
+            #start_clamp = timep.time()
+        return self.clamp(text, start, transition, emission, word2state)
+
+    def compute_loss(
+        self,
+        log_potentials, mask, lengths,
+        keep_counts = False,
+    ):
+        N = lengths.shape[0]
+        fb = self.fb_train if self.training else self.fb_test
+        #fb = self.fb_train
+        marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
+        #if wandb.run.mode == "dryrun":
+            #print(f"total marg time: {timep.time() - start_marg}")
+        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
+        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+        #import pdb; pdb.set_trace()
+        if keep_counts:
+            with th.no_grad():
+                unary_marginals = th.cat([
+                    log_m[:,0,None].logsumexp(-2),
+                    log_m.logsumexp(-1),
+                ], 1).exp()
+                self.counts.index_add_(
+                    1,
+                    text.view(-1),
+                    unary_marginals.view(-1, self.states_per_word).t(),
+                )
+                max_states = self.word2state[text[mask]].gather(
+                    -1,
+                    unary_marginals[mask].max(-1).indices[:,None],
+                ).squeeze(-1)
+                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
+        return Pack(
+            elbo = elbo,
+            evidence = evidence,
+            loss = elbo,
+        )
 
 
     def score(self, text, mask=None, lengths=None):

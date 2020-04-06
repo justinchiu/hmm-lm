@@ -94,31 +94,70 @@ def count_params(model):
         sum(p.numel() for p in model.parameters() if p.requires_grad),
     )
 
-def _loop(
+def eval_loop(
     args, V, iter, model,
-    parameters=None, optimizer=None, scheduler=None,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    with th.no_grad():
+        for i, batch in enumerate(iter):
+            model.train(False)
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            losses = model.score(batch.text, mask=mask, lengths=lengths)
+            total_ll += losses.evidence.detach()
+            if losses.elbo is not None:
+                total_elbo += losses.elbo.detach()
+            n += n_tokens
+    return Pack(evidence = total_ll, elbo = total_elbo), n
+
+def cached_eval_loop(
+    args, V, iter, model,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    with th.no_grad():
+        model.train(False)
+        import pdb; pdb.set_trace()
+        start, transition, emission = model.compute_parameters(model.word2state)
+        word2state = model.word2state
+        for i, batch in enumerate(iter):
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            log_potentials = model.clamp(batch.text, start, transition, emission, word2state)
+            losses = model.compute_loss(log_potentials, mask, lengths)
+            #losses = model.score(batch.text, mask=mask, lengths=lengths)
+            total_ll += losses.evidence.detach()
+            if losses.elbo is not None:
+                total_elbo += losses.elbo.detach()
+            n += n_tokens
+    return Pack(evidence = total_ll, elbo = total_elbo), n
+
+def train_loop(
+    args, V, iter, model,
+    parameters, optimizer, scheduler,
     valid_iter=None,
     verbose=False,
-    training = False,
-    env = th.enable_grad,
 ):
     global WANDB_STEP
     noise_scales = np.linspace(1, 0, args.noise_anneal_steps)
-    env = th.no_grad if optimizer is None else th.enable_grad
     total_ll = 0
     total_elbo = 0
     n = 0
     # check is performed at end of epoch outside loop as well
     checkpoint = len(iter) // (args.num_checks - 1)
-    with env():
+    with th.enable_grad():
         for i, batch in enumerate(iter):
-            model.train(optimizer is not None)
-            if optimizer is not None:
-                WANDB_STEP += 1
-                optimizer.zero_grad()
+            model.train(True)
+            WANDB_STEP += 1
+            optimizer.zero_grad()
 
             # set noise scale
-            if optimizer is not None and hasattr(model, "noise_scale"):
+            if hasattr(model, "noise_scale"):
                 noise_scale = noise_scales[
                     min(WANDB_STEP, args.noise_anneal_steps-1)
                 ] if args.noise_anneal_steps > 0 else model.init_noise_scale
@@ -126,8 +165,6 @@ def _loop(
                 wandb.log({
                     "noise_scale": noise_scale,
                 }, step=WANDB_STEP)
-            elif optimizer is None and hasattr(model, "noise_scale"):
-                model.noise_scale = 0
 
             mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
             if model.timing:
@@ -139,23 +176,23 @@ def _loop(
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
             n += n_tokens
-            if optimizer is not None:
-                loss = -losses.loss / n_tokens
-                if model.timing:
-                    start_backward = timep.time()
-                loss.backward()
-                if model.timing:
-                    print(f"backward time: {timep.time() - start_backward}")
-                clip_grad_norm_(parameters, args.clip)
-                if args.schedule not in valid_schedules:
-                    # sched before opt since we want step = 1?
-                    # this is how huggingface does it
-                    scheduler.step()
-                optimizer.step()
-                wandb.log({
-                    "running_training_loss": total_ll / n,
-                    "running_training_ppl": math.exp(-total_ll / n),
-                }, step=WANDB_STEP)
+
+            loss = -losses.loss / n_tokens
+            if model.timing:
+                start_backward = timep.time()
+            loss.backward()
+            if model.timing:
+                print(f"backward time: {timep.time() - start_backward}")
+            clip_grad_norm_(parameters, args.clip)
+            if args.schedule not in valid_schedules:
+                # sched before opt since we want step = 1?
+                # this is how huggingface does it
+                scheduler.step()
+            optimizer.step()
+            wandb.log({
+                "running_training_loss": total_ll / n,
+                "running_training_ppl": math.exp(-total_ll / n),
+            }, step=WANDB_STEP)
 
             if verbose and i % args.report_every == args.report_every - 1:
                 report(
@@ -166,10 +203,9 @@ def _loop(
 
             if valid_iter is not None and i % checkpoint == checkpoint-1:
                 v_start_time = time.time()
-                valid_losses, valid_n  = _loop(
+                #valid_losses, valid_n  = eval_loop(
+                valid_losses, valid_n  = cached_eval_loop(
                     args, V, valid_iter, model,
-                    training = False,
-                    env = th.no_grad,
                 )
                 report(valid_losses, valid_n, "Valid eval", v_start_time)
                 wandb.log({
@@ -180,10 +216,9 @@ def _loop(
                 update_best_valid(
                     valid_losses, valid_n, model, optimizer, scheduler, args.name)
 
-                if optimizer is not None:
-                    wandb.log({
-                        "lr": optimizer.param_groups[0]["lr"],
-                    }, step=WANDB_STEP)
+                wandb.log({
+                    "lr": optimizer.param_groups[0]["lr"],
+                }, step=WANDB_STEP)
                 scheduler.step(valid_losses.evidence)
 
                 # remove this later?
@@ -309,11 +344,11 @@ def main():
         raise NotImplementedError
 
     if args.eval_only:
-        model.load_state_dict(th.load(args.eval_only)["model"])
+        #model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
-        valid_losses, valid_n = _loop(
+        #valid_losses, valid_n = eval_loop(
+        valid_losses, valid_n = cached_eval_loop(
             args, V, valid_iter, model,
-            training=False, env=th.no_grad,
         )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
         sys.exit()
@@ -353,7 +388,7 @@ def main():
         if args.log_counts > 0 and args.keep_counts > 0:
             # reset at START of epoch
             model.state_counts.fill_(0)
-        train_losses, train_n = _loop(
+        train_losses, train_n = train_loop(
             args, V, train_iter, model,
             parameters, optimizer, scheduler,
             valid_iter = valid_iter if not args.overfit else None,
@@ -362,7 +397,7 @@ def main():
         total_time = report(train_losses, train_n, f"Train epoch {e}", start_time)
 
         v_start_time = time.time()
-        valid_losses, valid_n = _loop(args, V, valid_iter, model)
+        valid_losses, valid_n = eval_loop(args, V, valid_iter, model)
         report(valid_losses, valid_n, f"Valid epoch {e}", v_start_time)
 
         if args.schedule in valid_schedules:

@@ -274,11 +274,12 @@ class DshmmLm(nn.Module):
 
         transition = self.mask_transition(transition_logits)
         emission = self.mask_emission(emission_logits, word2state)
+
         if self.timing:
             print(f"total mask time: {timep.time() - start_mask}")
             start_clamp = timep.time()
         clamped_states = word2state[text]
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
             # oops a lot of padding
@@ -301,7 +302,7 @@ class DshmmLm(nn.Module):
         return log_potentials.transpose(-1, -2)
 
 
-    def score(self, text, mask=None, lengths=None):
+    def score(self, text, mask=None, lengths=None, log_potentials=None):
         N, T = text.shape
         if self.timing:
             start_pot = timep.time()
@@ -312,8 +313,10 @@ class DshmmLm(nn.Module):
             states[-1] = 1
         else:
             states = None
-
-        log_potentials = self.log_potentials(text, states)
+        log_potentials = (self.log_potentials(text, states)
+            if log_potentials is None
+            else log_potentials
+        )
         if self.timing:
             print(f"total pot time: {timep.time() - start_pot}")
             start_marg = timep.time()
