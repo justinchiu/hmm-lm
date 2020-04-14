@@ -69,6 +69,7 @@ def add_chmm_args(parser):
         "transition", "starttransition", "column",
         "startcolumn", "state", "cluster",
     ])
+    parser.add_argument("--word_dropout", default=0, type=float, help="use uniform emission [0,1]")
     parser.add_argument("--assignment", choices=[
         "brown", "unevenbrown",
         "word2vec",

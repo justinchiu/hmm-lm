@@ -128,11 +128,29 @@ class HmmLm(nn.Module):
         #evidence = ts.LinearChain().sum(log_potentials, lengths=lengths)
         return evidence.sum()
 
+    def log_potentials(self, text, states=None):
+        start_logits = self.start_logits()
+        transition_logits = self.transition_logits()
+        log_potentials = ts.LinearChain.hmm(
+            transition = self.mask_transition(
+                transition_logits,
+                None,
+            ),
+            emission = self.emission,
+            init = self.mask_start(
+                start_logits,
+                None,
+            ),
+            observations = text,
+            semiring = ts.LogSemiring,
+        )
+        return log_potentials
+
     def score(self, text, mask=None, lengths=None):
         N, T = text.shape
 
         start_mask, transition_mask = None, None
-        if not self.training:
+        if not self.training or self.dropout_type == "none":
             # no dropout
             pass
         elif self.dropout_type == "transition":

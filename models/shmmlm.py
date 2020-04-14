@@ -35,6 +35,8 @@ class ShmmLm(nn.Module):
 
         self.num_layers = config.num_layers
 
+        self.timing = config.timing > 0
+
         ResidualLayer = ResidualLayerOld
 
         """
@@ -48,6 +50,7 @@ class ShmmLm(nn.Module):
             path=f"clusters/lm-{num_clusters}/paths",
         )
         self.word_counts = word_counts
+        self.word2cluster = word2cluster
 
         assert self.states_per_word * num_clusters <= self.C
 

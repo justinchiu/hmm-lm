@@ -174,6 +174,20 @@ class MshmmLm(nn.Module):
         self.register_buffer("zero", th.zeros(1))
         self.register_buffer("one", th.ones(1))
 
+        self.word_dropout = config.word_dropout
+        if self.word_dropout > 0:
+            with th.no_grad():
+                self.uniform_emission = self.get_uniform_emission(
+                    self.word2state.to(self.device),
+                )
+
+    def get_uniform_emission(self, word2state):
+        a = self.a
+        v = self.v
+
+        i = th.stack([word2state.view(-1), a])
+        sparse = th.sparse.FloatTensor(i, v, th.Size([self.C, len(self.V)]))
+        return sparse.to_dense().log().log_softmax(-1)
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
@@ -255,7 +269,10 @@ class MshmmLm(nn.Module):
         lpx = None
         return lpx
 
-    def clamp(self, text, start, transition, emission, word2state):
+    def clamp(
+        self, text, start, transition, emission, word2state,
+        uniform_emission = None, word_mask = None,
+    ):
         clamped_states = word2state[text]
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
@@ -271,6 +288,11 @@ class MshmmLm(nn.Module):
         # need to mask.
         init = start[clamped_states[:,0]]
         obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+        # word dropout == replace with uniform emission matrix (within cluster)?
+        # precompute that and sample mask
+        if uniform_emission is not None and word_mask is not None:
+            unif_obs = uniform_emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+            obs[word_mask] = unif_obs[word_mask]
         log_potentials[:,0] += init.unsqueeze(-1)
         log_potentials += obs[:,1:].transpose(-1, -2)
         log_potentials[:,0] += obs[:,0]
@@ -278,14 +300,13 @@ class MshmmLm(nn.Module):
             #print(f"total clamp time: {timep.time() - start_clamp}")
         return log_potentials.transpose(-1, -2)
 
-    def compute_parameters(self, word2state, states=None):
+    def compute_parameters(self, word2state, states=None, word_mask=None):
         start = self.start(states)
         transition = self.mask_transition(self.transition_logits(states))
         emission = self.mask_emission(self.emission_logits(states), word2state)
-
         return start, transition, emission
 
-    def log_potentials(self, text, states=None):
+    def log_potentials(self, text, states=None, word_mask=None):
         #word2state = self.word2state
         word2state = self.word2state_d if states is not None else self.word2state
 
@@ -293,7 +314,15 @@ class MshmmLm(nn.Module):
         #if wandb.run.mode == "dryrun":
             #print(f"total emitm time: {timep.time() - start_emitm}")
             #start_clamp = timep.time()
-        return self.clamp(text, start, transition, emission, word2state)
+        if word_mask is not None:
+            uniform_emission = (self.uniform_emission[states]
+                if states is not None else self.uniform_emission)
+        else:
+            uniform_emission = None
+        return self.clamp(
+            text, start, transition, emission, word2state,
+            uniform_emission, word_mask,
+        )
 
     def compute_loss(
         self,
@@ -345,6 +374,65 @@ class MshmmLm(nn.Module):
                 .indices
             )
             states = self.cluster2state.gather(1, I).view(-1)
+
+            # word dropout. Kills (uniform) if mask == 1
+            # TODO: factor this out into args (also need to factor out dropout prob lol)
+            word_mask = th.empty(
+                text.shape, dtype=th.float, device=self.device
+            ).bernoulli_(0.1).bool() if self.word_dropout > 0 else None
+        else:
+            states = None
+            word_mask = None
+
+        log_potentials = self.log_potentials(text, states, word_mask)
+        #if wandb.run.mode == "dryrun":
+            #print(f"total pot time: {timep.time() - start_pot}")
+            #start_marg = timep.time()
+        fb = self.fb_train if self.training else self.fb_test
+        #fb = self.fb_train
+        marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
+        #if wandb.run.mode == "dryrun":
+            #print(f"total marg time: {timep.time() - start_marg}")
+        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
+        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+        #import pdb; pdb.set_trace()
+        if self.keep_counts and self.training:
+            with th.no_grad():
+                unary_marginals = th.cat([
+                    log_m[:,0,None].logsumexp(-2),
+                    log_m.logsumexp(-1),
+                ], 1).exp()
+                self.counts.index_add_(
+                    1,
+                    text.view(-1),
+                    unary_marginals.view(-1, self.states_per_word).t(),
+                )
+                max_states = self.word2state[text[mask]].gather(
+                    -1,
+                    unary_marginals[mask].max(-1).indices[:,None],
+                ).squeeze(-1)
+                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
+        #if wandb.run.mode == "dryrun":
+            #import pdb; pdb.set_trace()
+        return Pack(
+            elbo = elbo,
+            evidence = evidence,
+            loss = elbo,
+        )
+
+    def scoren(self, text, mask=None, lengths=None):
+        N, T = text.shape
+        #if wandb.run.mode == "dryrun":
+            #start_pot = timep.time()
+        # sample states if training
+        if self.training:
+            I = (th.distributions.Gumbel(self.zero, self.one)
+                .sample(self.cluster2state.shape)
+                .squeeze(-1)
+                .topk(self.states_per_word // 2, dim=-1)
+                .indices
+            )
+            states = self.cluster2state.gather(1, I).view(-1)
         else:
             states = None
 
@@ -357,8 +445,8 @@ class MshmmLm(nn.Module):
         marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
         #if wandb.run.mode == "dryrun":
             #print(f"total marg time: {timep.time() - start_marg}")
-        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
-        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1)
+        elbo = (marginals.detach() * log_potentials)[mask[:,1:]]
         #import pdb; pdb.set_trace()
         if self.keep_counts and self.training:
             with th.no_grad():

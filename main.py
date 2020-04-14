@@ -121,7 +121,6 @@ def cached_eval_loop(
     n = 0
     with th.no_grad():
         model.train(False)
-        import pdb; pdb.set_trace()
         start, transition, emission = model.compute_parameters(model.word2state)
         word2state = model.word2state
         for i, batch in enumerate(iter):
@@ -134,6 +133,27 @@ def cached_eval_loop(
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
+            n += n_tokens
+    return Pack(evidence = total_ll, elbo = total_elbo), n
+
+def elbo_eval_loop(
+    args, V, iter, model, m,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    with th.no_grad():
+        for i, batch in enumerate(iter):
+            model.train(True)
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            evidence = []
+            for _ in range(m):
+                losses = model.scoren(batch.text, mask=mask, lengths=lengths)
+                evidence.append(losses.evidence)
+            evidence = th.stack(evidence).logsumexp(0) - math.log(m)
+            total_ll += evidence.sum()
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
@@ -203,8 +223,10 @@ def train_loop(
 
             if valid_iter is not None and i % checkpoint == checkpoint-1:
                 v_start_time = time.time()
+                eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
                 #valid_losses, valid_n  = eval_loop(
-                valid_losses, valid_n  = cached_eval_loop(
+                #valid_losses, valid_n  = cached_eval_loop(
+                valid_losses, valid_n  = eval_fn(
                     args, V, valid_iter, model,
                 )
                 report(valid_losses, valid_n, "Valid eval", v_start_time)
@@ -347,8 +369,25 @@ def main():
         model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
-        valid_losses, valid_n = cached_eval_loop(
+        #valid_losses, valid_n = cached_eval_loop(
+        eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        valid_losses, valid_n = eval_fn(
             args, V, valid_iter, model,
+        )
+        report(valid_losses, valid_n, f"Valid perf", v_start_time)
+        print("10 samples")
+        valid_losses, valid_n = elbo_eval_loop(
+            args, V, valid_iter, model, 10,
+        )
+        report(valid_losses, valid_n, f"Valid perf", v_start_time)
+        print("5 samples")
+        valid_losses, valid_n = elbo_eval_loop(
+            args, V, valid_iter, model, 5,
+        )
+        report(valid_losses, valid_n, f"Valid perf", v_start_time)
+        print("1 sample")
+        valid_losses, valid_n = elbo_eval_loop(
+            args, V, valid_iter, model, 1,
         )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
         sys.exit()
@@ -397,7 +436,8 @@ def main():
         total_time = report(train_losses, train_n, f"Train epoch {e}", start_time)
 
         v_start_time = time.time()
-        valid_losses, valid_n = eval_loop(args, V, valid_iter, model)
+        eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        valid_losses, valid_n  = eval_fn(args, V, valid_iter, model)
         report(valid_losses, valid_n, f"Valid epoch {e}", v_start_time)
 
         if args.schedule in valid_schedules:

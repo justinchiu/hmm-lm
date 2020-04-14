@@ -129,8 +129,7 @@ def read_lm_clusters(V, path="clusters/lm-128/paths"):
         cluster2id = {}
         id = 0
         for line in f:
-            bin_cluster, word, count = line.strip().split()
-            cluster = int(bin_cluster, 2)
+            cluster, word, count = line.strip().split()
             if cluster not in cluster2id:
                 cluster2id[cluster] = id
                 id += 1
@@ -192,7 +191,6 @@ def assign_states_brown(
             states_per_word * cluster,
             states_per_word * (cluster + 1),
         )
-
     return word2state
 
 def assign_states_uneven_brown(
