@@ -33,7 +33,7 @@ from models.fflm import FfLm
 
 import wandb
 
-from pytorch_memlab import profile
+from pytorch_memlab import profile, MemReporter
 
 th.autograd.set_detect_anomaly(True)
 
@@ -159,7 +159,6 @@ def elbo_eval_loop(
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
-@profile
 def train_loop(
     args, V, iter, model,
     parameters, optimizer, scheduler,
@@ -204,7 +203,6 @@ def train_loop(
             if model.timing:
                 start_backward = timep.time()
             loss.backward()
-            import pdb; pdb.set_trace()
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
             clip_grad_norm_(parameters, args.clip)
@@ -213,6 +211,7 @@ def train_loop(
                 # this is how huggingface does it
                 scheduler.step()
             optimizer.step()
+            #import pdb; pdb.set_trace()
             wandb.log({
                 "running_training_loss": total_ll / n,
                 "running_training_ppl": math.exp(-total_ll / n),

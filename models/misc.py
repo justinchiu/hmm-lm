@@ -147,3 +147,28 @@ class LogDropoutM(nn.Module):
             return x.masked_fill(annihilate_mask, float("-inf"))
         else:
             return x
+
+class Index2(th.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, idx1, idx2):
+        ctx.save_for_backward(input, idx1, idx2)
+        return input[idx1, idx2]
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, idx1, idx2 = ctx.saved_tensors
+        input.zero_()
+        return input.index_put_((idx1, idx2), grad_output, accumulate=True), None, None
+
+class Index1(th.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, idx):
+        ctx.save_for_backward(input, idx)
+        return input[idx]
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, idx = ctx.saved_tensors
+        input.zero_()
+        return input.index_put_((idx,), grad_output, accumulate=True), None
+

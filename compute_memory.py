@@ -46,3 +46,7 @@ print(mem(sum(param_memory(words, num_states, 512))))
 print(mem(chain_memory(512, spw)))
 
 ## memory leaks in mask_emission and indexing into transition, ~2G
+# they're reclaimed later on, but i think they mess up the backward
+# since something similar happens there, but it's on top of cached allocations
+ 
+## 

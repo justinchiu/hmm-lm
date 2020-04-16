@@ -14,12 +14,21 @@ import torch.nn as nn
 import torch_struct as ts
 
 from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
+from .misc import Index1, Index2
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
 
 import wandb
 from pytorch_memlab import profile
+
+def make_f(t):
+    def f(x):
+        from pytorch_memlab import MemReporter
+        print(t)
+        print(checkmem())
+        import pdb; pdb.set_trace()
+    return f
 
 def checkmem():
     return(
@@ -236,7 +245,7 @@ class MshmmLm(nn.Module):
         logits = self.terminal_mlp(self.dropout(preterminal_emb))
         return logits
 
-    @profile
+    #@profile
     def mask_emission(self, logits, word2state):
         a = self.ad if self.training else self.a
         v = self.vd if self.training else self.v
@@ -250,6 +259,7 @@ class MshmmLm(nn.Module):
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
         log_probs = logits.masked_fill_(~mask, float("-inf")).log_softmax(-1)
+        #log_probs.register_hook(make_f("emission log probs"))
         #log_probs[log_probs != log_probs] = float("-inf")
         return log_probs
 
@@ -265,7 +275,7 @@ class MshmmLm(nn.Module):
         lpx = None
         return lpx
 
-    @profile
+    #@profile
     def clamp(
         self, text, start, transition, emission, word2state,
         uniform_emission = None, word_mask = None,
@@ -278,18 +288,26 @@ class MshmmLm(nn.Module):
         timem1 = time - 1
         #print("trans index start")
         #print(checkmem())
-        log_potentials = transition[
+        #log_potentials = transition[
+            #clamped_states[:,:-1,:,None],
+            #clamped_states[:,1:,None,:],
+        #]
+        log_potentials = Index2.apply(
+            transition,
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
-        ]
+        )
+        #log_potentials.register_hook(make_f("trans log pots index"))
         #print(checkmem())
         #print("trans index end")
         #import pdb; pdb.set_trace()
         
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
-        init = start[clamped_states[:,0]]
-        obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+        #init = start[clamped_states[:,0]]
+        init = Index1.apply(start, clamped_states[:,0])
+        #obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+        obs = Index2.apply(emission, clamped_states[:,:,:,None], text[:,:,None,None])
         # word dropout == replace with uniform emission matrix (within cluster)?
         # precompute that and sample mask
         if uniform_emission is not None and word_mask is not None:
@@ -302,7 +320,7 @@ class MshmmLm(nn.Module):
             #print(f"total clamp time: {timep.time() - start_clamp}")
         return log_potentials.transpose(-1, -2)
 
-    @profile
+    #@profile
     def compute_parameters(self, word2state, states=None, word_mask=None):
         #print(f"compute params start {checkmem()}")
         start = self.start(states)
@@ -374,7 +392,7 @@ class MshmmLm(nn.Module):
         )
 
 
-    @profile
+    #@profile
     def score(self, text, mask=None, lengths=None):
         N, T = text.shape
         #if wandb.run.mode == "dryrun":
@@ -400,6 +418,7 @@ class MshmmLm(nn.Module):
 
         #import pdb; pdb.set_trace()
         log_potentials = self.log_potentials(text, states, word_mask)
+        #log_potentials.register_hook(make_f("log_potentials score"))
         #import pdb; pdb.set_trace()
         #if wandb.run.mode == "dryrun":
             #print(f"total pot time: {timep.time() - start_pot}")
@@ -407,13 +426,17 @@ class MshmmLm(nn.Module):
         fb = self.fb_train if self.training else self.fb_test
         with th.no_grad():
             log_m, alphas = fb(log_potentials.detach(), mask=mask)
+            #log_m, alphas = fb(log_potentials, mask=mask)
         #if wandb.run.mode == "dryrun":
             #print(f"total marg time: {timep.time() - start_marg}")
         evidence = alphas[
             lengths-1, th.arange(N, device=self.device)
         ].logsumexp(-1).sum()
         # exp = 0.5G?
-        elbo = (log_m.exp() * log_potentials)[mask[:,1:]].sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
+        #elbo.register_hook(make_f("elbo"))
+        #print("end of forward")
+        #print(checkmem())
         #print(f"after fb {checkmem()}")
         #import pdb; pdb.set_trace()
         if self.keep_counts and self.training:
