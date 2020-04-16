@@ -1,6 +1,8 @@
 import torch as th
 import torch.nn as nn
 
+from pytorch_memlab import profile
+
 # post-LN
 class ResidualLayerOld(nn.Module):
     def __init__(
@@ -18,8 +20,13 @@ class ResidualLayerOld(nn.Module):
         self.layer_norm = nn.LayerNorm(out_dim)
         self.dropout = nn.Dropout(dropout)
 
+    #@profile
     def forward(self, x):
-        x = self.dropout(self.lin1(x).relu())
+        y = x + 1
+        x = self.lin1(x)
+        x = x.relu()
+        x = self.dropout(x)
+        #x = self.dropout(self.lin1(x).relu())
         return self.layer_norm(self.dropout(self.lin2(x).relu()) + x)
 
 

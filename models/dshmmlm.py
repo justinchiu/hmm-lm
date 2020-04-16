@@ -223,8 +223,6 @@ class DshmmLm(nn.Module):
     def mask_emission(self, logits, word2state):
         a = self.a
         v = self.v
-        #a = self.ad
-        #v = self.vd
 
         i = th.stack([word2state.view(-1), a])
         C = logits.shape[0]
@@ -279,7 +277,6 @@ class DshmmLm(nn.Module):
             print(f"total mask time: {timep.time() - start_mask}")
             start_clamp = timep.time()
         clamped_states = word2state[text]
-        #import pdb; pdb.set_trace()
         #if wandb.run.mode == "dryrun":
             #import pdb; pdb.set_trace()
             # oops a lot of padding
@@ -289,7 +286,6 @@ class DshmmLm(nn.Module):
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
         ]
-        #import pdb; pdb.set_trace()
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
         init = start[clamped_states[:,0]]

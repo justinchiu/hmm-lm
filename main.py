@@ -33,6 +33,8 @@ from models.fflm import FfLm
 
 import wandb
 
+from pytorch_memlab import profile
+
 th.autograd.set_detect_anomaly(True)
 
 valid_schedules = ["reducelronplateau"]
@@ -157,6 +159,7 @@ def elbo_eval_loop(
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
+@profile
 def train_loop(
     args, V, iter, model,
     parameters, optimizer, scheduler,
@@ -201,6 +204,7 @@ def train_loop(
             if model.timing:
                 start_backward = timep.time()
             loss.backward()
+            import pdb; pdb.set_trace()
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
             clip_grad_norm_(parameters, args.clip)
@@ -294,9 +298,11 @@ def main():
     V = TEXT.vocab
 
     def batch_size_tokens(new, count, sofar):
-        return len(new.text) + sofar
+        return max(len(new.text), sofar)
+    # disallowed
     def batch_size_sents(new, count, sofar):
-        return count
+        raise NotImplementedError("Should be fine, but not tested")
+        return 1
 
     train_iter, valid_iter, text_iter = BucketIterator.splits(
         (train, valid, test),

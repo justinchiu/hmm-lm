@@ -474,16 +474,17 @@ def batch(data, batch_size, batch_size_fn=None):
     """Yield elements from data in chunks of batch_size."""
     if batch_size_fn is None:
         def batch_size_fn(new, count, sofar):
-            return len(new.text) + sofar
+            return max(len(new.text), sofar)
             #return count
     minibatch, size_so_far = [], 0
     for ex in data:
         minibatch.append(ex)
-        size_so_far = batch_size_fn(ex, len(minibatch), size_so_far)
-        if size_so_far == batch_size:
+        count = len(minibatch)
+        size_so_far = batch_size_fn(ex, count, size_so_far)
+        if size_so_far * count == batch_size:
             yield minibatch
             minibatch, size_so_far = [], 0
-        elif size_so_far > batch_size:
+        elif size_so_far * count > batch_size:
             yield minibatch[:-1]
             minibatch, size_so_far = minibatch[-1:], batch_size_fn(ex, 1, 0)
     if minibatch:
