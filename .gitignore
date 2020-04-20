@@ -6,3 +6,4 @@ wandb
 *.pth
 checkpoints/
 wandb_checkpoints/
+slurm*.out

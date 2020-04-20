@@ -5,8 +5,8 @@ import torch_struct as ts
 def get_args():
     parser = ArgumentParser()
     # learning args
-    parser.add_argument("--bsz", default=1024, type=int,)
-    parser.add_argument("--eval_bsz", default=1024, type=int,)
+    parser.add_argument("--bsz", default=512, type=int,)
+    parser.add_argument("--eval_bsz", default=512, type=int,)
     parser.add_argument("--bsz_fn", choices=["tokens", "sentences"], default="tokens",)
     parser.add_argument("--lr", default=1e-3, type=float,)
     parser.add_argument("--clip", default=5, type=float,)

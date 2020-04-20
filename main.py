@@ -138,6 +138,46 @@ def cached_eval_loop(
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
+def mixed_cached_eval_loop(
+    args, V, iter, model,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    with th.no_grad():
+        model.train(False)
+        start = model.start().cpu()
+        emission = model.mask_emission(model.emission_logits(), model.word2state).cpu()
+
+        # blocked transition
+        num_blocks = 128
+        block_size = model.C // num_blocks
+        next_state_proj = model.next_state_proj.weight
+        transition = th.empty(model.C, model.C, device=th.device("cpu"), dtype=emission.dtype)
+        for s in range(0, model.C, block_size):
+            states = range(s, s+block_size)
+            x = model.trans_mlp(model.dropout(model.state_emb.weight[states]))
+            y = (x @ next_state_proj.t()).log_softmax(-1)
+            transition[states] = y.to(transition.device)
+
+        #start0, transition0, emission0 = model.compute_parameters(model.word2state)
+        # th.allclose(transition, transition0)
+        word2state = model.word2state
+        for i, batch in enumerate(iter):
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            log_potentials = model.clamp(
+                batch.text, start, transition, emission, word2state
+            ).to(model.device)
+            losses = model.compute_loss(log_potentials, mask, lengths)
+            #losses = model.score(batch.text, mask=mask, lengths=lengths)
+            total_ll += losses.evidence.detach()
+            if losses.elbo is not None:
+                total_elbo += losses.elbo.detach()
+            n += n_tokens
+    return Pack(evidence = total_ll, elbo = total_elbo), n
+
 def elbo_eval_loop(
     args, V, iter, model, m,
 ):
@@ -192,6 +232,15 @@ def train_loop(
             if model.timing:
                 start_forward = timep.time()
             losses = model.score(batch.text, mask=mask, lengths=lengths)
+            """
+            MemReporter().report()
+            def checkmem():
+                return(
+                    f"{th.cuda.memory_allocated() / 2**30:.2f}, {th.cuda.memory_cached() / 2 ** 30:.2f}, {th.cuda.max_memory_cached() / 2 ** 30:.2f}"
+                )
+            print(checkmem())
+            import pdb; pdb.set_trace()
+            """
             if model.timing:
                 print(f"forward time: {timep.time() - start_forward}")
             total_ll += losses.evidence.detach()
@@ -226,9 +275,16 @@ def train_loop(
 
             if valid_iter is not None and i % checkpoint == checkpoint-1:
                 v_start_time = time.time()
-                eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+                #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
                 #valid_losses, valid_n  = eval_loop(
                 #valid_losses, valid_n  = cached_eval_loop(
+                if args.model == "mshmm":
+                    if args.num_classes > 2 ** 15:
+                        eval_fn = mixed_cached_eval_loop
+                    else:
+                        eval_fn = cached_eval_loop
+                else:
+                    eval_fn = eval_loop
                 valid_losses, valid_n  = eval_fn(
                     args, V, valid_iter, model,
                 )
@@ -305,8 +361,8 @@ def main():
 
     train_iter, valid_iter, text_iter = BucketIterator.splits(
         (train, valid, test),
-        #batch_size = [args.bsz, args.eval_bsz, args.eval_bsz],
-        batch_size = args.bsz,
+        batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
+        #batch_size = args.bsz,
         device = device,
         sort_key = lambda x: len(x.text),
         batch_size_fn = batch_size_tokens if args.bsz_fn == "tokens" else batch_size_sents,
@@ -319,7 +375,8 @@ def main():
     config.model = args.type
     """
     name = get_name(args)
-    wandb.init(project="hmm-lm", name=name, config=args)
+    import tempfile
+    wandb.init(project="hmm-lm", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
 
     model = None
@@ -370,12 +427,22 @@ def main():
         )
         raise NotImplementedError
 
+    #DEBUG
+    #valid_losses, valid_n = mixed_cached_eval_loop(args, V, valid_iter, model)
+    #import pdb; pdb.set_trace()
     if args.eval_only:
         model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(
-        eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        if args.model == "mshmm":
+            if args.num_classes > 2 ** 15:
+                eval_fn = mixed_cached_eval_loop
+            else:
+                eval_fn = cached_eval_loop
+        else:
+            eval_fn = eval_loop
+        #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
         valid_losses, valid_n = eval_fn(
             args, V, valid_iter, model,
         )
@@ -441,7 +508,14 @@ def main():
         total_time = report(train_losses, train_n, f"Train epoch {e}", start_time)
 
         v_start_time = time.time()
-        eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        if args.model == "mshmm":
+            if args.num_classes > 2 ** 15:
+                eval_fn = mixed_cached_eval_loop
+            else:
+                eval_fn = cached_eval_loop
+        else:
+            eval_fn = eval_loop
         valid_losses, valid_n  = eval_fn(args, V, valid_iter, model)
         report(valid_losses, valid_n, f"Valid epoch {e}", v_start_time)
 

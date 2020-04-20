@@ -2,7 +2,8 @@
 import time as timep
 
 import importlib.util
-spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+#spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+spec = importlib.util.spec_from_file_location("get_fb", "/home/jtc257/python/genbmm/opt/hmm3.py")
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
@@ -20,7 +21,7 @@ from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
 
 import wandb
-from pytorch_memlab import profile
+from pytorch_memlab import profile, MemReporter
 
 def make_f(t):
     def f(x):
@@ -288,15 +289,17 @@ class MshmmLm(nn.Module):
         timem1 = time - 1
         #print("trans index start")
         #print(checkmem())
-        #log_potentials = transition[
-            #clamped_states[:,:-1,:,None],
-            #clamped_states[:,1:,None,:],
-        #]
+        log_potentials = transition[
+            clamped_states[:,:-1,:,None],
+            clamped_states[:,1:,None,:],
+        ]
+        """
         log_potentials = Index2.apply(
             transition,
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
         )
+        """
         #log_potentials.register_hook(make_f("trans log pots index"))
         #print(checkmem())
         #print("trans index end")
@@ -304,10 +307,10 @@ class MshmmLm(nn.Module):
         
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
-        #init = start[clamped_states[:,0]]
-        init = Index1.apply(start, clamped_states[:,0])
-        #obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
-        obs = Index2.apply(emission, clamped_states[:,:,:,None], text[:,:,None,None])
+        init = start[clamped_states[:,0]]
+        #init = Index1.apply(start, clamped_states[:,0])
+        obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+        #obs = Index2.apply(emission, clamped_states[:,:,:,None], text[:,:,None,None])
         # word dropout == replace with uniform emission matrix (within cluster)?
         # precompute that and sample mask
         if uniform_emission is not None and word_mask is not None:
@@ -318,6 +321,7 @@ class MshmmLm(nn.Module):
         log_potentials[:,0] += obs[:,0]
         #if wandb.run.mode == "dryrun":
             #print(f"total clamp time: {timep.time() - start_clamp}")
+        #import pdb; pdb.set_trace()
         return log_potentials.transpose(-1, -2)
 
     #@profile
