@@ -1,6 +1,11 @@
-
+import os
 import importlib.util
-spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+spec = importlib.util.spec_from_file_location(
+    "get_fb",
+    "/home/justinchiu/code/python/genbmm/opt/hmm3.py"
+    if os.getenv("LOCAL") is not None
+    else "/home/jtc257/python/genbmm/opt/hmm3.py"
+)
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
@@ -108,7 +113,8 @@ class HmmLm(nn.Module):
 
     @property
     def emission(self):
-        return self.terminal_mlp(self.preterminal_emb).log_softmax(-1).permute(-1, -2)
+        #return self.terminal_mlp(self.preterminal_emb).log_softmax(-1).permute(-1, -2)
+        return self.terminal_mlp(self.preterminal_emb).log_softmax(-1)#.permute(-1, -2)
 
     def forward(self, inputs, state=None):
         # forall x, p(X = x)
@@ -150,7 +156,7 @@ class HmmLm(nn.Module):
         N, T = text.shape
 
         start_mask, transition_mask = None, None
-        if not self.training or self.dropout_type == "none":
+        if not self.training or self.dropout_type == "none" or self.dropout_type is None:
             # no dropout
             pass
         elif self.dropout_type == "transition":
@@ -203,8 +209,8 @@ class HmmLm(nn.Module):
             transition = self.mask_transition(
                 transition_logits,
                 transition_mask,
-            ),
-            emission = self.emission,
+            ).t(),
+            emission = self.emission.t(),
             init = self.mask_start(
                 start_logits,
                 start_mask,
@@ -212,14 +218,16 @@ class HmmLm(nn.Module):
             observations = text,
             semiring = ts.LogSemiring,
         )
-        marginals, alphas, betas, log_m = self.fb(log_potentials)
+        with th.no_grad():
+            log_m, alphas = self.fb(log_potentials.detach())
         evidence = alphas.gather(
             0,
             (lengths-1).view(1, N, 1).expand(1, N, self.C),
         ).logsumexp(-1).sum()
-        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+        elbo = (log_m.exp_().detach() * log_potentials)[mask[:,1:]].sum()
 
         if self.keep_counts and self.training:
+            raise NotImplementedError("need to fix")
             with th.no_grad():
                 unary_marginals = th.cat([
                     log_m[:,0,None].logsumexp(-2),

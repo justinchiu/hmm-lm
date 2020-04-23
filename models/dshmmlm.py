@@ -1,8 +1,14 @@
 
+import os
 import time as timep
 
 import importlib.util
-spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+spec = importlib.util.spec_from_file_location(
+    "get_fb",
+    "/home/justinchiu/code/python/genbmm/opt/hmm3.py"
+    if os.getenv("LOCAL") is not None
+    else "/home/jtc257/python/genbmm/opt/hmm3.py"
+)
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
@@ -10,6 +16,7 @@ import numpy as np
 
 import torch as th
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 
 import torch_struct as ts
 
@@ -29,6 +36,7 @@ class DshmmLm(nn.Module):
         self.device = config.device
 
         self.timing = config.timing > 0
+        self.chp_theta = config.chp_theta > 0
 
         self.C = config.num_classes
 
@@ -177,6 +185,16 @@ class DshmmLm(nn.Module):
         )
         return self.start_mlp(self.dropout(start_emb)).squeeze(-1).log_softmax(-1)
 
+    def start_chp(self, states=None):
+        start_emb = (self.start_emb[states]
+            if states is not None
+            else self.start_emb
+        )
+        return checkpoint(
+            lambda x: self.start_mlp(self.dropout(x)).squeeze(-1).log_softmax(-1),
+            start_emb
+        )
+
     def transition_logits(self, states=None):
         state_emb = (self.state_emb.weight[states]
             if states is not None
@@ -188,20 +206,21 @@ class DshmmLm(nn.Module):
         )
         x = self.trans_mlp(self.dropout(state_emb))
         return x @ next_state_proj.t()
-        """
-        next_state_emb = (self.next_state_emb.weight[states]
+
+    def transition_chp(self, states=None):
+        state_emb = (self.state_emb.weight[states]
             if states is not None
-            else self.next_state_emb.weight
+            else self.state_emb.weight
         )
-        x = self.trans_mlp(self.dropout(state_emb))
-        return x @ next_state_emb.t()
-        """
-        """
-        return self.transition_dropout(
-            self.trans_mlp(self.dropout(state_emb)),
-            column_dropout = self.column_dropout,
+        next_state_proj = (self.next_state_proj.weight[states]
+            if states is not None
+            else self.next_state_proj.weight
         )
-        """
+        return checkpoint(
+            lambda x, y: (self.trans_mlp(self.dropout(x)) @ y.t()).log_softmax(-1),
+            state_emb, next_state_proj,
+        )
+
 
     def mask_transition(self, logits):
         # only in the weird case previously?
@@ -235,6 +254,19 @@ class DshmmLm(nn.Module):
         log_probs[-1,:] = float("-inf")
         return log_probs
 
+    def emission_chp(self, word2state, states=None):
+        preterminal_emb = (self.preterminal_emb.weight[states]
+            if states is not None
+            else self.preterminal_emb.weight
+        )
+        return checkpoint(
+            lambda x: self.mask_emission(
+                self.terminal_mlp(self.dropout(x)),
+                word2state,
+            ),
+            preterminal_emb
+        )
+
     def forward(self, inputs, state=None):
         # forall x, p(X = x)
         emission_logits = self.emission_logits
@@ -262,16 +294,22 @@ class DshmmLm(nn.Module):
         if self.timing:
             print(f"total sample time: {timep.time() - start_sample}")
             start_compute = timep.time()
-        start = self.start(states)
+
+        if self.chp_theta:
+            # only transition matrix?
+            transition = self.transition_chp(states)
+            #start = self.start_chp(states)
+            #emission = self.emission_chp(word2state, states)
+        else:
+            transition_logits = self.transition_logits(states)
+            transition = self.mask_transition(transition_logits)
         emission_logits = self.emission_logits(states)
-        transition_logits = self.transition_logits(states)
-
-        if self.timing:
-            print(f"total compute time: {timep.time() - start_compute}")
-            start_mask = timep.time()
-
-        transition = self.mask_transition(transition_logits)
         emission = self.mask_emission(emission_logits, word2state)
+        start = self.start(states)
+
+        #print(th.cuda.max_memory_allocated() / 2 ** 30)
+        #print(th.cuda.max_memory_cached() / 2 ** 30)
+        #print(text.nelement())
 
         if self.timing:
             print(f"total mask time: {timep.time() - start_mask}")
@@ -318,12 +356,14 @@ class DshmmLm(nn.Module):
             start_marg = timep.time()
         fb = self.fb
         #fb = self.fb_train
-        marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
+        #marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
+        with th.no_grad():
+            log_m, alphas = fb(log_potentials.detach(), mask=mask)
         if self.timing:
             print(f"total marg time: {timep.time() - start_marg}")
         #import pdb; pdb.set_trace()
         evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
-        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
         #import pdb; pdb.set_trace()
         if self.keep_counts and self.training:
             with th.no_grad():

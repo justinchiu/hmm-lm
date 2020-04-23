@@ -140,7 +140,7 @@ class LogDropoutM(nn.Module):
             return x
             #annihilate_mask = th.empty_like(x).fill_(self.p).bernoulli().bool()
             #return x.masked_fill(annihilate_mask, float("-inf"))
-        elif self.training and annihilate_mask is not None:
+        elif self.training and self.p > 0 and annihilate_mask is not None:
             while annihilate_mask.dim() < x.dim():
                 annihilate_mask = annihilate_mask.unsqueeze(0)
             annihilate_mask = annihilate_mask.expand(x.shape)

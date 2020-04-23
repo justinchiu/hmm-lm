@@ -18,6 +18,7 @@ import numpy as np
 
 import torch as th
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 
 import torch_struct as ts
 
@@ -61,6 +62,7 @@ class MshmmLm(nn.Module):
         ResidualLayer = ResidualLayerOld
 
         self.timing = config.timing > 0
+        self.chp_theta = config.chp_theta > 0
 
         """
         word2state, state2word = assign_states(
@@ -224,6 +226,16 @@ class MshmmLm(nn.Module):
         )
         return self.start_mlp(self.dropout(start_emb)).squeeze(-1).log_softmax(-1)
 
+    def start_chp(self, states=None):
+        start_emb = (self.start_emb[states]
+            if states is not None
+            else self.start_emb
+        )
+        return checkpoint(
+            lambda x: self.start_mlp(self.dropout(x)).squeeze(-1).log_softmax(-1),
+            start_emb
+        )
+
     #@profile
     def transition_logits(self, states=None):
         state_emb = (self.state_emb.weight[states]
@@ -243,6 +255,20 @@ class MshmmLm(nn.Module):
         # although now we may have unassigned states, oh well
         #logits[:,-1] = float("-inf")
         return logits.log_softmax(-1)
+
+    def transition_chp(self, states=None):
+        state_emb = (self.state_emb.weight[states]
+            if states is not None
+            else self.state_emb.weight
+        )
+        next_state_proj = (self.next_state_proj.weight[states]
+            if states is not None
+            else self.next_state_proj.weight
+        )
+        return checkpoint(
+            lambda x, y: (self.trans_mlp(self.dropout(x)) @ y.t()).log_softmax(-1),
+            state_emb, next_state_proj,
+        )
 
     #@profile
     def emission_logits(self, states=None):
@@ -270,6 +296,19 @@ class MshmmLm(nn.Module):
         #log_probs.register_hook(make_f("emission log probs"))
         #log_probs[log_probs != log_probs] = float("-inf")
         return log_probs
+
+    def emission_chp(self, word2state, states=None):
+        preterminal_emb = (self.preterminal_emb.weight[states]
+            if states is not None
+            else self.preterminal_emb.weight
+        )
+        return checkpoint(
+            lambda x: self.mask_emission(
+                self.terminal_mlp(self.dropout(x)),
+                word2state,
+            ),
+            preterminal_emb
+        )
 
     def forward(self, inputs, state=None):
         # forall x, p(X = x)
@@ -333,11 +372,17 @@ class MshmmLm(nn.Module):
 
     #@profile
     def compute_parameters(self, word2state, states=None, word_mask=None):
+        if self.chp_theta:
+            transition = self.transition_chp(states)
+            #emission = self.emission_chp(word2state, states)
+            #start = self.start_chp(states)
+            #return start, transition, emission
+        else:
+            transition = self.mask_transition(self.transition_logits(states))
         #print(f"compute params start {checkmem()}")
         start = self.start(states)
         #print(f"start {checkmem()}")
         #import pdb; pdb.set_trace()
-        transition = self.mask_transition(self.transition_logits(states))
         #print(f"transition {checkmem()}")
         #import pdb; pdb.set_trace()
         emission = self.mask_emission(self.emission_logits(states), word2state)
@@ -451,6 +496,7 @@ class MshmmLm(nn.Module):
         #print(f"after fb {checkmem()}")
         #import pdb; pdb.set_trace()
         if self.keep_counts and self.training:
+            raise NotImplementedError("need to fix")
             with th.no_grad():
                 unary_marginals = th.cat([
                     log_m[:,0,None].logsumexp(-2),
@@ -500,25 +546,7 @@ class MshmmLm(nn.Module):
         #marginals, alphas, betas, log_m = fb(log_potentials, mask=mask)
         log_m, alphas = fb(log_potentials, mask=mask)
         evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1)
-        elbo = (log_m.exp() * log_potentials)[mask[:,1:]]
-        if self.keep_counts and self.training:
-            with th.no_grad():
-                unary_marginals = th.cat([
-                    log_m[:,0,None].logsumexp(-2),
-                    log_m.logsumexp(-1),
-                ], 1).exp()
-                self.counts.index_add_(
-                    1,
-                    text.view(-1),
-                    unary_marginals.view(-1, self.states_per_word).t(),
-                )
-                max_states = self.word2state[text[mask]].gather(
-                    -1,
-                    unary_marginals[mask].max(-1).indices[:,None],
-                ).squeeze(-1)
-                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
-        #if wandb.run.mode == "dryrun":
-            #import pdb; pdb.set_trace()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]]
         return Pack(
             elbo = elbo,
             evidence = evidence,

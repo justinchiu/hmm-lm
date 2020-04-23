@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J mshmm-k65536-dp0.5-nb64-spw1024-d256-lr0.001                         # Job name
+#SBATCH -J mshmm-k65536-dp0.5-nb256-spw256-d256-lr0.01                         # Job name
 #SBATCH -N 1                                 # Total number of nodes requested
 #SBATCH -n 16                                # Total number of cores requested
 #SBATCH --mem=32G                          # Total amount of (real) memory requested (per node)
@@ -11,4 +11,4 @@
 source /home/jtc257/.bashrc
 source /home/jtc257/scripts/env.sh
 py14env
-python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0.5 --model mshmm --assignment brown --states_per_word 1024 --num_clusters 64 --num_classes 65536 --bsz 512 --eval_bsz 1024 --chp_theta 1
+python main.py --lr 0.01 --column_dropout 1 --transition_dropout 0.5 --model mshmm --assignment brown --states_per_word 256 --num_clusters 256 --num_classes 65536 --bsz 512 --eval_bsz 2048

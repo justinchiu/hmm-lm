@@ -38,6 +38,9 @@ def get_args():
 
     parser.add_argument("--timing", default=0, type=int,)
 
+    parser.add_argument("--chp_theta", default=0, type=int,
+        help="checkpoint hmm parameters if > 0")
+
     add_nn_args(parser)
 
     # add chmm args
@@ -67,7 +70,7 @@ def add_chmm_args(parser):
     parser.add_argument("--start_dropout", default=0, type=float,)
     parser.add_argument("--dropout_type", choices=[
         "transition", "starttransition", "column",
-        "startcolumn", "state", "cluster",
+        "startcolumn", "state", "cluster", "none",
     ])
     parser.add_argument("--word_dropout", default=0, type=float, help="use uniform emission [0,1]")
     parser.add_argument("--assignment", choices=[
