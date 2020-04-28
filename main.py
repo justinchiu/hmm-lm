@@ -20,7 +20,9 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 import torchtext
-from datasets.ptb import PennTreebank, BucketIterator
+from datasets.lm import PennTreebank, WikiText2
+from datasets.data import BucketIterator, BPTTIterator
+#from torchtext.data import BPTTIterator
 
 from args import get_args
 
@@ -75,7 +77,7 @@ def report(losses, n, prefix, start_time=None):
     loss = losses.evidence
     elbo = losses.elbo
     # cap loss otherwise overflow
-    loss = loss if loss > -1e7 else -1e7
+    #loss = loss if loss > -1e7 else -1e7
     str_list = [
         f"{prefix}: log_prob = {loss:.2f}",
         f"xent(word) = {-loss / n:.2f}",
@@ -123,15 +125,28 @@ def cached_eval_loop(
     n = 0
     with th.no_grad():
         model.train(False)
+        lpz = None
         start, transition, emission = model.compute_parameters(model.word2state)
         word2state = model.word2state
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
-            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
-            log_potentials = model.clamp(batch.text, start, transition, emission, word2state)
-            losses = model.compute_loss(log_potentials, mask, lengths)
-            #losses = model.score(batch.text, mask=mask, lengths=lengths)
+
+            text = batch.text
+
+            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            N, T = text.shape
+
+            if lpz is not None and args.iterator == "bptt":
+                start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+
+            log_potentials = model.clamp(text, start, transition, emission, word2state)
+            losses, lpz = model.compute_loss(log_potentials, mask, lengths)
+
+            idx = th.arange(N, device=model.device)
+            last_words = text[idx, lengths-1]
+            last_states = model.word2state[last_words]
+
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
@@ -213,10 +228,19 @@ def train_loop(
     # check is performed at end of epoch outside loop as well
     checkpoint = len(iter) // (args.num_checks - 1)
     with th.enable_grad():
+        lpz = None
+        last_states = None
         for i, batch in enumerate(iter):
             model.train(True)
             WANDB_STEP += 1
             optimizer.zero_grad()
+
+            text = batch.text
+            if args.iterator == "bucket":
+                lpz = None
+                last_states = None
+
+            #print(" ".join([model.V.itos[x] for x in text[0].tolist()]))
 
             # set noise scale
             if hasattr(model, "noise_scale"):
@@ -228,19 +252,14 @@ def train_loop(
                     "noise_scale": noise_scale,
                 }, step=WANDB_STEP)
 
-            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+            mask, lengths, n_tokens = get_mask_lengths(text, V)
             if model.timing:
                 start_forward = timep.time()
-            losses = model.score(batch.text, mask=mask, lengths=lengths)
-            """
-            MemReporter().report()
-            def checkmem():
-                return(
-                    f"{th.cuda.memory_allocated() / 2**30:.2f}, {th.cuda.memory_cached() / 2 ** 30:.2f}, {th.cuda.max_memory_cached() / 2 ** 30:.2f}"
-                )
-            print(checkmem())
-            import pdb; pdb.set_trace()
-            """
+
+            # check if iterator == bptt
+            losses, lpz, last_states = model.score(
+                text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+
             if model.timing:
                 print(f"forward time: {timep.time() - start_forward}")
             total_ll += losses.evidence.detach()
@@ -344,7 +363,31 @@ def main():
     args.aux_device = aux_device
 
     TEXT = torchtext.data.Field(batch_first = True)
-    train, valid, test = PennTreebank.splits(
+
+    """
+    # check cross product of dataset and iterator
+    if args.iterator == "bucket" and args.dataset == "ptb":
+        Dataset = PennTreebank
+    elif args.iterator == "bptt" and args.dataset == "ptb":
+        # TODO: delete all bptt datasets and fix iterator
+        Dataset = torchtext.datasets.PennTreebank
+    elif args.iterator == "bucket" and args.dataset == "wikitext103":
+        raise NotImplementedError
+    elif args.iterator == "bptt" and args.dataset == "wikitext103":
+        Dataset = WikiText103
+    elif args.iterator == "bptt" and args.dataset == "wikitext2":
+        Dataset = WikiText2
+        """
+    if args.dataset == "ptb":
+        Dataset = PennTreebank
+    elif args.dataset == "wikitext103":
+        Dataset = WikiText103
+    elif args.dataset == "wikitext2":
+        # shuffling the articles is annoying
+        #Dataset = WikiText2
+        Dataset = torchtext.datasets.WikiText2
+
+    train, valid, test = Dataset.splits(
         TEXT,
         newline_eos = True,
     )
@@ -359,14 +402,27 @@ def main():
         raise NotImplementedError("Should be fine, but not tested")
         return 1
 
-    train_iter, valid_iter, text_iter = BucketIterator.splits(
-        (train, valid, test),
-        batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
-        #batch_size = args.bsz,
-        device = device,
-        sort_key = lambda x: len(x.text),
-        batch_size_fn = batch_size_tokens if args.bsz_fn == "tokens" else batch_size_sents,
-    )
+    if args.iterator == "bucket":
+        train_iter, valid_iter, text_iter = BucketIterator.splits(
+            (train, valid, test),
+            batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
+            #batch_size = args.bsz,
+            device = device,
+            sort_key = lambda x: len(x.text),
+            batch_size_fn = batch_size_tokens if args.bsz_fn == "tokens" else batch_size_sents,
+        )
+    elif args.iterator == "bptt":
+        #train_iter, valid_iter, text_iter = BPTTIterator.splits(
+        train_iter, valid_iter, text_iter = BPTTIterator.splits(
+            (train, valid, test),
+            batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
+            #batch_size = args.bsz,
+            device = device,
+            sort_key = lambda x: len(x.text),
+            bptt_len = args.bptt,
+        )
+    else:
+        raise ValueError(f"Invalid iterator {args.iterator}")
 
     """
     args = get_config(args.model_config, device)
@@ -431,7 +487,8 @@ def main():
     #valid_losses, valid_n = mixed_cached_eval_loop(args, V, valid_iter, model)
     #import pdb; pdb.set_trace()
     if args.eval_only:
-        model.load_state_dict(th.load(args.eval_only)["model"])
+        # uncomment this later
+        #model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(

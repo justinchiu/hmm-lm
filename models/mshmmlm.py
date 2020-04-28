@@ -23,7 +23,6 @@ from torch.utils.checkpoint import checkpoint
 import torch_struct as ts
 
 from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
-from .misc import Index1, Index2
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
@@ -70,9 +69,22 @@ class MshmmLm(nn.Module):
         """
         #num_clusters = 128 if config.assignment == "brown" else 64
         num_clusters = config.num_clusters if "num_clusters" in config else 128
+
+        if "dataset" not in config:
+            path = f"clusters/lm-{num_clusters}/paths"
+        elif config.dataset == "ptb":
+            lmstring = "lm"
+            path = f"clusters/{lmstring}-{num_clusters}/paths"
+        elif config.dataset == "wikitext2":
+            lmstring = "w2lm"
+            path = f"clusters/{lmstring}-{num_clusters}/paths"
+        elif config.dataset == "wikitext103":
+            lmstring = "wlm"
+            path = f"clusters/{lmstring}-{num_clusters}/paths"
+
         word2cluster, word_counts, cluster2word = read_lm_clusters(
             V,
-            path=f"clusters/lm-{num_clusters}/paths",
+            path=path,
         )
         self.word_counts = word_counts
 
@@ -339,13 +351,6 @@ class MshmmLm(nn.Module):
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
         ]
-        """
-        log_potentials = Index2.apply(
-            transition,
-            clamped_states[:,:-1,:,None],
-            clamped_states[:,1:,None,:],
-        )
-        """
         #log_potentials.register_hook(make_f("trans log pots index"))
         #print(checkmem())
         #print("trans index end")
@@ -353,10 +358,14 @@ class MshmmLm(nn.Module):
         
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
-        init = start[clamped_states[:,0]]
-        #init = Index1.apply(start, clamped_states[:,0])
+        b_idx = th.arange(batch, device=self.device)
+        init = (
+            start[clamped_states[:,0]]
+            if start.ndim == 1
+            else start[b_idx[:,None], clamped_states[:,0]]
+        )
+
         obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
-        #obs = Index2.apply(emission, clamped_states[:,:,:,None], text[:,:,None,None])
         # word dropout == replace with uniform emission matrix (within cluster)?
         # precompute that and sample mask
         if uniform_emission is not None and word_mask is not None:
@@ -370,8 +379,17 @@ class MshmmLm(nn.Module):
         #import pdb; pdb.set_trace()
         return log_potentials.transpose(-1, -2)
 
+    def trans_to(self, from_states, to_states):
+        state_emb = self.state_emb.weight[from_states]
+        next_state_proj = self.next_state_proj.weight[to_states]
+        x = self.trans_mlp(self.dropout(state_emb))
+        return (x @ next_state_proj.t()).log_softmax(-1)
+
     #@profile
-    def compute_parameters(self, word2state, states=None, word_mask=None):
+    def compute_parameters(self, word2state,
+        states=None, word_mask=None,
+        lpz=None, last_states=None,
+    ):
         if self.chp_theta:
             transition = self.transition_chp(states)
             #emission = self.emission_chp(word2state, states)
@@ -379,22 +397,33 @@ class MshmmLm(nn.Module):
             #return start, transition, emission
         else:
             transition = self.mask_transition(self.transition_logits(states))
-        #print(f"compute params start {checkmem()}")
-        start = self.start(states)
-        #print(f"start {checkmem()}")
-        #import pdb; pdb.set_trace()
-        #print(f"transition {checkmem()}")
-        #import pdb; pdb.set_trace()
+
+        if last_states is None:
+            start = self.start(states)
+        else:
+            # compute start from last_state
+            start = (
+                lpz[:,:,None] + self.trans_to(last_states, states)
+            ).logsumexp(1)
+            # hope this isn't too big
+             
         emission = self.mask_emission(self.emission_logits(states), word2state)
-        #print(f"emission {checkmem()}")
-        #import pdb; pdb.set_trace()
         return start, transition, emission
 
-    def log_potentials(self, text, states=None, word_mask=None):
+    def log_potentials(
+        self, text,
+        states = None,
+        lpz=None, last_states=None,
+        word_mask=None,
+    ):
         #word2state = self.word2state
         word2state = self.word2state_d if states is not None else self.word2state
 
-        start, transition, emission = self.compute_parameters(word2state, states)
+        start, transition, emission = self.compute_parameters(
+            word2state, states,
+            word_mask,
+            lpz, last_states,
+        )
         #if wandb.run.mode == "dryrun":
             #print(f"total emitm time: {timep.time() - start_emitm}")
             #start_clamp = timep.time()
@@ -418,42 +447,26 @@ class MshmmLm(nn.Module):
     ):
         N = lengths.shape[0]
         fb = self.fb_train if self.training else self.fb_test
-        #fb = self.fb_train
-        log_m, alphas= fb(log_potentials, mask=mask)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total marg time: {timep.time() - start_marg}")
-        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
-        elbo = (log_m.exp() * log_potentials)[mask[:,1:]].sum()
-        #import pdb; pdb.set_trace()
-        if keep_counts:
-            with th.no_grad():
-                unary_marginals = th.cat([
-                    log_m[:,0,None].logsumexp(-2),
-                    log_m.logsumexp(-1),
-                ], 1).exp()
-                self.counts.index_add_(
-                    1,
-                    text.view(-1),
-                    unary_marginals.view(-1, self.states_per_word).t(),
-                )
-                max_states = self.word2state[text[mask]].gather(
-                    -1,
-                    unary_marginals[mask].max(-1).indices[:,None],
-                ).squeeze(-1)
-                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
+        log_m, alphas = fb(log_potentials, mask=mask)
+
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
+
         return Pack(
             elbo = elbo,
             evidence = evidence,
             loss = elbo,
-        )
-
+        ), alpha_T.log_softmax(-1)
 
     #@profile
-    def score(self, text, mask=None, lengths=None):
+    def score(
+        self, text,
+        lpz=None, last_states=None,
+        mask=None, lengths=None,
+    ):
         N, T = text.shape
-        #if wandb.run.mode == "dryrun":
-            #start_pot = timep.time()
-        # sample states if training
         if self.training:
             I = (th.distributions.Gumbel(self.zero, self.one)
                 .sample(self.cluster2state.shape)
@@ -472,57 +485,32 @@ class MshmmLm(nn.Module):
             states = None
             word_mask = None
 
-        #import pdb; pdb.set_trace()
-        log_potentials = self.log_potentials(text, states, word_mask)
-        #log_potentials.register_hook(make_f("log_potentials score"))
-        #import pdb; pdb.set_trace()
-        #if wandb.run.mode == "dryrun":
-            #print(f"total pot time: {timep.time() - start_pot}")
-            #start_marg = timep.time()
+        log_potentials = self.log_potentials(
+            text,
+            states,
+            lpz, last_states,
+            word_mask,
+        )
         fb = self.fb_train if self.training else self.fb_test
         with th.no_grad():
             log_m, alphas = fb(log_potentials.detach(), mask=mask)
-            #log_m, alphas = fb(log_potentials, mask=mask)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total marg time: {timep.time() - start_marg}")
-        evidence = alphas[
-            lengths-1, th.arange(N, device=self.device)
-        ].logsumexp(-1).sum()
-        # exp = 0.5G?
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
-        #elbo.register_hook(make_f("elbo"))
-        #print("end of forward")
-        #print(checkmem())
-        #print(f"after fb {checkmem()}")
-        #import pdb; pdb.set_trace()
-        if self.keep_counts and self.training:
-            raise NotImplementedError("need to fix")
-            with th.no_grad():
-                unary_marginals = th.cat([
-                    log_m[:,0,None].logsumexp(-2),
-                    log_m.logsumexp(-1),
-                ], 1).exp()
-                self.counts.index_add_(
-                    1,
-                    text.view(-1),
-                    unary_marginals.view(-1, self.states_per_word).t(),
-                )
-                max_states = self.word2state[text[mask]].gather(
-                    -1,
-                    unary_marginals[mask].max(-1).indices[:,None],
-                ).squeeze(-1)
-                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
-        #if wandb.run.mode == "dryrun":
-            #import pdb; pdb.set_trace()
-        #print(text.shape)
-        #import sys; sys.exit()
+
+        last_words = text[idx, lengths-1]
+        c2s = states.view(self.config.num_clusters, -1)
+        end_states = c2s[self.word2cluster[last_words]]
+
         return Pack(
             elbo = elbo,
             evidence = evidence,
             loss = elbo,
-        )
+        ), alpha_T.log_softmax(-1), end_states
 
     def scoren(self, text, mask=None, lengths=None):
+        raise NotImplementedError()
         N, T = text.shape
         #if wandb.run.mode == "dryrun":
             #start_pot = timep.time()

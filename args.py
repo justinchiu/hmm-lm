@@ -4,6 +4,10 @@ import torch_struct as ts
 
 def get_args():
     parser = ArgumentParser()
+    # dataset
+    parser.add_argument("--dataset",
+        choices=["ptb", "wikitext2", "wikitext103"], default="ptb")
+    parser.add_argument("--iterator", choices=["bucket", "bptt"], default="bucket")
     # learning args
     parser.add_argument("--bsz", default=512, type=int,)
     parser.add_argument("--eval_bsz", default=512, type=int,)
@@ -22,7 +26,7 @@ def get_args():
         default="reducelronplateau",)
     parser.add_argument("--warmup_steps", default=500, type=int,)
     parser.add_argument("--patience", default=4, type=int,)
-    parser.add_argument("--bptt", default=35, type=int, )
+    parser.add_argument("--bptt", default=32, type=int, )
     parser.add_argument("--num_epochs", default=50, type=int,)
     parser.add_argument("--num_checks", default=4, type=int,)
     parser.add_argument("--report_every", default=5000,)

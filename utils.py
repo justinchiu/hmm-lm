@@ -45,6 +45,8 @@ def get_config(path, device):
 
 def get_name(config):
     return "_".join([
+        config.dataset,
+        config.iterator,
         config.model,
         f"k{config.num_classes}",
         f"wps{config.words_per_state}",
