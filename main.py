@@ -384,8 +384,8 @@ def main():
         Dataset = WikiText103
     elif args.dataset == "wikitext2":
         # shuffling the articles is annoying
-        #Dataset = WikiText2
-        Dataset = torchtext.datasets.WikiText2
+        Dataset = WikiText2
+        #Dataset = torchtext.datasets.WikiText2
 
     train, valid, test = Dataset.splits(
         TEXT,

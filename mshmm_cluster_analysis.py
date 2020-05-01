@@ -9,7 +9,8 @@ import torchtext
 
 from torch_scatter import scatter_add
 
-from datasets.ptb import PennTreebank, BucketIterator
+from datasets.lm import PennTreebank
+from datasets.data import BucketIterator
 
 import numpy as np
 
@@ -19,8 +20,8 @@ count_paths = [
     "mshmm-k16384-spw128-nc128-counts.pth",
     "mshmm-k32768-spw256-nc128-counts.pth",
     "mshmm-k65536-spw512-nc128-counts.pth",
-    "mshmm-k32768-spw512-nc64-counts.pth",
-    "mshmm-k32768-spw1024-nc32-counts.pth",
+    #"mshmm-k32768-spw512-nc64-counts.pth",
+    #"mshmm-k32768-spw1024-nc32-counts.pth",
 ]
 
 I = None
@@ -70,7 +71,18 @@ for stuff in count_paths:
     print("Total number of states used / number of states")
     print(f"{C.sum()} / {config.num_classes}")
 
+    word_counts = Counter(dict(model.word_counts))
+
+    print("state usage for words")
+    state_usage_word = (counts > 0).sum(-1)
+    words = ["to", "now", "do", "october", "newspaper", "country", "from"]
+    for word in words:
+        idx = V[word]
+        print(f"{word}: {state_usage_word[idx]}")
+
     #import pdb; pdb.set_trace()
+
+    # check deltas
 
 """
 # old, make sure I matches everything else

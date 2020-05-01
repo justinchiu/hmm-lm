@@ -18,6 +18,53 @@ from torchtext.data.dataset import Dataset
 logger = logging.getLogger(__name__)
 
 
+def process_lines(path, encoding, text_field, newline_eos, fields):
+    examples = []
+    with io.open(path, encoding=encoding) as f:
+        for i, line in enumerate(f):
+            text = text_field.preprocess(line)
+            print(text)
+            if newline_eos:
+                text.append(u'<eos>')
+            example = data.Example.fromlist([text], fields)
+            example.idx = i
+            examples.append(example)
+    return examples
+
+def process_articles(path, encoding, text_field, newline_eos, fields):
+    examples = []
+    cur_example = []
+    with io.open(path, encoding=encoding) as f:
+        for i, line in enumerate(f):
+            text = text_field.preprocess(line)
+            if newline_eos:
+                text.append(u'<eos>')
+
+            if text[0] == "=" and text[1] == "=":
+                # Subheader
+                pass
+            elif text[0] == "=" and text[1] != "=":
+                # header
+                pass
+            cur_example.append(text)
+
+            # if current example is complete
+            if cur_example[-1][0] == "=" and cur_example[-1][1] != "=":
+                # takes list of lists
+                example = data.Example.fromlist([[
+                    token for tokens in cur_example[:-1] for token in tokens
+                ]], fields)
+                example.idx = i
+                examples.append(example)
+                cur_example = [cur_example[-1]]
+        example = data.Example.fromlist([[
+            token for tokens in cur_example for token in tokens
+        ]], fields)
+        example.idx = i
+        examples.append(example)
+    # first example is empty, actually want a do-while loop
+    return examples[1:]
+
 class LanguageModelingDataset(data.Dataset):
     """Defines a dataset for language modeling."""
 
@@ -27,7 +74,9 @@ class LanguageModelingDataset(data.Dataset):
         text_field,
         newline_eos=True,
         feature_path = None,
-        encoding='utf-8', **kwargs,
+        encoding='utf-8',
+        articles = False,
+        **kwargs,
     ):
         """Create a LanguageModelingDataset given a path and a field.
 
@@ -42,15 +91,8 @@ class LanguageModelingDataset(data.Dataset):
         fields = [('text', text_field)]
         if feature_path is not None:
             import pdb; pdb.set_trace()
-        examples = []
-        with io.open(path, encoding=encoding) as f:
-            for i, line in enumerate(f):
-                text = text_field.preprocess(line)
-                if newline_eos:
-                    text.append(u'<eos>')
-                example = data.Example.fromlist([text], fields)
-                example.idx = i
-                examples.append(example)
+        process = process_articles if articles else process_lines
+        examples = process(path, encoding, text_field, newline_eos, fields)
 
         super(LanguageModelingDataset, self).__init__(
             examples, fields, **kwargs)
@@ -89,7 +131,7 @@ class PennTreebank(LanguageModelingDataset):
         """
         return super(PennTreebank, cls).splits(
             root=root, train=train, validation=validation, test=test,
-            text_field=text_field, **kwargs)
+            text_field=text_field, articles=False, **kwargs)
 
     @classmethod
     def iters(cls, batch_size=32, bptt_len=35, device=0, root='.data',
@@ -146,7 +188,7 @@ class WikiText2(LanguageModelingDataset):
         """
         return super(WikiText2, cls).splits(
             root=root, train=train, validation=validation, test=test,
-            text_field=text_field, **kwargs)
+            text_field=text_field, articles=True, **kwargs)
 
     @classmethod
     def iters(cls, batch_size=32, bptt_len=35, device=0, root='.data',
@@ -203,7 +245,7 @@ class WikiText103(LanguageModelingDataset):
         """
         return super(WikiText103, cls).splits(
             root=root, train=train, validation=validation, test=test,
-            text_field=text_field, **kwargs)
+            text_field=text_field, articles=True, **kwargs)
 
     @classmethod
     def iters(cls, batch_size=32, bptt_len=35, device=0, root='.data',
