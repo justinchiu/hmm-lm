@@ -4,6 +4,7 @@ input=.data/penn-treebank/ptb.train.txt
 
 winput=.data/wikitext-103/wikitext-103/wiki.train.tokens
 w2input=.data/wikitext-2/wikitext-2/wiki.train.tokens
+w2finput=.data/wikitext-2/wikitext-2/wiki.train.tokens.flat
 
 if [[ "$1" == "pmi" ]]; then
     cluster=/n/rush_lab/jc/code/tan-clustering/pmi_cluster.py
@@ -89,6 +90,33 @@ elif [[ "$1" == "w2lm8" ]]; then
 elif [[ "$1" == "w2lm4" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $w2input --c 4 --output_dir clusters/w2lm-4
+elif [[ "$1" == "w2flm256" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 256 --output_dir clusters/w2flm-256
+elif [[ "$1" == "w2flm128" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 128 --output_dir clusters/w2flm-128
+elif [[ "$1" == "w2flm64" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 64 --output_dir clusters/w2flm-64
+elif [[ "$1" == "w2flm32" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 32 --output_dir clusters/w2flm-32
+elif [[ "$1" == "w2flm16" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 16 --output_dir clusters/w2flm-16
+elif [[ "$1" == "w2flm10" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 10 --output_dir clusters/w2flm-10
+elif [[ "$1" == "w2flm9" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 9 --output_dir clusters/w2flm-9
+elif [[ "$1" == "w2flm8" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 8 --output_dir clusters/w2flm-8
+elif [[ "$1" == "w2flm4" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $w2finput --c 4 --output_dir clusters/w2flm-4
 else
     echo "Improper argument"
 fi
