@@ -77,7 +77,7 @@ class MshmmLm(nn.Module):
             path = f"clusters/{lmstring}-{num_clusters}/paths"
         elif config.dataset == "wikitext2":
             #lmstring = "w2lm"
-            lmstring = "w2lmf"
+            lmstring = "w2flm"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
         elif config.dataset == "wikitext103":
             lmstring = "wlm"

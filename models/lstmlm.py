@@ -15,6 +15,7 @@ class LstmLm(ts.AutoregressiveModel):
         self.config = config
         self.V = V
         self.device = config.device
+        self.timing = False
 
         self.emb = nn.Embedding(
             num_embeddings = len(V),
@@ -55,16 +56,18 @@ class LstmLm(ts.AutoregressiveModel):
 
     def forward(self, inputs, state=None):
         emb_x = self.dropout(self.emb(inputs))
-        rnn_o, new_state = self.lstm(emb_x, self.convert_state(state))
+        #rnn_o, new_state = self.lstm(emb_x, self.convert_state(state))
+        rnn_o, new_state = self.lstm(emb_x, state)
         logits = th.einsum(
             "nth,vh->ntv",
             self.dropout(rnn_o),
             self.emb.weight if self.tie_weights else self.proj.weight,
         )
-        return logits.log_softmax(-1), self.convert_state(new_state)
+        return logits.log_softmax(-1), new_state
+        #return logits.log_softmax(-1), self.convert_state(new_state)
 
     # don't see the point of this right now, wrapping would be for beam search etc.
-    def score(self, text, mask=None, lengths=None):
+    def score_old(self, text, mask=None, lengths=None):
         state = self.init_state(text.shape[0])
         dist = Autoregressive(
             model = self,
@@ -83,6 +86,20 @@ class LstmLm(ts.AutoregressiveModel):
             loss = loss,
             elbo = None,
         )
+
+    def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
+        # unpack `text` tuple
+        input = text[:,:-1]
+        output = text[:,1:]
+        logits, state = self(input, last_states)
+        log_px = logits.gather(-1, output[:,:,None]).squeeze(-1)
+        loss = log_px[mask[:,1:]].sum()
+        return Pack(
+            evidence = loss,
+            loss = loss,
+            elbo = None,
+        ), None, tuple(x.detach() for x in state)
+
 
     def lpx(self, text, mask=None, lengths=None):
         state = self.init_state(text.shape[0])

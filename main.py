@@ -104,13 +104,20 @@ def eval_loop(
     total_ll = 0
     total_elbo = 0
     n = 0
+    lpz, last_states = None, None
     with th.no_grad():
         for i, batch in enumerate(iter):
             model.train(False)
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
             mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
-            losses = model.score(batch.text, mask=mask, lengths=lengths)
+            if args.iterator != "bptt":
+                lpz, last_states = None, None
+            losses, lpz, _ = model.score(
+                batch.text,
+                lpz=lpz, last_states = last_states,
+                mask=mask, lengths=lengths,
+            )
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
@@ -161,6 +168,8 @@ def mixed_cached_eval_loop(
     n = 0
     with th.no_grad():
         model.train(False)
+        lpz = None
+
         start = model.start().cpu()
         emission = model.mask_emission(model.emission_logits(), model.word2state).cpu()
 
@@ -181,12 +190,27 @@ def mixed_cached_eval_loop(
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
-            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+
+            text = batch.text
+
+            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            N, T = text.shape
+
+            if lpz is not None and args.iterator == "bptt":
+                # hopefully this isn't too slow on cpu
+                start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+
             log_potentials = model.clamp(
-                batch.text, start, transition, emission, word2state
+                text, start, transition, emission, word2state
             ).to(model.device)
-            losses = model.compute_loss(log_potentials, mask, lengths)
-            #losses = model.score(batch.text, mask=mask, lengths=lengths)
+
+            losses, lpz = model.compute_loss(log_potentials, mask, lengths)
+            lpz = lpz.cpu()
+
+            idx = th.arange(N, device=model.device)
+            last_words = text[idx, lengths-1]
+            last_states = model.word2state[last_words]
+
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
@@ -201,7 +225,9 @@ def elbo_eval_loop(
     n = 0
     with th.no_grad():
         for i, batch in enumerate(iter):
+            # TODO: HACK, add an option to not train with dropout
             model.train(True)
+            #model.train(False)
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
             mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
@@ -235,7 +261,7 @@ def train_loop(
             WANDB_STEP += 1
             optimizer.zero_grad()
 
-            text = batch.text
+            text = batch.textp1 if "lstm" in args.model else batch.text
             if args.iterator == "bucket":
                 lpz = None
                 last_states = None
@@ -363,6 +389,8 @@ def main():
     args.aux_device = aux_device
 
     TEXT = torchtext.data.Field(batch_first = True)
+    ## DBG
+    #TEXT = torchtext.data.Field(batch_first = True, lower=True)
 
     """
     # check cross product of dataset and iterator
@@ -397,10 +425,8 @@ def main():
 
     def batch_size_tokens(new, count, sofar):
         return max(len(new.text), sofar)
-    # disallowed
     def batch_size_sents(new, count, sofar):
-        raise NotImplementedError("Should be fine, but not tested")
-        return 1
+        return count
 
     if args.iterator == "bucket":
         train_iter, valid_iter, text_iter = BucketIterator.splits(

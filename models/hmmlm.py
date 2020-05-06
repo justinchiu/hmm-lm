@@ -134,15 +134,15 @@ class HmmLm(nn.Module):
         #evidence = ts.LinearChain().sum(log_potentials, lengths=lengths)
         return evidence.sum()
 
-    def log_potentials(self, text, states=None):
+    def log_potentials(self, text, states=None, lpz=None, last_states=None,):
         start_logits = self.start_logits()
         transition_logits = self.transition_logits()
         log_potentials = ts.LinearChain.hmm(
             transition = self.mask_transition(
                 transition_logits,
                 None,
-            ),
-            emission = self.emission,
+            ).t(),
+            emission = self.emission.t(),
             init = self.mask_start(
                 start_logits,
                 None,
@@ -152,7 +152,7 @@ class HmmLm(nn.Module):
         )
         return log_potentials
 
-    def score(self, text, mask=None, lengths=None):
+    def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         N, T = text.shape
 
         start_mask, transition_mask = None, None
@@ -203,28 +203,28 @@ class HmmLm(nn.Module):
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
 
-        start_logits = self.start_logits()
         transition_logits = self.transition_logits()
+        transition = self.mask_transition(transition_logits, transition_mask)
+
+        if lpz is not None:
+            start = (lpz[:,:,None] + transition[None]).logsumexp(1)
+        else:
+            start_logits = self.start_logits()
+            start = self.mask_start(start_logits, start_mask)
+
         log_potentials = ts.LinearChain.hmm(
-            transition = self.mask_transition(
-                transition_logits,
-                transition_mask,
-            ).t(),
+            transition = transition.t(),
             emission = self.emission.t(),
-            init = self.mask_start(
-                start_logits,
-                start_mask,
-            ),
+            init = start,
             observations = text,
             semiring = ts.LogSemiring,
         )
-        with th.no_grad():
-            log_m, alphas = self.fb(log_potentials.detach())
-        evidence = alphas.gather(
-            0,
-            (lengths-1).view(1, N, 1).expand(1, N, self.C),
-        ).logsumexp(-1).sum()
-        elbo = (log_m.exp_().detach() * log_potentials)[mask[:,1:]].sum()
+        with th.no_grad():                                  
+            log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx] 
+        evidence = alpha_T.logsumexp(-1).sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
 
         if self.keep_counts and self.training:
             raise NotImplementedError("need to fix")
@@ -245,4 +245,4 @@ class HmmLm(nn.Module):
             elbo = elbo,
             evidence = evidence,
             loss = elbo,
-        )
+        ), alpha_T.log_softmax(-1), None

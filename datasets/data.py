@@ -445,6 +445,7 @@ class BPTTIterator(Iterator):
     def __iter__(self):
         TEXT = self.dataset.fields['text']
         TEXT.eos_token = None
+        # ^ not sure what this is for
 
         dataset = Dataset(
             examples=self.dataset.examples,
@@ -467,10 +468,19 @@ class BPTTIterator(Iterator):
         )
         data = TEXT.numericalize(
             [text], device=self.device)
-        data = data.view(self.batch_size, -1).t().contiguous()
+        data = data.view(self.batch_size, -1).t()
+        eos_token = TEXT.vocab["<eos>"]
+        data = th.cat([
+            th.empty(
+                self.batch_size,
+                device=data.device,
+                dtype=data.dtype,
+            )[None].fill_(eos_token),
+            data,
+        ], 0)
 
         while True:
-            for i in range(0, len(self) * self.bptt_len, self.bptt_len):
+            for i in range(1, len(self) * self.bptt_len, self.bptt_len):
                 self.iterations += 1
                 """
                 seq_len = min(self.bptt_len, len(data) - i - 1)
@@ -486,11 +496,14 @@ class BPTTIterator(Iterator):
                 """
                 seq_len = min(self.bptt_len, len(data) - i)
                 batch_text = data[i:i + seq_len]
+                batch_textp1 = data[i-1:i + seq_len]
                 if TEXT.batch_first:
                     batch_text = batch_text.t().contiguous()
+                    batch_textp1 = batch_textp1.t().contiguous()
                 yield Batch.fromvars(
                     dataset, self.batch_size,
                     text=batch_text,
+                    textp1=batch_textp1,
                 )
             if not self.repeat:
                 return

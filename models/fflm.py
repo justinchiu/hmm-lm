@@ -17,6 +17,8 @@ class FfLm(ts.AutoregressiveModel):
         self.device = config.device
         self.n = config.ngrams
 
+        self.timing = False
+
         # default to weight tying
         self.tie_weights = config.tie_weights > 0 if "tie_weights" in config else True
 
@@ -67,25 +69,26 @@ class FfLm(ts.AutoregressiveModel):
         )
         return logits.log_softmax(-1)
 
-    def prepare_input(self, text):
+    def prepare_input(self, text, state=None):
         # append beginning tokens
         return th.cat([
-            self.prefix.unsqueeze(0).expand(text.shape[0], self.n-1),
+            self.prefix.unsqueeze(0).expand(text.shape[0], self.n-1) if state is None else state,
             text,
         ], -1)
 
 
     # don't see the point of this right now, wrapping would be for beam search etc.
-    def score(self, text, mask=None, lengths=None):
+    def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         #state = self.init_state(text.shape[0])
-        input = self.prepare_input(text[:,:-1])
+        #input = text[:,:-1]
+        input = self.prepare_input(text[:,:-1], last_states)
         log_prob = self(input).gather(-1, text.unsqueeze(-1)).squeeze(-1)
         evidence = log_prob[mask].sum()
         return Pack(
             elbo = None,
             evidence = evidence.detach(),
             loss = evidence,
-        )
+        ), None, text[:,-self.n+1:]
 
     def lpx(self, text, mask=None, lengths=None):
         input = self.prepare_input(text[:,:-1])

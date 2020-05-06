@@ -20,7 +20,8 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import torchtext
-from datasets.ptb import PennTreebank, BucketIterator
+from datasets.lm import PennTreebank
+from datasets.data import BucketIterator, BPTTIterator
 
 from args import get_args
 
@@ -31,10 +32,7 @@ from models.fflm import FfLm
 import chart_studio.plotly as py
 import plotly.graph_objects as go
 
-import pandas as pd
-
-
-chp_path = "wandb_checkpoints/hmm_k1024_wps512_spw128_ed256_d256_dp0_tdp0.0_cdp0_sdp0_dtNone_tokens_b128_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/105368_5.16.pth"
+chp_path = "wandb_checkpoints_odyssey/hmm_k1024_wps512_spw128_ed256_d256_dp0_tdp0.0_cdp0_sdp0_dtNone_tokens_b128_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/105368_5.16.pth"
 
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
@@ -58,7 +56,7 @@ V = TEXT.vocab
 train_iter, valid_iter, text_iter = BucketIterator.splits(
     (train, valid, test),
     #batch_size = [args.bsz, args.eval_bsz, args.eval_bsz],
-    batch_size = 96,
+    batch_size = 100,
     #batch_size_fn = lambda new, count, sofar: count,
     #batch_size_fn = f,
     device = device,
@@ -79,8 +77,7 @@ with th.no_grad():
         # hmm
         #l1 = model.score(batch.text, mask=mask, lengths=lengths)
         log_pots = model.log_potentials(text)
-        m, a, b, log_m = model.fb(log_pots, mask)
-        del log_pots, m, a, b
+        log_m, a = model.fb(log_pots, mask)
         log_unary_marginals = th.cat([        
             log_m[:,0,None].logsumexp(-2),
             log_m.logsumexp(-1),          
@@ -89,5 +86,6 @@ with th.no_grad():
         text = text[mask]
         I = log_unary_marginals.max(-1).indices[mask]
         counts.index_add_(0, text * model.C + I, th.ones_like(I, dtype=th.long))
+
 counts = counts.view(len(model.V), model.C)
 th.save((chp_path, counts), "hmm-k1024-counts.pth")

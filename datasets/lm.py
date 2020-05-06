@@ -23,7 +23,7 @@ def process_lines(path, encoding, text_field, newline_eos, fields):
     with io.open(path, encoding=encoding) as f:
         for i, line in enumerate(f):
             text = text_field.preprocess(line)
-            print(text)
+            #print(text)
             if newline_eos:
                 text.append(u'<eos>')
             example = data.Example.fromlist([text], fields)
