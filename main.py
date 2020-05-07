@@ -429,6 +429,7 @@ def main():
         return count
 
     if args.iterator == "bucket":
+        # independent sentences...bad
         train_iter, valid_iter, text_iter = BucketIterator.splits(
             (train, valid, test),
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
@@ -444,11 +445,14 @@ def main():
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
             #batch_size = args.bsz,
             device = device,
-            sort_key = lambda x: len(x.text),
             bptt_len = args.bptt,
+            sort = False,
         )
     else:
         raise ValueError(f"Invalid iterator {args.iterator}")
+
+    if args.no_shuffle_train:
+        train_iter.shuffle = False
 
     """
     args = get_config(args.model_config, device)

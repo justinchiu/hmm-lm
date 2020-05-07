@@ -40,6 +40,9 @@ def get_args():
     parser.add_argument("--eval_only", default="",)
 
     parser.add_argument("--timing", default=0, type=int,)
+    parser.add_argument("--no_shuffle_train", default=0, type=int, help="don't shuffle if > 0")
+    parser.add_argument("--reset_eos", default=0, type=int, help="reset state at eos if > 0")
+    parser.add_argument("--flat_clusters", default=0, type=int, help="flat clusters if > 0")
 
     parser.add_argument("--chp_theta", default=0, type=int,
         help="checkpoint hmm parameters if > 0")
@@ -86,7 +89,6 @@ def add_chmm_args(parser):
     parser.add_argument("--num_common", default=0, type=int, help="top k common words (only unevenbrown)")
     parser.add_argument("--num_common_states", default=0, type=int, help="number of common states (only unevenbrown)")
     parser.add_argument("--states_per_common", default=0, type=int, help="repeat each common word (only unevenbrown)")
-    parser.add_argument("--reset_eos", default=0, type=int, help="reset state at eos if > 0")
 
 def add_dhmm_args(parser):
     parser.add_argument_group("dhmm")

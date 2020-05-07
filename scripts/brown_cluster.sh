@@ -1,6 +1,7 @@
 #!/bin/bash
 
 input=.data/penn-treebank/ptb.train.txt
+finput=.data/penn-treebank/ptb.train.txt.flat
 
 winput=.data/wikitext-103/wikitext-103/wiki.train.tokens
 w2input=.data/wikitext-2/wikitext-2/wiki.train.tokens
@@ -36,6 +37,33 @@ elif [[ "$1" == "lm8" ]]; then
 elif [[ "$1" == "lm4" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $input --c 4 --output_dir clusters/lm-4
+elif [[ "$1" == "flm256" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 256 --output_dir clusters/flm-256
+elif [[ "$1" == "flm128" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 128 --output_dir clusters/flm-128
+elif [[ "$1" == "flm64" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 64 --output_dir clusters/flm-64
+elif [[ "$1" == "flm32" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 32 --output_dir clusters/flm-32
+elif [[ "$1" == "flm16" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 16 --output_dir clusters/flm-16
+elif [[ "$1" == "flm10" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 10 --output_dir clusters/flm-10
+elif [[ "$1" == "flm9" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 9 --output_dir clusters/flm-9
+elif [[ "$1" == "flm8" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 8 --output_dir clusters/flm-8
+elif [[ "$1" == "flm4" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $finput --c 4 --output_dir clusters/flm-4
 elif [[ "$1" == "wlm256" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $winput --c 256 --output_dir clusters/wlm-256

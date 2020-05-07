@@ -75,6 +75,8 @@ def get_name(config):
         f"spc{config.states_per_common}",
         f"n{config.ngrams}",
         f"r{config.reset_eos}",
+        f"ns{config.no_shuffle_train}",
+        f"fc{config.flat_clusters}",
     ])
 
 def get_args(args):

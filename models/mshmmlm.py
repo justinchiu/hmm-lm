@@ -64,6 +64,7 @@ class MshmmLm(nn.Module):
         self.chp_theta = config.chp_theta > 0
 
         self.reset_eos = "reset_eos" in config and config.reset_eos > 0
+        self.flat_clusters = "flat_clusters" in config and config.flat_clusters > 0
 
         """
         word2state, state2word = assign_states(
@@ -75,7 +76,7 @@ class MshmmLm(nn.Module):
         if "dataset" not in config:
             path = f"clusters/lm-{num_clusters}/paths"
         elif config.dataset == "ptb":
-            lmstring = "lm"
+            lmstring = "lm" if not self.flat_clusters else "flm"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
         elif config.dataset == "wikitext2":
             #lmstring = "w2lm"
