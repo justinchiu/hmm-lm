@@ -73,6 +73,8 @@ def get_name(config):
         f"nc{config.num_common}",
         f"ncs{config.num_common_states}",
         f"spc{config.states_per_common}",
+        f"n{config.ngrams}",
+        f"r{config.reset_eos}",
     ])
 
 def get_args(args):

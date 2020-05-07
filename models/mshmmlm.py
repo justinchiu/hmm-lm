@@ -63,6 +63,8 @@ class MshmmLm(nn.Module):
         self.timing = config.timing > 0
         self.chp_theta = config.chp_theta > 0
 
+        self.reset_eos = "reset_eos" in config and config.reset_eos > 0
+
         """
         word2state, state2word = assign_states(
             self.C, self.states_per_word, len(self.V), self.words_per_state)
@@ -339,6 +341,7 @@ class MshmmLm(nn.Module):
     def clamp(
         self, text, start, transition, emission, word2state,
         uniform_emission = None, word_mask = None,
+        reset = None,
     ):
         clamped_states = word2state[text]
         #if wandb.run.mode == "dryrun":
@@ -356,6 +359,12 @@ class MshmmLm(nn.Module):
         #print(checkmem())
         #print("trans index end")
         #import pdb; pdb.set_trace()
+        if reset is not None:
+            eos_mask = text[:,:-1] == self.V["<eos>"]
+            # reset words following eos
+            reset_states = word2state[text[:,1:][eos_mask]]
+            log_potentials[eos_mask] = reset[reset_states][:,None]
+            #lp = log_potentials.clone()
         
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
@@ -425,6 +434,8 @@ class MshmmLm(nn.Module):
             word_mask,
             lpz, last_states,
         )
+        # really should put this in compute_parameters
+        reset = self.start(states) if self.reset_eos else None
         #if wandb.run.mode == "dryrun":
             #print(f"total emitm time: {timep.time() - start_emitm}")
             #start_clamp = timep.time()
@@ -436,9 +447,11 @@ class MshmmLm(nn.Module):
         #print("Preclamp")
         #print(checkmem())
         #print("clamp")
+        #
         return self.clamp(
             text, start, transition, emission, word2state,
             uniform_emission, word_mask,
+            reset = reset,
         )
 
     def compute_loss(

@@ -247,6 +247,7 @@ def train_loop(
     verbose=False,
 ):
     global WANDB_STEP
+
     noise_scales = np.linspace(1, 0, args.noise_anneal_steps)
     total_ll = 0
     total_elbo = 0
@@ -265,7 +266,6 @@ def train_loop(
             if args.iterator == "bucket":
                 lpz = None
                 last_states = None
-
             #print(" ".join([model.V.itos[x] for x in text[0].tolist()]))
 
             # set noise scale

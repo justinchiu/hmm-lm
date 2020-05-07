@@ -82,6 +82,7 @@ class FfLm(ts.AutoregressiveModel):
         #state = self.init_state(text.shape[0])
         #input = text[:,:-1]
         input = self.prepare_input(text[:,:-1], last_states)
+        #import pdb; pdb.set_trace()
         log_prob = self(input).gather(-1, text.unsqueeze(-1)).squeeze(-1)
         evidence = log_prob[mask].sum()
         return Pack(
