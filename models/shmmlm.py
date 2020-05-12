@@ -83,8 +83,8 @@ class ShmmLm(nn.Module):
                 config.states_per_common,
             )
         elif config.assignment == "uniform":
-            word2state, state2word = assign_states(
-                self.C, self.states_per_word, len(self.V), self.words_per_state)
+            word2state = assign_states(
+                self.C, self.states_per_word, len(self.V))
         elif config.assignment == "word2vec":
             word2cluster_np = np.load("clusters/kmeans-vecs/word2state-k128-6b-100d.npy")
             word2cluster = {i: x for i, x in enumerate(word2cluster_np[:,0])}

@@ -15,30 +15,12 @@ import torch as th
 
 # randomly assign M states to each word (out of K)
 # states have at most L words (sparsity is nice)
-def assign_states(num_states, states_per_word, num_words, words_per_state):
+def assign_states(num_states, states_per_word, num_words):
     word2state = [[] for _ in range(num_words)]
-    state2word = [[] for _ in range(num_states)]
     for w in range(num_words):
-        perm = np.random.permutation(num_states)
-        #print([len(state2word[x]) for x in range(num_states)])
-        #print(sum([len(state2word[x]) for x in range(num_states)]))
-        #print(sum([len(state2word[x]) < words_per_state for x in range(num_states)]))
-        i = 0
-        while len(word2state[w]) < states_per_word:
-            try:
-                s = perm[i]
-            except:
-                print("Try again with more states or words_per_state")
-                sys.exit()
-            if len(state2word[s]) < words_per_state:
-                word2state[w].append(s)
-                state2word[s].append(w)
-            i += 1
-    # pad state2word to words_per_state
-    for s in range(num_states):
-        while len(state2word[s]) < words_per_state:
-            state2word[s].append(num_words)
-    return np.array(word2state), np.array(state2word)
+        perm = np.random.permutation(num_states)[:states_per_word]
+        word2state[w] = perm
+    return np.array(word2state)
 
 # slower but avoids degenerate solutions better?
 def assign_states2(num_states, states_per_word, num_words, words_per_state):
