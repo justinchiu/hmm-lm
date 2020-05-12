@@ -22,7 +22,7 @@ import torch.nn as nn
 
 import torch_struct as ts
 
-from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
+from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropoutM
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown, assign_states, assign_states_uneven_brown
@@ -38,6 +38,8 @@ class ShmmLm(nn.Module):
         self.device = config.device
 
         self.C = config.num_classes
+
+        self.dropout_type = config.dropout_type
 
         self.words_per_state = config.words_per_state
         self.states_per_word = config.states_per_word
@@ -56,7 +58,7 @@ class ShmmLm(nn.Module):
         num_clusters = config.num_clusters if "num_clusters" in config else 128
         word2cluster, word_counts, cluster2word = read_lm_clusters(
             V,
-            path=f"clusters/lm-{num_clusters}/paths",
+            path=f"clusters/flm-{num_clusters}/paths",
         )
         self.word_counts = word_counts
         self.word2cluster = word2cluster
@@ -159,11 +161,12 @@ class ShmmLm(nn.Module):
         if "lr" in config.tw:
             self.next_state_proj.weight = self.state_emb.weight
         if "rp" in config.tw:
-            self.preterminal_emb.weight = self.trans_mlp[-1].weight
+            self.preterminal_emb.weight = self.next_state_proj.weight
 
-        self.transition_dropout = LogDropout(config.transition_dropout)
+        self.transition_dropout = config.transition_dropout
+        self.log_dropout = LogDropoutM(config.transition_dropout)
         self.column_dropout = config.column_dropout > 0
-        self.start_dropout = LogDropout(config.start_dropout)
+        self.start_dropout = LogDropoutM(config.transition_dropout)
 
         self.a = (th.arange(0, len(self.V))[:, None]
             .expand(len(self.V), self.states_per_word)
@@ -188,25 +191,20 @@ class ShmmLm(nn.Module):
         return self.start.unsqueeze(0).expand(bsz, self.C)
 
     # don't permute here, permute before passing into torch struct stuff
-    @property
-    def start(self):
+    def start(self, mask=None):
         x = self.start_mlp(self.dropout(self.start_emb)).squeeze(-1)
-        return self.start_dropout(x, column_dropout=True).log_softmax(-1)
+        return self.log_dropout(x, mask).log_softmax(-1)
 
-    @property
     def transition_logits(self):
-        return self.transition_dropout(
-            self.trans_mlp(self.dropout(self.state_emb.weight)) @ self.next_state_proj.weight.t(),
-            column_dropout = self.column_dropout,
-        )
+        return self.trans_mlp(self.dropout(self.state_emb.weight)) @ self.next_state_proj.weight.t()
 
-    def mask_transition(self, logits):
+    def mask_transition(self, logits, mask=None):
         # only in the weird case previously?
         # although now we may have unassigned states, oh well
-        logits[:,-1] = float("-inf")
+        logits = self.log_dropout(logits, mask).log_softmax(-1)     
+        logits = logits.masked_fill(logits != logits, float("-inf"))
         return logits.log_softmax(-1)
 
-    @property
     def emission_logits(self):
         logits = self.terminal_mlp(self.dropout(self.preterminal_emb.weight))
         return logits
@@ -245,21 +243,23 @@ class ShmmLm(nn.Module):
 
     def log_potentials(self, text,
         lpz = None, last_states = None,
+        start_mask = None,
+        transition_mask = None,
     ):
         batch, time = text.shape
 
         word2state = self.word2state
         clamped_states = word2state[text]
 
-        emission_logits = self.emission_logits
-        transition = self.mask_transition(self.transition_logits)
+        emission_logits = self.emission_logits()
+        transition = self.mask_transition(self.transition_logits(), transition_mask)
         emission = self.mask_emission(emission_logits, word2state)
         if lpz is not None and last_states is not None:
             start = (lpz[:,:,None] + self.trans_to(last_states)).logsumexp(1)
             b_idx = th.arange(batch, device=self.device)
             init = start[b_idx[:,None], clamped_states[:,0]]
         else:
-            start = self.start
+            start = self.start(start_mask)
             init = start[clamped_states[:,0]]
 
         timem1 = time - 1
@@ -279,11 +279,39 @@ class ShmmLm(nn.Module):
         mask=None, lengths=None,
     ):
         N, T = text.shape
+
+        start_mask, transition_mask = None, None
+        if not self.training or self.dropout_type == "none" or self.dropout_type is None:
+            # no dropout
+            pass
+        elif self.dropout_type == "unstructured":
+            transition_mask = (th.empty(self.C, self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+        elif self.dropout_type == "state":
+            m = (th.empty(self.C, device=self.device)
+                .fill_(self.transition_dropout)
+                .bernoulli_()
+                .bool()
+            )
+            start_mask, transition_mask = m, m
+        else:
+            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
+
         #if wandb.run.mode == "dryrun":
             #start_pot = timep.time()
         log_potentials = self.log_potentials(
             text,
             lpz, last_states,
+            start_mask = start_mask,
+            transition_mask = transition_mask,
         )
         #if wandb.run.mode == "dryrun":
             #print(f"total pot time: {timep.time() - start_pot}")
