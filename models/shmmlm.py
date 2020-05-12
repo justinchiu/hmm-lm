@@ -1,8 +1,17 @@
 
 import time as timep
 
+import os
+
 import importlib.util
-spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+#spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+#spec = importlib.util.spec_from_file_location("get_fb", "/home/jtc257/python/genbmm/opt/hmm3.py")
+spec = importlib.util.spec_from_file_location(
+    "get_fb",
+    "/home/justinchiu/code/python/genbmm/opt/hmm3.py"
+    if os.getenv("LOCAL") is not None
+    else "/home/jtc257/python/genbmm/opt/hmm3.py"
+)
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
@@ -120,8 +129,8 @@ class ShmmLm(nn.Module):
                 dropout = config.dropout,
             ),
             nn.Dropout(config.dropout),
-            nn.Linear(config.hidden_dim, self.C),
         )
+        self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
 
         # p(xt | zt)
         self.preterminal_emb = nn.Embedding(
@@ -148,7 +157,7 @@ class ShmmLm(nn.Module):
         if "sl" in config.tw:
             self.state_emb.weight = self.start_emb
         if "lr" in config.tw:
-            self.trans_mlp[-1].weight = self.state_emb.weight
+            self.next_state_proj.weight = self.state_emb.weight
         if "rp" in config.tw:
             self.preterminal_emb.weight = self.trans_mlp[-1].weight
 
@@ -175,7 +184,6 @@ class ShmmLm(nn.Module):
                 th.zeros(self.C, dtype=th.int),
             )
 
-
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
 
@@ -188,7 +196,7 @@ class ShmmLm(nn.Module):
     @property
     def transition_logits(self):
         return self.transition_dropout(
-            self.trans_mlp(self.dropout(self.state_emb.weight)),
+            self.trans_mlp(self.dropout(self.state_emb.weight)) @ self.next_state_proj.weight.t(),
             column_dropout = self.column_dropout,
         )
 
@@ -226,50 +234,57 @@ class ShmmLm(nn.Module):
         lpx = None
         return lpx
 
-    def log_potentials(self, text):
-        #if wandb.run.mode == "dryrun":
-            #start_emit = timep.time()
+     def trans_to(self, from_states, to_states=None):
+        state_emb = self.state_emb.weight[from_states]
+        if to_states is None:
+            next_state_proj = self.next_state_proj.weight
+        else:
+            next_state_proj = self.next_state_proj.weight[to_states]
+        x = self.trans_mlp(self.dropout(state_emb))
+        return (x @ next_state_proj.t()).log_softmax(-1)
+
+    def log_potentials(self, text
+        lpz = None, last_states = None,
+    ):
+        batch, time = text.shape
+
         emission_logits = self.emission_logits
         word2state = self.word2state
-        #if wandb.run.mode == "dryrun":
-            #print(f"total emit time: {timep.time() - start_emit}")
-            #start_transm = timep.time()
         transition = self.mask_transition(self.transition_logits)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total trans time: {timep.time() - start_transm}")
-            #start_emitm = timep.time()
         emission = self.mask_emission(emission_logits, word2state)
-        #if wandb.run.mode == "dryrun":
-            #print(f"total emitm time: {timep.time() - start_emitm}")
-            #start_clamp = timep.time()
+        if lpz is not None and last_states is not None:
+            start = (lpz[:,:,None] + self.trans_to(last_states)).logsumexp(1)
+            b_idx = th.arange(batch, self.device)
+            init = start[b_idx, clamped_states[:,0]]
+        else:
+            start = self.start
+            init = start[clamped_states[:,0]]
+        import pdb; pdb.set_trace()
+
         clamped_states = word2state[text]
-        #if wandb.run.mode == "dryrun":
-            #import pdb; pdb.set_trace()
-            # oops a lot of padding
-        batch, time = text.shape
         timem1 = time - 1
         log_potentials = transition[
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
         ]
-        #import pdb; pdb.set_trace()
-        # this gets messed up if it's the same thing multiple times?
-        # need to mask.
-        init = self.start[clamped_states[:,0]]
         obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
         log_potentials[:,0] += init.unsqueeze(-1)
         log_potentials += obs[:,1:].transpose(-1, -2)
         log_potentials[:,0] += obs[:,0]
-        #if wandb.run.mode == "dryrun":
-            #print(f"total clamp time: {timep.time() - start_clamp}")
         return log_potentials.transpose(-1, -2)
 
 
-    def score(self, text, mask=None, lengths=None):
+    def score(self, text,
+        lpz=None, last_state=None,
+        mask=None, lengths=None,
+    ):
         N, T = text.shape
         #if wandb.run.mode == "dryrun":
             #start_pot = timep.time()
-        log_potentials = self.log_potentials(text)
+        log_potentials = self.log_potentials(
+            text,
+            lpz, last_states,
+        )
         #if wandb.run.mode == "dryrun":
             #print(f"total pot time: {timep.time() - start_pot}")
             #start_marg = timep.time()

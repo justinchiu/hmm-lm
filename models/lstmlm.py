@@ -41,6 +41,13 @@ class LstmLm(ts.AutoregressiveModel):
                 bias = False,
             )
 
+        #self.init_params()
+
+    # not helpful
+    #def init_params(self):
+        #for param in self.parameters():
+            #param.data.uniform_(-0.1, 0.1)
+
 
     def init_state(self, bsz):
         return (

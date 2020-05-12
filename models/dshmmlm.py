@@ -140,7 +140,7 @@ class DshmmLm(nn.Module):
         if "sl" in config.tw:
             self.state_emb.weight = self.start_emb
         if "lr" in config.tw:
-            self.trans_mlp[-1].weight = self.state_emb.weight
+            self.next_state_proj.weight = self.state_emb.weight
         if "rp" in config.tw:
             self.preterminal_emb.weight = self.trans_mlp[-1].weight
 

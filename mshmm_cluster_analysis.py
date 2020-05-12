@@ -177,6 +177,7 @@ cluster_count = torch.zeros(nc, model.states_per_word, device=device, dtype=torc
 w2c = model.word2cluster
 cluster_count.index_add_(0, w2c, counts)
 
+import pdb; pdb.set_trace()
 
 state_usage = (cluster_count > 0).sum(-1)
 C, I = state_usage.sort()
