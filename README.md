@@ -3,8 +3,10 @@
 # Dependencies
 * (TVM)[https://tvm.apache.org/docs/install/from_source.html#developers-get-source-from-github] -> LLVM
 * pytorch 1.4
-* genbmm
-* pytorch-struct
+* (genbmm)[https://github.com/justinchiu/genbmm/blob/tvm/opt/hmm3.py]
+* (pytorch-struct)[https://github.com/justinchiu/pytorch-struct]
+
+Deprecated below
 
 # Data
 The data is Penn Treebank, where each example is a single sentence

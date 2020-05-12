@@ -234,7 +234,7 @@ class ShmmLm(nn.Module):
         lpx = None
         return lpx
 
-     def trans_to(self, from_states, to_states=None):
+    def trans_to(self, from_states, to_states=None):
         state_emb = self.state_emb.weight[from_states]
         if to_states is None:
             next_state_proj = self.next_state_proj.weight
@@ -243,25 +243,25 @@ class ShmmLm(nn.Module):
         x = self.trans_mlp(self.dropout(state_emb))
         return (x @ next_state_proj.t()).log_softmax(-1)
 
-    def log_potentials(self, text
+    def log_potentials(self, text,
         lpz = None, last_states = None,
     ):
         batch, time = text.shape
 
-        emission_logits = self.emission_logits
         word2state = self.word2state
+        clamped_states = word2state[text]
+
+        emission_logits = self.emission_logits
         transition = self.mask_transition(self.transition_logits)
         emission = self.mask_emission(emission_logits, word2state)
         if lpz is not None and last_states is not None:
             start = (lpz[:,:,None] + self.trans_to(last_states)).logsumexp(1)
-            b_idx = th.arange(batch, self.device)
-            init = start[b_idx, clamped_states[:,0]]
+            b_idx = th.arange(batch, device=self.device)
+            init = start[b_idx[:,None], clamped_states[:,0]]
         else:
             start = self.start
             init = start[clamped_states[:,0]]
-        import pdb; pdb.set_trace()
 
-        clamped_states = word2state[text]
         timem1 = time - 1
         log_potentials = transition[
             clamped_states[:,:-1,:,None],
@@ -275,7 +275,7 @@ class ShmmLm(nn.Module):
 
 
     def score(self, text,
-        lpz=None, last_state=None,
+        lpz=None, last_states=None,
         mask=None, lengths=None,
     ):
         N, T = text.shape
@@ -288,11 +288,19 @@ class ShmmLm(nn.Module):
         #if wandb.run.mode == "dryrun":
             #print(f"total pot time: {timep.time() - start_pot}")
             #start_marg = timep.time()
-        marginals, alphas, betas, log_m = self.fb(log_potentials, mask=mask)
+        with th.no_grad():
+            log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
         #if wandb.run.mode == "dryrun":
             #print(f"total marg time: {timep.time() - start_marg}")
-        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
-        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
+
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
+
+        last_words = text[idx, lengths-1]
+        end_states = self.word2state[last_words]
+
         #import pdb; pdb.set_trace()
         if self.keep_counts and self.training:
             with th.no_grad():
@@ -316,5 +324,5 @@ class ShmmLm(nn.Module):
             elbo = elbo,
             evidence = evidence,
             loss = elbo,
-        )
+        ), alpha_T.log_softmax(-1), end_states
 
