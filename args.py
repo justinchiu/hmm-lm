@@ -69,14 +69,14 @@ def add_chmm_args(parser):
     parser.add_argument("--num_classes", default=16384, type=int,)
     parser.add_argument("--words_per_state", default=512, type=int,)
     parser.add_argument("--states_per_word", default=128, type=int,)
+    parser.add_argument("--train_spw", default=64, type=int, help="number of train states")
     parser.add_argument("--ffnn", default="", type=str, help="default is oldres")
     parser.add_argument("--tw", default="", type=str, help="default is no weight tying")
     parser.add_argument("--transition_dropout", default=0, type=float,)
     parser.add_argument("--column_dropout", default=0, type=int, help="0 = no coldrop")
     parser.add_argument("--start_dropout", default=0, type=float,)
     parser.add_argument("--dropout_type", choices=[
-        "transition", "starttransition", "column",
-        "startcolumn", "state", "cluster", "none",
+        "unstructured", "state", "cluster", "none",
     ])
     parser.add_argument("--word_dropout", default=0, type=float, help="use uniform emission [0,1]")
     parser.add_argument("--assignment", choices=[

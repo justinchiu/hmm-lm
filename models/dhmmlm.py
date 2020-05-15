@@ -1,7 +1,15 @@
 import time as timep
 
+import os
 import importlib.util
-spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+#spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
+#spec = importlib.util.spec_from_file_location("get_fb", "/home/jtc257/python/genbmm/opt/hmm3.py")
+spec = importlib.util.spec_from_file_location(
+    "get_fb",
+    "/home/justinchiu/code/python/genbmm/opt/hmm3.py"
+    if os.getenv("LOCAL") is not None
+    else "/home/jtc257/python/genbmm/opt/hmm3.py"
+)
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
@@ -72,8 +80,8 @@ class DhmmLm(nn.Module):
                 config.states_per_common,
             )
         elif config.assignment == "uniform":
-            word2state, state2word = assign_states(
-                self.C, self.states_per_word, len(self.V), self.words_per_state)
+            word2state = assign_states(
+                self.C, self.states_per_word, len(self.V))
         elif config.assignment == "word2vec":
             word2cluster_np = np.load("clusters/kmeans-vecs/word2state-k128-6b-100d.npy")
             word2cluster = {i: x for i, x in enumerate(word2cluster_np[:,0])}
@@ -225,12 +233,17 @@ class DhmmLm(nn.Module):
         lpx = None
         return lpx
 
-    def log_potentials(self, text, start_mask=None, transition_mask=None):
+    def log_potentials(self, text,
+        lpz=None, last_states=None,
+        start_mask=None, transition_mask=None,
+    ):
+        batch, time = text.shape
+        clamped_states = self.word2state[text]
+
         if self.timing:
             start_compute = timep.time()
         emission_logits = self.emission_logits
         word2state = self.word2state
-        start = self.mask_start(self.start_logits, start_mask)
         transition_logits = self.transition_logits
         if self.timing:
             print(f"total compute time: {timep.time() - start_compute}")
@@ -240,11 +253,18 @@ class DhmmLm(nn.Module):
         if self.timing:
             print(f"total mask time: {timep.time() - start_mask}")
             start_clamp = timep.time()
-        clamped_states = word2state[text]
-        #if self.timing:
-            #import pdb; pdb.set_trace()
-            # oops a lot of padding
-        batch, time = text.shape
+        if lpz is not None and last_states is not None:
+            tmp = lpz[:,:,None] + transition[last_states]
+            tmp = tmp.masked_fill(tmp < -1e10, -1e10)
+            # this happens when full rows are -inf?
+            start = tmp.logsumexp(1)
+            #start = (lpz[:,:,None] + transition[last_states]).logsumexp(1)
+            b_idx = th.arange(batch, device=self.device)                  
+            init = start[b_idx[:,None], clamped_states[:,0]]              
+        else:
+            start = self.mask_start(self.start_logits, start_mask)
+            init = start[clamped_states[:,0]]
+
         timem1 = time - 1
         log_potentials = transition[
             clamped_states[:,:-1,:,None],
@@ -253,7 +273,6 @@ class DhmmLm(nn.Module):
         #import pdb; pdb.set_trace()
         # this gets messed up if it's the same thing multiple times?
         # need to mask.
-        init = start[clamped_states[:,0]]
         obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
         log_potentials[:,0] += init.unsqueeze(-1)
         log_potentials += obs[:,1:].transpose(-1, -2)
@@ -263,7 +282,10 @@ class DhmmLm(nn.Module):
         return log_potentials.transpose(-1, -2)
 
 
-    def score(self, text, mask=None, lengths=None):
+    def score(self, text,
+        lpz=None, last_states=None,
+        mask=None, lengths=None,
+    ):
         N, T = text.shape
         if self.timing:
             start_pot = timep.time()
@@ -317,17 +339,27 @@ class DhmmLm(nn.Module):
             pass
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
-        log_potentials = self.log_potentials(text, start_mask, transition_mask)
+        log_potentials = self.log_potentials(text,
+            lpz, last_states,
+            start_mask,
+            transition_mask,
+        )
         if self.timing:
             print(f"total pot time: {timep.time() - start_pot}")
             start_marg = timep.time()
-        marginals, alphas, betas, log_m = self.fb(log_potentials, mask=mask)
+        with th.no_grad():
+            log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
         if self.timing:
             print(f"total marg time: {timep.time() - start_marg}")
-        #import pdb; pdb.set_trace()
-        evidence = alphas[lengths-1, th.arange(N)].logsumexp(-1).sum()
-        elbo = (marginals.detach() * log_potentials)[mask[:,1:]].sum()
-        #import pdb; pdb.set_trace()
+
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
+        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
+
+        last_words = text[idx, lengths-1]
+        end_states = self.word2state[last_words]
+
         if self.keep_counts and self.training:
             with th.no_grad():
                 unary_marginals = th.cat([
@@ -350,5 +382,4 @@ class DhmmLm(nn.Module):
             elbo = elbo,
             evidence = evidence,
             loss = elbo,
-        )
-
+        ), alpha_T.log_softmax(-1), end_states

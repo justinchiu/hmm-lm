@@ -147,6 +147,19 @@ print(cluster_word_counts[I].tolist())
 # cluster analysis II
  
 stuff = "mshmm-k32768-spw1024-nc32-counts.pth"
+# train
+stuff = "ptb-bptt-mshmm-k16384-spw128-tspw96-nc128-counts.pth"
+stuff = "ptb-bptt-mshmm-k16384-spw128-tspw64-nc128-counts.pth"
+stuff = "ptb-bptt-mshmm-k16384-spw128-tspw32-nc128-counts.pth"
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.75-none-counts.pth"
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.25-none-counts-trainTrue.pth"
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.5-none-counts-trainTrue.pth"
+# valid
+stuff = "ptb-bptt-mshmm-k16384-spw128-tspw64-nc128-counts-trainFalse.pth"
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.75-none-counts-trainFalse.pth"
+
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.25-none-counts-trainFalse.pth"
+stuff = "ptb-bptt-shmm-k16384-spw128-nc128-dp0.25-none-counts-trainFalse.pth"
 path, counts = torch.load(stuff)
 
 chp = torch.load(path)
@@ -167,21 +180,33 @@ train, valid, test = PennTreebank.splits(
 TEXT.build_vocab(train)
 V = TEXT.vocab
 
-from models.mshmmlm import MshmmLm
-model = MshmmLm(V, config)
+if "mshmm" in stuff:
+    from models.mshmmlm import MshmmLm
+    model = MshmmLm(V, config)
+else:
+    from models.shmmlm import ShmmLm
+    model = ShmmLm(V, config)
 model.to(device)
 model.load_state_dict(chp["model"])
 
 nc = model.config.num_clusters
 cluster_count = torch.zeros(nc, model.states_per_word, device=device, dtype=torch.long)
 w2c = model.word2cluster
+if isinstance(w2c, dict):
+    w2c = torch.tensor(
+        [
+            model.word2cluster[c] if c in model.word2cluster else nc-1
+            for c in range(len(V))
+        ], 
+        dtype=torch.long, device=device,
+    )
 cluster_count.index_add_(0, w2c, counts)
-
-import pdb; pdb.set_trace()
 
 state_usage = (cluster_count > 0).sum(-1)
 C, I = state_usage.sort()
 word_counts = Counter(dict(model.word_counts))
+print("Total number of states used / number of states")
+print(f"{C.sum()} / {config.num_classes}")
 
 bin_counts = counts > 0
 state_usage_word = (counts > 0).sum(-1)

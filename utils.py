@@ -51,6 +51,7 @@ def get_name(config):
         f"k{config.num_classes}",
         f"wps{config.words_per_state}",
         f"spw{config.states_per_word}",
+        f"tspw{config.train_spw}",
         #f"ff{config.ffnn}",
         f"ed{config.emb_dim}",
         f"d{config.hidden_dim}",

@@ -55,6 +55,8 @@ class MshmmLm(nn.Module):
 
         self.words_per_state = config.words_per_state
         self.states_per_word = config.states_per_word
+        self.train_states_per_word = config.train_spw
+        self.states_per_word_d = config.train_spw
 
         self.num_layers = config.num_layers
 
@@ -106,6 +108,7 @@ class MshmmLm(nn.Module):
                 word2cluster,
                 V,
                 self.states_per_word,
+                self.states_per_word_d,
             )
         else:
             raise ValueError(f"No such assignment {config.assignment}")
@@ -119,7 +122,7 @@ class MshmmLm(nn.Module):
 
         self.tvm_fb = "tvm_fb" in config and config.tvm_fb
         #if self.states_per_word in [64, 128, 256, 512, 1024]:
-        self.fb_train = foo.get_fb(self.states_per_word // 2)
+        self.fb_train = foo.get_fb(self.train_states_per_word)
         self.fb_test = foo.get_fb(self.states_per_word)
 
         # p(z0)
@@ -191,7 +194,6 @@ class MshmmLm(nn.Module):
         )
         self.v = th.ones((len(self.V)) * self.states_per_word).to(self.device)
 
-        self.states_per_word_d = self.states_per_word // 2
 
         self.ad = (th.arange(0, len(self.V))[:, None]
             .expand(len(self.V), self.states_per_word_d)
@@ -345,21 +347,12 @@ class MshmmLm(nn.Module):
         reset = None,
     ):
         clamped_states = word2state[text]
-        #if wandb.run.mode == "dryrun":
-            #import pdb; pdb.set_trace()
-            # oops a lot of padding
         batch, time = text.shape
         timem1 = time - 1
-        #print("trans index start")
-        #print(checkmem())
         log_potentials = transition[
             clamped_states[:,:-1,:,None],
             clamped_states[:,1:,None,:],
         ]
-        #log_potentials.register_hook(make_f("trans log pots index"))
-        #print(checkmem())
-        #print("trans index end")
-        #import pdb; pdb.set_trace()
         if reset is not None:
             eos_mask = text[:,:-1] == self.V["<eos>"]
             # reset words following eos
@@ -486,7 +479,7 @@ class MshmmLm(nn.Module):
             I = (th.distributions.Gumbel(self.zero, self.one)
                 .sample(self.cluster2state.shape)
                 .squeeze(-1)
-                .topk(self.states_per_word // 2, dim=-1)
+                .topk(self.train_states_per_word, dim=-1)
                 .indices
             )
             states = self.cluster2state.gather(1, I).view(-1)

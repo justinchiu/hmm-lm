@@ -44,6 +44,8 @@ class ShmmLm(nn.Module):
         self.words_per_state = config.words_per_state
         self.states_per_word = config.states_per_word
 
+        self.reset_eos = "reset_eos" in config and config.reset_eos > 0
+
         self.num_layers = config.num_layers
 
         self.timing = config.timing > 0
@@ -228,7 +230,6 @@ class ShmmLm(nn.Module):
         emission = self.mask_emission(emission_logits, word2state)
         clamped_states = word2state[text]
 
-        import pdb; pdb.set_trace()
         lpx = None
         return lpx
 
@@ -241,6 +242,44 @@ class ShmmLm(nn.Module):
         x = self.trans_mlp(self.dropout(state_emb))
         return (x @ next_state_proj.t()).log_softmax(-1)
 
+    def clamp(
+        self, text, start, transition, emission, word2state,
+        reset=None,
+    ):
+        clamped_states = word2state[text]
+        batch, time = text.shape
+        timem1 = time - 1
+        log_potentials = transition[
+            clamped_states[:,:-1,:,None],
+            clamped_states[:,1:,None,:],
+        ]
+        if reset is not None:
+            import pdb; pdb.set_trace()
+            eos_mask = text[:,:-1] == self.V["<eos>"]
+            # reset words following eos
+            reset_states = word2state[text[:,1:][eos_mask]]
+            log_potentials[eos_mask] = reset[reset_states][:,None]
+            #lp = log_potentials.clone()
+        
+        # this gets messed up if it's the same thing multiple times?
+        # need to mask.
+        b_idx = th.arange(batch, device=self.device)
+        #import pdb; pdb.set_trace()
+        init = (
+            start[clamped_states[:,0]]
+            if start.ndim == 1
+            else start[b_idx[:,None], clamped_states[:,0]]
+        )
+
+        obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+
+        log_potentials[:,0] += init.unsqueeze(-1)
+        log_potentials += obs[:,1:].transpose(-1, -2)
+        log_potentials[:,0] += obs[:,0]
+
+        return log_potentials.transpose(-1, -2)
+
+ 
     def log_potentials(self, text,
         lpz = None, last_states = None,
         start_mask = None,
@@ -255,24 +294,15 @@ class ShmmLm(nn.Module):
         transition = self.mask_transition(self.transition_logits(), transition_mask)
         emission = self.mask_emission(emission_logits, word2state)
         if lpz is not None and last_states is not None:
-            start = (lpz[:,:,None] + self.trans_to(last_states)).logsumexp(1)
-            b_idx = th.arange(batch, device=self.device)
-            init = start[b_idx[:,None], clamped_states[:,0]]
+            start = (lpz[:,:,None] + transition[last_states]).logsumexp(1)
         else:
             start = self.start(start_mask)
-            init = start[clamped_states[:,0]]
 
-        timem1 = time - 1
-        log_potentials = transition[
-            clamped_states[:,:-1,:,None],
-            clamped_states[:,1:,None,:],
-        ]
-        obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
-        log_potentials[:,0] += init.unsqueeze(-1)
-        log_potentials += obs[:,1:].transpose(-1, -2)
-        log_potentials[:,0] += obs[:,0]
-        return log_potentials.transpose(-1, -2)
+        reset = self.start(start_mask) if self.reset_eos else None
 
+        return self.clamp(
+            text, start, transition, emission, word2state,
+        )
 
     def score(self, text,
         lpz=None, last_states=None,
@@ -286,25 +316,24 @@ class ShmmLm(nn.Module):
             pass
         elif self.dropout_type == "unstructured":
             transition_mask = (th.empty(self.C, self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
+                #.bernoulli_(1-self.transition_dropout)
+                .bernoulli_(self.transition_dropout)
                 .bool()
             )
             start_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
+                #.bernoulli_(1-self.transition_dropout)
+                .bernoulli_(self.transition_dropout)
                 .bool()
             )
         elif self.dropout_type == "state":
             m = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
+                #.bernoulli_(1-self.transition_dropout)
+                .bernoulli_(self.transition_dropout)
                 .bool()
             )
             start_mask, transition_mask = m, m
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
-
         #if wandb.run.mode == "dryrun":
             #start_pot = timep.time()
         log_potentials = self.log_potentials(

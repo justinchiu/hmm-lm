@@ -156,7 +156,7 @@ def assign_states_brown_wrong(
 
 def assign_states_brown(
     num_states, word2cluster, V,
-    states_per_word,
+    states_per_word, 
 ):
     # must have num_states = num_clusters * num_repeats 
     num_words = len(V)
@@ -213,6 +213,7 @@ def assign_states_uneven_brown(
 def assign_states_brown_cluster(
     num_states, word2cluster, V,
     states_per_word,
+    states_per_word_d,
 ):
     # must have num_states = num_clusters * num_repeats 
     num_words = len(V)
@@ -234,9 +235,8 @@ def assign_states_brown_cluster(
     word2state = cluster2state[w2c]
     # the dropped cluster to words after reindexing
     # assume states per word // 2
-    num_repeats_d = states_per_word // 2
     c2sw_d = th.LongTensor([
-        list(range(c * num_repeats_d, (c+1) * num_repeats_d))
+        list(range(c * states_per_word_d, (c+1) * states_per_word_d))
         for c in range(num_clusters)
     ])
     return word2state, cluster2state, w2c, c2sw_d
