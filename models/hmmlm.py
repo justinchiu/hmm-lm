@@ -35,6 +35,7 @@ class HmmLm(nn.Module):
         self.C = config.num_classes
 
         self.fb = foo.get_fb(self.C)
+        self.word2state = None
 
         # p(z0)
         self.start_emb = nn.Parameter(
@@ -156,18 +157,19 @@ class HmmLm(nn.Module):
         )
         return log_potentials
 
-    def compute_parameters(self, word2state,
-        states=None, word_mask=None,        
+    def compute_parameters(self,
+        word2state=None,
+        states=None, word_mask=None,       
         lpz=None, last_states=None,         
     ):
         transition_logits = self.transition_logits()
-        transition = self.mask_transition(transition_logits, transition_mask)
+        transition = self.mask_transition(transition_logits, None)
 
         if lpz is not None:
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
         else:
             start_logits = self.start_logits()
-            start = self.mask_start(start_logits, start_mask)
+            start = self.mask_start(start_logits, None)
 
         emission = self.emission
         return start, transition, emission

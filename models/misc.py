@@ -149,6 +149,3 @@ class LogDropoutM(nn.Module):
             return x
 
 
-class StateEmb(nn.Module):
-    def __init__(self):
-        pass

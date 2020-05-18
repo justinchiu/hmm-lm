@@ -24,6 +24,7 @@ import torch_struct as ts
 
 from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
 from .charcnn import CharLinear
+from .stateemb import StateEmbedding
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
@@ -289,6 +290,7 @@ class MshmmLm(nn.Module):
             if states is not None
             else self.next_state_proj.weight
         )
+        import pdb; pdb.set_trace()
         return checkpoint(
             lambda x, y: (self.trans_mlp(self.dropout(x)) @ y.t()).log_softmax(-1),
             state_emb, next_state_proj,

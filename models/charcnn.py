@@ -69,7 +69,7 @@ class CharLinear(nn.Module):
             ])
             self.mlp = nn.Sequential(
                 Highway(sum(emit_dims), 1),
-                nn.Linear(sum(emit_dims), hidden_dim),
+                nn.Linear(sum(emit_dims), hidden_dim, bias=False),
             )
 
     def process_vocab(self, V, char_buffer):

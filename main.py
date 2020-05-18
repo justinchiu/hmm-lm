@@ -150,7 +150,7 @@ def cached_eval_loop(
             log_potentials = model.clamp(text, start, transition, emission, word2state)
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
 
-            if hasattr(model, "word2state"):
+            if word2state:
                 idx = th.arange(N, device=model.device)
                 last_words = text[idx, lengths-1]
                 last_states = model.word2state[last_words]
@@ -329,7 +329,7 @@ def train_loop(
                         eval_fn = mixed_cached_eval_loop
                     else:
                         eval_fn = cached_eval_loop
-                elif args.model == "hmmlm":
+                elif args.model == "hmm":
                     eval_fn = cached_eval_loop
                 else:
                     eval_fn = eval_loop
@@ -518,7 +518,7 @@ def main():
                 eval_fn = mixed_cached_eval_loop
             else:
                 eval_fn = cached_eval_loop
-        elif args.model == "hmmlm":
+        elif args.model == "hmm":
             eval_fn = cached_eval_loop
         else:
             eval_fn = eval_loop
@@ -594,7 +594,7 @@ def main():
                 eval_fn = mixed_cached_eval_loop
             else:
                 eval_fn = cached_eval_loop
-        elif args.model == "hmmlm":
+        elif args.model == "hmm":
             eval_fn = cached_eval_loop
         else:
             eval_fn = eval_loop
