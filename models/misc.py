@@ -156,10 +156,12 @@ class CharLinear(nn.Module):
     def __init__(
         self,
         hidden_dim,
-        V, 
+        V,
+        emit_dims,
     ):
         super(CharLinear, self).__init__()
         self.V = V
+        self.emit_dims = emit_dims
 
         max_len = max(len(x) for x in V.itos)
 
@@ -181,10 +183,17 @@ class CharLinear(nn.Module):
             len(self.i2c), hidden_dim, padding_idx=self.pad_idx,
         )
         self.kernels = list(range(1, 8))
-        self.convs = nn.ModuleList([
-            nn.Conv1d(hidden_dim, hidden_dim, k, bias=False)
-            for k in self.kernels
-        ])
+        if not emit_dims:
+            self.convs = nn.ModuleList([
+                nn.Conv1d(hidden_dim, hidden_dim, k, bias=False)
+                for k in self.kernels
+            ])
+        else:
+            self.convs = nn.ModuleList([
+                nn.Conv1d(hidden_dim, d, k, bias=False)
+                for k, d in zip(self.kernels, emit_dims)
+            ])
+            self.mlp = ResidualLayerOld(sum(emit_dims), hidden_dim)
 
     def process_vocab(self, V, char_buffer):
         c2i = self.c2i
@@ -203,7 +212,11 @@ class CharLinear(nn.Module):
         for conv in self.convs:
             conv_out = conv(conv_input)
             outs.append(conv_out.max(-1).values)
-        return x @ th.stack(outs, -1).sum(-1).t()
+        if not self.emit_dims:
+            y = th.stack(outs, -1).sum(-1)
+        else:
+            y = self.mlp(th.cat(outs, -1))
+        return x @ y.t()
 
 
 class StateEmb(nn.Module):

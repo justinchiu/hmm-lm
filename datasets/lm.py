@@ -287,7 +287,7 @@ class Wsj(LanguageModelingDataset):
     dirname = ''
 
     @classmethod
-    def splits(cls, text_field, root='.data/PTB', train='ptb.txt',
+    def splits(cls, text_field, path=".data/PTB", root='.data/PTB', train='ptb.txt',
                validation='ptb.txt', test='ptb.txt',
                **kwargs):
         """Create dataset objects for splits of the Penn Treebank dataset.
@@ -301,6 +301,7 @@ class Wsj(LanguageModelingDataset):
             test: The filename of the test data, or None to not load the test
                 set. Default: 'ptb.test.txt'.
         """
-        return super(PennTreebank, cls).splits(
+        return super(Wsj, cls).splits(
             root=root, train=train, validation=validation, test=test,
+            path=path,
             text_field=text_field, articles=False, **kwargs)

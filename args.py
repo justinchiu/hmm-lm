@@ -50,6 +50,8 @@ def get_args():
     parser.add_argument("--emit", choices=[
         "word", "char",
     ], default="word",)
+    parser.add_argument("--emit_dims", type=int, nargs="+",
+        help="use res layers and concat if > 0")
     parser.add_argument("--state", choices=[
         "ind", "fac",
     ], default="chmm",)

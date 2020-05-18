@@ -170,7 +170,7 @@ class MshmmLm(nn.Module):
         self.terminal_proj = (
             nn.Linear(config.hidden_dim, len(V))
             if config.emit == "word"
-            else CharLinear(config.hidden_dim, V)
+            else CharLinear(config.hidden_dim, V, config.emit_dims)
         )
 
         self.dropout = nn.Dropout(config.dropout)

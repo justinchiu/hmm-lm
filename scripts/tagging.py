@@ -51,7 +51,7 @@ def write_txt_pos(sentags, ignore_tags, sentence_f, tag_f, lower=False):
         sentence, tag = zip(*[x for x in sentag if x[1] not in ignore_tags])
         sentences.append(" ".join([
             #x if not is_num(x) else "N"
-            (x.lower() if lower else x) if not is_num(x) else "N"
+            (x.lower() if lower else x) if not is_num(x) else "0"
             for x in sentence
         ]))
         tags.append(" ".join(tag))
