@@ -150,9 +150,10 @@ def cached_eval_loop(
             log_potentials = model.clamp(text, start, transition, emission, word2state)
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
 
-            idx = th.arange(N, device=model.device)
-            last_words = text[idx, lengths-1]
-            last_states = model.word2state[last_words]
+            if hasattr(model, "word2state"):
+                idx = th.arange(N, device=model.device)
+                last_words = text[idx, lengths-1]
+                last_states = model.word2state[last_words]
 
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
@@ -328,6 +329,8 @@ def train_loop(
                         eval_fn = mixed_cached_eval_loop
                     else:
                         eval_fn = cached_eval_loop
+                elif args.model == "hmmlm":
+                    eval_fn = cached_eval_loop
                 else:
                     eval_fn = eval_loop
                 valid_losses, valid_n  = eval_fn(
@@ -515,6 +518,8 @@ def main():
                 eval_fn = mixed_cached_eval_loop
             else:
                 eval_fn = cached_eval_loop
+        elif args.model == "hmmlm":
+            eval_fn = cached_eval_loop
         else:
             eval_fn = eval_loop
         #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
@@ -589,6 +594,8 @@ def main():
                 eval_fn = mixed_cached_eval_loop
             else:
                 eval_fn = cached_eval_loop
+        elif args.model == "hmmlm":
+            eval_fn = cached_eval_loop
         else:
             eval_fn = eval_loop
         valid_losses, valid_n  = eval_fn(args, V, valid_iter, model)

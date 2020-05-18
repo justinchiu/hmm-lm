@@ -40,36 +40,7 @@ spec = importlib.util.spec_from_file_location(
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
-chp_path = "wandb_checkpoints/shmm_k1024_wps512_spw256_ed256_d256_dp0_tdp0.25_cdp1_sdp0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb4_nc0_ncs0_spc0/39239_5.16.pth"
-# this one is broken
-#chp_path = "wandb_checkpoints/shmm_k1024_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_sdp0_tokens_b256_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb8_nc0_ncs0_spc0/176648_5.30.pth"
-chp_path = "wandb_checkpoints/dshmm_k1024_wps512_spw128_ed256_d256_dp0_tdp0.0_cdp1_sdp0_dtstate_tokens_b128_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb8_nc0_ncs0_spc0/113458_5.23.pth"
-chp_path = "wandb_checkpoints/dshmm_k1024_wps512_spw64_ed256_d256_dp0_tdp0.0_cdp1_sdp0_dtstate_tokens_b128_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb16_nc0_ncs0_spc0/64843_5.24.pth"
-chp_path = "wandb_checkpoints/mshmm_k65536_wps512_spw512_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/45333_4.81.pth"
-# 32k 128spw 256b
-chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb256_nc0_ncs0_spc0/173948_4.86.pth"
-# 16k 128spw 128b
-chp_path = "wandb_checkpoints/mshmm_k16384_wps512_spw128_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/146552_4.89.pth"
-# 32k 1024spw 32b
-chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw1024_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb32_nc0_ncs0_spc0/85495_4.85.pth"
-# 32k 256spw 128b
-chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw256_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/68111_4.83.pth"
-# 65k 512spw 128b
-#chp_path = "wandb_checkpoints/mshmm_k65536_wps512_spw512_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0/45333_4.81.pth"
-# 32k 512 spw 64b
-#chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw512_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb64_nc0_ncs0_spc0/94177_4.86.pth"
-# 16k 512 spw 32b
-#chp_path = "wandb_checkpoints/mshmm_k16384_wps512_spw512_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb32_nc0_ncs0_spc0/170998_4.92.pth"
 chp_path = "wandb_checkpoints/wsj_bucket_hmm_k45_wps512_spw128_tspw64_ed512_d512_dp0_tdp0.0_cdp1_sdp0_dtnone_wd0_tokens_b512_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_schmm/85692_5.61.pth"
-
-# BPTT
-# oops! not shmm
-# 16k mshmm state 0.25 nb128
-#chp_path = "wandb_checkpoints/ptb_bptt_mshmm_k16384_wps512_spw128_tspw96_ed256_d256_dp0_tdp0.25_cdp1_sdp0_dtstate_wd0_tokens_b16_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns1_fc1/33897_4.89.pth"
-# 16k mshmm state 0.5 nb128
-#chp_path = "wandb_checkpoints/ptb_bptt_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_dp0_tdp0.5_cdp1_sdp0_dtstate_wd0_tokens_b16_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns1_fc1/89588_4.90.pth"
-# 16k mshmm state 0.75 nb128
-#chp_path = "wandb_checkpoints/ptb_bptt_mshmm_k16384_wps512_spw128_tspw32_ed256_d256_dp0_tdp0.75_cdp1_sdp0_dtstate_wd0_tokens_b16_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns1_fc1/90799_5.03.pth"
 
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
@@ -100,7 +71,7 @@ TEXT.build_vocab(train)
 V = TEXT.vocab
 
 # use pos dataset
-dataset = PennTreebank(".data/PTB/ptb.nopunct.txt", TEXT)
+dataset = PennTreebank(".data/PTB/ptb.txt", TEXT)
 
 # one sentence at a time?
 if config.iterator == "bptt":
