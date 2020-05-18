@@ -22,7 +22,8 @@ from torch.utils.checkpoint import checkpoint
 
 import torch_struct as ts
 
-from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout, CharLinear
+from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
+from .charcnn import CharLinear
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
@@ -170,7 +171,7 @@ class MshmmLm(nn.Module):
         self.terminal_proj = (
             nn.Linear(config.hidden_dim, len(V))
             if config.emit == "word"
-            else CharLinear(config.hidden_dim, V, config.emit_dims)
+            else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims)
         )
 
         self.dropout = nn.Dropout(config.dropout)

@@ -15,7 +15,8 @@ import torch.nn as nn
 import torch_struct as ts
 
 #from .misc import ResidualLayer, ResidualLayerOld
-from .misc import ResidualLayerOld, LogDropoutM, CharLinear
+from .misc import ResidualLayerOld, LogDropoutM
+from .charcnn import CharLinear
 
 from utils import Pack
 
@@ -61,7 +62,7 @@ class HmmLm(nn.Module):
             ResidualLayer(config.hidden_dim, config.hidden_dim),
             nn.Linear(config.hidden_dim, len(V)) 
                 if config.emit == "word"             
-                else CharLinear(config.hidden_dim, V),
+                else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims),
         )
 
 

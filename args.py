@@ -74,6 +74,7 @@ def add_chmm_args(parser):
     parser.add_argument("--num_layers", default=1, type=int,)
     parser.add_argument("--emb_dim", default=256, type=int,)
     parser.add_argument("--hidden_dim", default=256, type=int,)
+    parser.add_argument("--char_dim", default=16, type=int,)
     parser.add_argument("--dropout", default=0, type=float,)
     parser.add_argument("--num_classes", default=16384, type=int,)
     parser.add_argument("--words_per_state", default=512, type=int,)

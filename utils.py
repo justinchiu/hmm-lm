@@ -55,6 +55,7 @@ def get_name(config):
         #f"ff{config.ffnn}",
         f"ed{config.emb_dim}",
         f"d{config.hidden_dim}",
+        f"cd{config.char_dim}",
         f"dp{config.dropout}",
         f"tdp{config.transition_dropout}",
         f"cdp{config.column_dropout}",
@@ -79,6 +80,7 @@ def get_name(config):
         f"ns{config.no_shuffle_train}",
         f"fc{config.flat_clusters}",
         f"e{config.emit}",
+        f"ed{'-'.join(str(x) for x in config.emit_dims) if config.emit_dims is not None else 'none'}",
         f"s{config.state}",
     ])
 
