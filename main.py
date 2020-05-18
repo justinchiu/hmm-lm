@@ -20,7 +20,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 import torchtext
-from datasets.lm import PennTreebank, WikiText2
+from datasets.lm import PennTreebank, WikiText2, Wsj
 from datasets.data import BucketIterator, BPTTIterator
 #from torchtext.data import BPTTIterator
 
@@ -392,20 +392,6 @@ def main():
     ## DBG
     #TEXT = torchtext.data.Field(batch_first = True, lower=True)
 
-    """
-    # check cross product of dataset and iterator
-    if args.iterator == "bucket" and args.dataset == "ptb":
-        Dataset = PennTreebank
-    elif args.iterator == "bptt" and args.dataset == "ptb":
-        # TODO: delete all bptt datasets and fix iterator
-        Dataset = torchtext.datasets.PennTreebank
-    elif args.iterator == "bucket" and args.dataset == "wikitext103":
-        raise NotImplementedError
-    elif args.iterator == "bptt" and args.dataset == "wikitext103":
-        Dataset = WikiText103
-    elif args.iterator == "bptt" and args.dataset == "wikitext2":
-        Dataset = WikiText2
-        """
     if args.dataset == "ptb":
         Dataset = PennTreebank
     elif args.dataset == "wikitext103":
@@ -414,6 +400,8 @@ def main():
         # shuffling the articles is annoying
         Dataset = WikiText2
         #Dataset = torchtext.datasets.WikiText2
+    elif args.dataset == "wsj":
+        Dataset = Wsj
 
     train, valid, test = Dataset.splits(
         TEXT,

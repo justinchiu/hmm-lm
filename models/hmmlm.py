@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch_struct as ts
 
 #from .misc import ResidualLayer, ResidualLayerOld
-from .misc import ResidualLayerOld, LogDropoutM
+from .misc import ResidualLayerOld, LogDropoutM, CharLinear
 
 from utils import Pack
 
@@ -59,8 +59,11 @@ class HmmLm(nn.Module):
         )
         self.terminal_mlp = nn.Sequential(
             ResidualLayer(config.hidden_dim, config.hidden_dim),
-            nn.Linear(config.hidden_dim, len(V)),
+            nn.Linear(config.hidden_dim, len(V)) 
+                if config.emit == "word"             
+                else CharLinear(config.hidden_dim, V),
         )
+
 
         self.transition_dropout = config.transition_dropout
         self.log_dropout = LogDropoutM(config.transition_dropout)

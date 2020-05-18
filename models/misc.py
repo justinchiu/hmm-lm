@@ -148,27 +148,64 @@ class LogDropoutM(nn.Module):
         else:
             return x
 
-class Index2(th.autograd.Function):
-    @staticmethod
-    def forward(ctx, input, idx1, idx2):
-        ctx.save_for_backward(input, idx1, idx2)
-        return input[idx1, idx2]
+class CharLinear(nn.Module):
+    """
+    nn.CharLinear
+    Replaces Linear layer (word embeddings) with output of CharCNN
+    """
+    def __init__(
+        self,
+        hidden_dim,
+        V, 
+    ):
+        super(CharLinear, self).__init__()
+        self.V = V
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        input, idx1, idx2 = ctx.saved_tensors
-        input.zero_()
-        return input.index_put_((idx1, idx2), grad_output, accumulate=True), None, None
+        max_len = max(len(x) for x in V.itos)
 
-class Index1(th.autograd.Function):
-    @staticmethod
-    def forward(ctx, input, idx):
-        ctx.save_for_backward(input, idx)
-        return input[idx]
+        # char vocab
+        self.pad_idx = 0
+        self.i2c = ["<cpad>"] + sorted(list(set(x for xs in V.itos for x in xs)))
+        self.c2i = {c: i for i, c in enumerate(self.i2c)}
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        input, idx = ctx.saved_tensors
-        input.zero_()
-        return input.index_put_((idx,), grad_output, accumulate=True), None
+        # create char_buffer
+        self.register_buffer(
+            "char_buffer",
+            self.process_vocab(
+                V,
+                th.LongTensor(len(V), max_len),
+            )
+        )
 
+        self.char_emb = nn.Embedding(
+            len(self.i2c), hidden_dim, padding_idx=self.pad_idx,
+        )
+        self.kernels = list(range(1, 8))
+        self.convs = nn.ModuleList([
+            nn.Conv1d(hidden_dim, hidden_dim, k, bias=False)
+            for k in self.kernels
+        ])
+
+    def process_vocab(self, V, char_buffer):
+        c2i = self.c2i
+        char_buffer.fill_(0)
+        for i, word in enumerate(V.itos):
+            for t, char in enumerate(word):
+                char_buffer[i,t] = c2i[char]
+        return char_buffer
+
+
+    def forward(self, x):
+        char_embs = self.char_emb(self.char_buffer)
+        conv_input = char_embs.transpose(-1, -2)
+        # this should be pretty slow.
+        outs = []
+        for conv in self.convs:
+            conv_out = conv(conv_input)
+            outs.append(conv_out.max(-1).values)
+        return x @ th.stack(outs, -1).sum(-1).t()
+
+
+class StateEmb(nn.Module):
+    def __init__(self):
+        pass

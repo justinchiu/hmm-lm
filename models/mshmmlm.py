@@ -22,7 +22,7 @@ from torch.utils.checkpoint import checkpoint
 
 import torch_struct as ts
 
-from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
+from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout, CharLinear
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
@@ -165,7 +165,12 @@ class MshmmLm(nn.Module):
                 dropout = config.dropout,
             ),
             nn.Dropout(config.dropout),
-            nn.Linear(config.hidden_dim, len(V)),
+            #nn.Linear(config.hidden_dim, len(V)),
+        )
+        self.terminal_proj = (
+            nn.Linear(config.hidden_dim, len(V))
+            if config.emit == "word"
+            else CharLinear(config.hidden_dim, V)
         )
 
         self.dropout = nn.Dropout(config.dropout)
@@ -294,7 +299,8 @@ class MshmmLm(nn.Module):
             if states is not None
             else self.preterminal_emb.weight
         )
-        logits = self.terminal_mlp(self.dropout(preterminal_emb))
+        h = self.terminal_mlp(self.dropout(preterminal_emb))
+        logits = self.terminal_proj(h)
         return logits
 
     #@profile

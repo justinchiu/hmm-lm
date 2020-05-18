@@ -134,10 +134,6 @@ model.load_state_dict(chp["model"])
 
 fb_max = foo.get_fb_max(model.states_per_word)
 
-use_train = False
-
-
-counts = th.zeros(len(model.V) * model.states_per_word, device=device, dtype=th.long)
 with th.no_grad():
     model.train(False)
     start = model.start()
@@ -187,6 +183,9 @@ with th.no_grad():
         # transpose to time x batch x left x right
         max_margs = fb_max(log_pots.transpose(0, 1).transpose(-1, -2).clone())
         T, N, C, _ = max_margs.shape
+        assert N == 1
+
+        clamped_states = model.word2state[text].cpu()
 
         for n in range(N):
             """
@@ -194,9 +193,10 @@ with th.no_grad():
             parts = best.nonzero()
             viterbi_sequence0 = [parts[0,2].item()] + parts[:,1].tolist()
             """
-            viterbi_sequence = [
+            viterbi_sequence_compressed = [
                 max_margs[0,0].max(-1).values.argmax(-1).item()
             ] + max_margs[:,0].max(-2).values.max(-1).indices.tolist()
+            viterbi_sequence = clamped_states[n][range(T+1), viterbi_sequence_compressed].tolist()
             viterbi_sequences.append(viterbi_sequence)
 
 # save viterbi sequences

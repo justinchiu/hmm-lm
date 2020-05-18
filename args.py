@@ -5,7 +5,7 @@ def get_args():
     parser = ArgumentParser()
     # dataset
     parser.add_argument("--dataset",
-        choices=["ptb", "wikitext2", "wikitext103"], default="ptb")
+        choices=["ptb", "wikitext2", "wsj"], default="ptb")
     parser.add_argument("--iterator", choices=["bucket", "bptt"], default="bucket")
     # learning args
     parser.add_argument("--bsz", default=512, type=int,)
@@ -46,6 +46,13 @@ def get_args():
 
     parser.add_argument("--chp_theta", default=0, type=int,
         help="checkpoint hmm parameters if > 0")
+
+    parser.add_argument("--emit", choices=[
+        "word", "char",
+    ], default="word",)
+    parser.add_argument("--state", choices=[
+        "ind", "fac",
+    ], default="chmm",)
 
     add_nn_args(parser)
 

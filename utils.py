@@ -78,6 +78,8 @@ def get_name(config):
         f"r{config.reset_eos}",
         f"ns{config.no_shuffle_train}",
         f"fc{config.flat_clusters}",
+        f"e{config.emit}",
+        f"s{config.state}",
     ])
 
 def get_args(args):
