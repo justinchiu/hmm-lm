@@ -54,7 +54,7 @@ def get_args():
         help="use res layers and concat if > 0")
     parser.add_argument("--state", choices=[
         "ind", "fac",
-    ], default="chmm",)
+    ], default="ind",)
 
     add_nn_args(parser)
 

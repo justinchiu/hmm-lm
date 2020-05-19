@@ -55,6 +55,8 @@ class MshmmLm(nn.Module):
 
         self.C = config.num_classes
 
+        self.num_clusters = config.num_clusters
+
         self.words_per_state = config.words_per_state
         self.states_per_word = config.states_per_word
         self.train_states_per_word = config.train_spw
@@ -128,8 +130,16 @@ class MshmmLm(nn.Module):
         self.fb_test = foo.get_fb(self.states_per_word)
 
         # p(z0)
+        """
         self.start_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
+        )
+        """
+        self.start_emb = StateEmbedding(
+            self.C,
+            config.hidden_dim,
+            num_embeddings1 = config.num_clusters if config.state == "fac" else None,
+            num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
         self.start_mlp = nn.Sequential(
             ResidualLayer(
@@ -142,8 +152,16 @@ class MshmmLm(nn.Module):
         )
 
         # p(zt | zt-1)
+        """
         self.state_emb = nn.Embedding(
             self.C, config.hidden_dim,
+        )
+        """
+        self.state_emb = StateEmbedding(
+            self.C,
+            config.hidden_dim,
+            num_embeddings1 = config.num_clusters if config.state == "fac" else None,
+            num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
         self.trans_mlp = nn.Sequential(
             ResidualLayer(
@@ -154,11 +172,25 @@ class MshmmLm(nn.Module):
             nn.Dropout(config.dropout),
         )
         #self.next_state_emb = nn.Embedding(self.C, config.hidden_dim)
+        self.next_state_emb = StateEmbedding(
+            self.C,
+            config.hidden_dim,
+            num_embeddings1 = config.num_clusters if config.state == "fac" else None,
+            num_embeddings2 = config.states_per_word if config.state == "fac" else None,
+        )
         self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
 
         # p(xt | zt)
+        """
         self.preterminal_emb = nn.Embedding(
             self.C, config.hidden_dim,
+        )
+        """
+        self.preterminal_emb = StateEmbedding(
+            self.C,
+            config.hidden_dim,
+            num_embeddings1 = config.num_clusters if config.state == "fac" else None,
+            num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
         self.terminal_mlp = nn.Sequential(
             ResidualLayer(
@@ -245,10 +277,7 @@ class MshmmLm(nn.Module):
     # don't permute here, permute before passing into torch struct stuff
     #@profile
     def start(self, states=None):
-        start_emb = (self.start_emb[states]
-            if states is not None
-            else self.start_emb
-        )
+        start_emb = self.start_emb(states)
         return self.start_mlp(self.dropout(start_emb)).squeeze(-1).log_softmax(-1)
 
     def start_chp(self, states=None):
@@ -263,16 +292,10 @@ class MshmmLm(nn.Module):
 
     #@profile
     def transition_logits(self, states=None):
-        state_emb = (self.state_emb.weight[states]
-            if states is not None
-            else self.state_emb.weight
-        )
-        next_state_proj = (self.next_state_proj.weight[states]
-            if states is not None
-            else self.next_state_proj.weight
-        )
+        state_emb = self.state_emb(states)
+        next_state_emb = self.next_state_emb(states)
         x = self.trans_mlp(self.dropout(state_emb))
-        return x @ next_state_proj.t()
+        return x @ next_state_emb.t()
 
     #@profile
     def mask_transition(self, logits):
@@ -282,6 +305,7 @@ class MshmmLm(nn.Module):
         return logits.log_softmax(-1)
 
     def transition_chp(self, states=None):
+        raise NotImplementedError
         state_emb = (self.state_emb.weight[states]
             if states is not None
             else self.state_emb.weight
@@ -290,7 +314,7 @@ class MshmmLm(nn.Module):
             if states is not None
             else self.next_state_proj.weight
         )
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         return checkpoint(
             lambda x, y: (self.trans_mlp(self.dropout(x)) @ y.t()).log_softmax(-1),
             state_emb, next_state_proj,
@@ -298,10 +322,7 @@ class MshmmLm(nn.Module):
 
     #@profile
     def emission_logits(self, states=None):
-        preterminal_emb = (self.preterminal_emb.weight[states]
-            if states is not None
-            else self.preterminal_emb.weight
-        )
+        preterminal_emb = self.preterminal_emb(states)
         h = self.terminal_mlp(self.dropout(preterminal_emb))
         logits = self.terminal_proj(h)
         return logits
@@ -393,8 +414,8 @@ class MshmmLm(nn.Module):
         return log_potentials.transpose(-1, -2)
 
     def trans_to(self, from_states, to_states):
-        state_emb = self.state_emb.weight[from_states]
-        next_state_proj = self.next_state_proj.weight[to_states]
+        state_emb = self.state_emb(from_states)
+        next_state_proj = self.next_state_emb(to_states)
         x = self.trans_mlp(self.dropout(state_emb))
         return (x @ next_state_proj.t()).log_softmax(-1)
 

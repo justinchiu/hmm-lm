@@ -150,7 +150,7 @@ def cached_eval_loop(
             log_potentials = model.clamp(text, start, transition, emission, word2state)
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
 
-            if word2state:
+            if word2state is not None:
                 idx = th.arange(N, device=model.device)
                 last_words = text[idx, lengths-1]
                 last_states = model.word2state[last_words]
