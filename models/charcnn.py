@@ -37,11 +37,11 @@ class CharLinear(nn.Module):
         self.V = V
         self.emit_dims = emit_dims
 
-        max_len = max(len(x) for x in V.itos)
+        max_len = max(len(x) for x in V.itos) + 2
 
         # char vocab
         self.pad_idx = 0
-        self.i2c = ["<cpad>"] + sorted(list(set(x for xs in V.itos for x in xs)))
+        self.i2c = ["<cpad>", "<bow>", "<eow>"] + sorted(list(set(x for xs in V.itos for x in xs)))
         self.c2i = {c: i for i, c in enumerate(self.i2c)}
 
         # create char_buffer
@@ -73,14 +73,15 @@ class CharLinear(nn.Module):
                 Highway(sum(emit_dims), num_highway),
                 nn.Linear(sum(emit_dims), hidden_dim, bias=False),
             ) if num_highway > 0 else (
-                nn.Linear(sum(emit_dims), hidden_dim, bias=False),
+                nn.Linear(sum(emit_dims), hidden_dim, bias=False)
             )
 
     def process_vocab(self, V, char_buffer):
         c2i = self.c2i
         char_buffer.fill_(0)
         for i, word in enumerate(V.itos):
-            for t, char in enumerate(word):
+            procword = ["<bow>"] + list(word) + ["<eow>"]
+            for t, char in enumerate(procword):
                 char_buffer[i,t] = c2i[char]
         return char_buffer
 
