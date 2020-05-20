@@ -35,6 +35,7 @@ def get_args():
     parser.add_argument("--model", choices=[
         "shmm", "dhmm", "chmm", "hmm", "lstm", "ff",
         "mshmm", "dshmm",
+        "factoredhmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)
@@ -52,6 +53,7 @@ def get_args():
     ], default="word",)
     parser.add_argument("--emit_dims", type=int, nargs="+",
         help="use res layers and concat if > 0")
+    parser.add_argument("--num_highway", type=int, default=0, help="num highway layers in emit")
     parser.add_argument("--state", choices=[
         "ind", "fac",
     ], default="ind",)

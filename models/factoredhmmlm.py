@@ -207,7 +207,7 @@ class FactoredHmmLm(nn.Module):
         self.terminal_proj = (
             nn.Linear(config.hidden_dim, len(V))
             if config.emit == "word"
-            else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims)
+            else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims, config.num_highway)
         )
 
         self.dropout = nn.Dropout(config.dropout)

@@ -31,6 +31,7 @@ class CharLinear(nn.Module):
         hidden_dim,
         V,
         emit_dims,
+        num_highway=1,
     ):
         super(CharLinear, self).__init__()
         self.V = V
@@ -67,8 +68,11 @@ class CharLinear(nn.Module):
                 nn.Conv1d(emb_dim, d, k, bias=False)
                 for k, d in zip(self.kernels, emit_dims)
             ])
+
             self.mlp = nn.Sequential(
-                Highway(sum(emit_dims), 1),
+                Highway(sum(emit_dims), num_highway),
+                nn.Linear(sum(emit_dims), hidden_dim, bias=False),
+            ) if num_highway > 0 else (
                 nn.Linear(sum(emit_dims), hidden_dim, bias=False),
             )
 

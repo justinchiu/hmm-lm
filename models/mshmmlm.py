@@ -434,8 +434,8 @@ class MshmmLm(nn.Module):
         return log_potentials.transpose(-1, -2)
 
     def trans_to(self, from_states, to_states):
-        state_emb = self.state_emb(from_states)
-        next_state_proj = self.next_state_emb(to_states)
+        state_emb = self.state_emb.weight[from_states]
+        next_state_proj = self.next_state_proj.weight[to_states]
         x = self.trans_mlp(self.dropout(state_emb))
         return (x @ next_state_proj.t()).log_softmax(-1)
 
