@@ -24,7 +24,8 @@ import torch_struct as ts
 
 from .misc import ResidualLayerOld, ResidualLayerOpt, LogDropout
 from .charcnn import CharLinear
-from .stateemb import StateEmbedding
+#from .stateemb import StateEmbedding
+from .stateemb import StateEmbedding2 as StateEmbedding
 
 from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
