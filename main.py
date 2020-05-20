@@ -309,7 +309,7 @@ def train_loop(
             #import pdb; pdb.set_trace()
             wandb.log({
                 "running_training_loss": total_ll / n,
-                "running_training_ppl": math.exp(-total_ll / n),
+                "running_training_ppl": math.exp(min(-total_ll / n, 700)),
             }, step=WANDB_STEP)
 
             if verbose and i % args.report_every == args.report_every - 1:
