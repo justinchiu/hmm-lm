@@ -46,9 +46,11 @@ def checkmem():
         f"{th.cuda.memory_allocated() / 2**30:.2f}, {th.cuda.memory_cached() / 2 ** 30:.2f}, {th.cuda.max_memory_cached() / 2 ** 30:.2f}"
     )
 
-class MshmmLm(nn.Module):
+class FactoredHmmLm(nn.Module):
+    """ Has both charcnn and factored state embs
+    """
     def __init__(self, V, config):
-        super(MshmmLm, self).__init__()
+        super(FactoredHmmLm, self).__init__()
 
         self.config = config
         self.V = V
@@ -131,7 +133,7 @@ class MshmmLm(nn.Module):
         self.fb_test = foo.get_fb(self.states_per_word)
 
         # p(z0)
-        #"""
+        """
         self.start_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -142,7 +144,6 @@ class MshmmLm(nn.Module):
             num_embeddings1 = config.num_clusters if config.state == "fac" else None,
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
-        """
         self.start_mlp = nn.Sequential(
             ResidualLayer(
                 in_dim = config.hidden_dim,
@@ -154,7 +155,7 @@ class MshmmLm(nn.Module):
         )
 
         # p(zt | zt-1)
-        #"""
+        """
         self.state_emb = nn.Embedding(
             self.C, config.hidden_dim,
         )
@@ -165,7 +166,6 @@ class MshmmLm(nn.Module):
             num_embeddings1 = config.num_clusters if config.state == "fac" else None,
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
-        """
         self.trans_mlp = nn.Sequential(
             ResidualLayer(
                 in_dim = config.hidden_dim,
@@ -175,18 +175,16 @@ class MshmmLm(nn.Module):
             nn.Dropout(config.dropout),
         )
         #self.next_state_emb = nn.Embedding(self.C, config.hidden_dim)
-        """
         self.next_state_emb = StateEmbedding(
             self.C,
             config.hidden_dim,
             num_embeddings1 = config.num_clusters if config.state == "fac" else None,
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
-        """
         self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
 
         # p(xt | zt)
-        #"""
+        """
         self.preterminal_emb = nn.Embedding(
             self.C, config.hidden_dim,
         )
@@ -197,7 +195,6 @@ class MshmmLm(nn.Module):
             num_embeddings1 = config.num_clusters if config.state == "fac" else None,
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
-        """
         self.terminal_mlp = nn.Sequential(
             ResidualLayer(
                 in_dim = config.hidden_dim,
@@ -205,16 +202,13 @@ class MshmmLm(nn.Module):
                 dropout = config.dropout,
             ),
             nn.Dropout(config.dropout),
-            nn.Linear(config.hidden_dim, len(V)),
+            #nn.Linear(config.hidden_dim, len(V)),
         )
-        """
-        # include in another file...?
         self.terminal_proj = (
             nn.Linear(config.hidden_dim, len(V))
             if config.emit == "word"
             else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims)
         )
-        """
 
         self.dropout = nn.Dropout(config.dropout)
 
@@ -286,7 +280,7 @@ class MshmmLm(nn.Module):
     # don't permute here, permute before passing into torch struct stuff
     #@profile
     def start(self, states=None):
-        start_emb = self.start_emb[states] if states is not None else self.start_emb
+        start_emb = self.start_emb(states)
         return self.start_mlp(self.dropout(start_emb)).squeeze(-1).log_softmax(-1)
 
     def start_chp(self, states=None):
@@ -301,18 +295,10 @@ class MshmmLm(nn.Module):
 
     #@profile
     def transition_logits(self, states=None):
-        #state_emb = self.state_emb(states)
-        #next_state_emb = self.next_state_emb(states)
-        state_emb = (self.state_emb.weight[states]
-            if states is not None
-            else self.state_emb.weight
-        )
-        next_state_proj = (self.next_state_proj.weight[states]
-            if states is not None
-            else self.next_state_proj.weight
-        )
+        state_emb = self.state_emb(states)
+        next_state_emb = self.next_state_emb(states)
         x = self.trans_mlp(self.dropout(state_emb))
-        return x @ next_state_proj.t()
+        return x @ next_state_emb.t()
 
     #@profile
     def mask_transition(self, logits):
@@ -339,12 +325,9 @@ class MshmmLm(nn.Module):
 
     #@profile
     def emission_logits(self, states=None):
-        #preterminal_emb = self.preterminal_emb(states)
-        preterminal_emb = (self.preterminal_emb.weight[states]
-            if states is not None
-            else self.preterminal_emb.weight
-        )
-        logits = self.terminal_mlp(self.dropout(preterminal_emb))
+        preterminal_emb = self.preterminal_emb(states)
+        h = self.terminal_mlp(self.dropout(preterminal_emb))
+        logits = self.terminal_proj(h)
         return logits
 
     #@profile
