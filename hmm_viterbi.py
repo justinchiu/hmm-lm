@@ -20,7 +20,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import torchtext
-from datasets.lm import PennTreebank
+from datasets.lm import Wsj
 from datasets.data import BucketIterator, BPTTIterator
 
 from args import get_args
@@ -60,9 +60,15 @@ if "dataset" not in config:
     config.iterator = "bucket"
     # old default
     config.train_spw = config.states_per_word // 2
+if "char_dim" not in config:
+    config.char_dim = 0
+    config.emit = "word"
+    config.emit_dims = None
+    config.num_highway = 0
+    config.state = "ind"
 
 TEXT = torchtext.data.Field(batch_first = True)
-train, valid, test = PennTreebank.splits(
+train, valid, test = Wsj.splits(
     TEXT,
     newline_eos = True,
 )
@@ -71,7 +77,7 @@ TEXT.build_vocab(train)
 V = TEXT.vocab
 
 # use pos dataset
-dataset = PennTreebank(".data/PTB/ptb.txt", TEXT)
+dataset = train
 
 # one sentence at a time?
 if config.iterator == "bptt":
@@ -107,28 +113,28 @@ elif config.model == "hmm":
 model.to(device)
 model.load_state_dict(chp["model"])
 
-fb_max = foo.get_fb_max(model.states_per_word)
+fb_max = foo.get_fb_max(model.C)
 
 with th.no_grad():
     model.train(False)
-    start = model.start()
-    emission = model.mask_emission(model.emission_logits(), model.word2state)
+    start = model.start
+    emission = model.emission
     transition = model.mask_transition(model.transition_logits())
 
-    lpz, last_states = None, None
+    lpz = None
     viterbi_sequences = []
 
     for batch in biter:
         mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
         text = batch.text
 
-        if config.iterator == "bptt" and lpz is not None and last_states is not None:
-            tmp = lpz[:,:,None] + transition[last_states]
+        if config.iterator == "bptt" and lpz is not None:
+            tmp = lpz[:,:,None] + transition
             start = tmp.logsumexp(1)                                                 
 
         # hmm
         log_pots = model.clamp(
-            batch.text, start, transition, emission, model.word2state,
+            batch.text, start, transition, emission,
         ).to(model.device)
         """
         with th.enable_grad():
@@ -145,18 +151,15 @@ with th.no_grad():
         T, N, C, _ = max_margs.shape
         assert N == 1
 
-        clamped_states = model.word2state[text].cpu()
-
         for n in range(N):
             """
             best = log_m[n, :lengths[n]]
             parts = best.nonzero()
             viterbi_sequence0 = [parts[0,2].item()] + parts[:,1].tolist()
             """
-            viterbi_sequence_compressed = [
+            viterbi_sequence = [
                 max_margs[0,0].max(-1).values.argmax(-1).item()
             ] + max_margs[:,0].max(-2).values.max(-1).indices.tolist()
-            viterbi_sequence = clamped_states[n][range(T+1), viterbi_sequence_compressed].tolist()
             viterbi_sequences.append(viterbi_sequence)
 
 # save viterbi sequences

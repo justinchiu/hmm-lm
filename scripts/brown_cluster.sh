@@ -7,6 +7,8 @@ winput=.data/wikitext-103/wikitext-103/wiki.train.tokens
 w2input=.data/wikitext-2/wikitext-2/wiki.train.tokens
 w2finput=.data/wikitext-2/wikitext-2/wiki.train.tokens.flat
 
+wsjinput=.data/PTB/ptb.txt
+
 if [[ "$1" == "pmi" ]]; then
     cluster=/n/rush_lab/jc/code/tan-clustering/pmi_cluster.py
     python $cluster $input clusters/pmi/ptb.train.clusters > clusters/pmi/log
@@ -145,6 +147,34 @@ elif [[ "$1" == "w2flm8" ]]; then
 elif [[ "$1" == "w2flm4" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $w2finput --c 4 --output_dir clusters/w2flm-4
+
+elif [[ "$1" == "wsj256" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 256 --output_dir clusters/wsj-256
+elif [[ "$1" == "wsj128" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 128 --output_dir clusters/wsj-128
+elif [[ "$1" == "wsj64" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 64 --output_dir clusters/wsj-64
+elif [[ "$1" == "wsj32" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 32 --output_dir clusters/wsj-32
+elif [[ "$1" == "wsj16" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 16 --output_dir clusters/wsj-16
+elif [[ "$1" == "wsj10" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 10 --output_dir clusters/wsj-10
+elif [[ "$1" == "wsj9" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 9 --output_dir clusters/wsj-9
+elif [[ "$1" == "wsj8" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 8 --output_dir clusters/wsj-8
+elif [[ "$1" == "wsj4" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $wsjinput --c 4 --output_dir clusters/wsj-4
 else
     echo "Improper argument"
 fi

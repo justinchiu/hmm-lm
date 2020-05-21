@@ -92,6 +92,11 @@ class MshmmLm(nn.Module):
         elif config.dataset == "wikitext103":
             lmstring = "wlm"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
+        elif config.dataset == "wsj":
+            lmstring = "wsj"
+            path = f"clusters/{lmstring}-{num_clusters}/paths"
+        else:
+            raise ValueError
 
         word2cluster, word_counts, cluster2word = read_lm_clusters(
             V,

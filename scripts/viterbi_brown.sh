@@ -5,5 +5,5 @@ input=viterbi_output/ptb_bucket_mshmm_k32768_wps512_spw256_tspw128_ed256_d256_dp
 l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
 $l_cluster --text $input --c 45 --output_dir viterbi_clusters/mshmm_k32768_nb128
 
-$l_cluster --text .data/PTB/ptb.nopunct.txt --c 45 --output_dir viterbi_clusters/brown_45
+$l_cluster --text .data/PTB/ptb.txt --c 45 --output_dir viterbi_clusters/brown_45
 $l_cluster --text .data/penn-treebank/ptb.train.txt --c 45 --output_dir viterbi_clusters/brown_mik_45
