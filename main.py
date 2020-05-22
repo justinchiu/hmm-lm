@@ -16,7 +16,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 import torch_struct as ts
 from models.autoregressive import Autoregressive
 
-from torch.optim import AdamW
+from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 import torchtext
@@ -548,12 +548,18 @@ def main():
         sys.exit()
 
     parameters = list(model.parameters())
-    optimizer = AdamW(
-        parameters,
-        lr = args.lr,
-        betas = (args.beta1, args.beta2),
-        weight_decay = args.wd,
-    )
+    if args.optimizer == "adamw":
+        optimizer = AdamW(
+            parameters,
+            lr = args.lr,
+            betas = (args.beta1, args.beta2),
+            weight_decay = args.wd,
+        )
+    elif args.optimizer == "sgd":
+        optimizer = SGD(
+            parameters,
+            lr = args.lr,
+        )
     if args.schedule == "reducelronplateau":
         scheduler = ReduceLROnPlateau(
             optimizer,
