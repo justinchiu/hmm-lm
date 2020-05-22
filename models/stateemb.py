@@ -109,3 +109,13 @@ class StateEmbedding2(nn.Module):
             ], -1)
             return self.mlp(xprod.view(self.num3, self.embedding_dim))
 
+    def share(self, other):
+        assert self.factored == other.factored
+
+        if self.factored:
+            self.emb1.weight = other.emb1.weight
+            #self.emb2.weight = other.emb2.weight
+            self.emb3.weight = other.emb3.weight
+        else:
+            self.emb.weight = other.emb.weight
+

@@ -94,6 +94,11 @@ class FactoredHmmLm(nn.Module):
         elif config.dataset == "wikitext103":
             lmstring = "wlm"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
+        elif config.dataset == "wsj":
+            lmstring = "wsj"
+            path = f"clusters/{lmstring}-{num_clusters}/paths"
+        else:
+            raise ValueError
 
         word2cluster, word_counts, cluster2word = read_lm_clusters(
             V,
@@ -181,7 +186,7 @@ class FactoredHmmLm(nn.Module):
             num_embeddings1 = config.num_clusters if config.state == "fac" else None,
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
-        self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
+        #self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
 
         # p(xt | zt)
         """
@@ -219,11 +224,11 @@ class FactoredHmmLm(nn.Module):
         # p: preterminal
         # o: output, can't be tied
         if "sl" in config.tw:
-            self.state_emb.weight = self.start_emb
+            self.state_emb.share(self.start_emb)
         if "lr" in config.tw:
-            self.next_state_proj.weight = self.state_emb.weight
+            self.next_state_emb.share(self.state_emb)
         if "rp" in config.tw:
-            self.preterminal_emb.weight = self.trans_mlp[-1].weight
+            self.preterminal_emb.share(self.next_state_emb)
 
         self.transition_dropout = LogDropout(config.transition_dropout)
         self.column_dropout = config.column_dropout > 0

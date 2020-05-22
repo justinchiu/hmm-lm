@@ -63,7 +63,13 @@ class HmmLm(nn.Module):
             ResidualLayer(config.hidden_dim, config.hidden_dim),
             nn.Linear(config.hidden_dim, len(V)) 
                 if config.emit == "word"             
-                else CharLinear(config.char_dim, config.hidden_dim, V, config.emit_dims),
+                else CharLinear(
+                    config.char_dim,
+                    config.hidden_dim,
+                    V,
+                    config.emit_dims,
+                    config.num_highway,
+                ),
         )
 
 
@@ -175,7 +181,7 @@ class HmmLm(nn.Module):
         return start, transition, emission
 
     def clamp(                                              
-        self, text, start, transition, emission, word2state,
+        self, text, start, transition, emission, word2state=None,
         uniform_emission = None, word_mask = None,          
         reset = None,                                       
     ):                                                      
