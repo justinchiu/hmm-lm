@@ -6,6 +6,7 @@ from collections import Counter
 #txtf = Path(".data/PTB/ptb.nopunct.txt")
 #tagf = Path(".data/PTB/ptb.nopunct.tags")
 txtf = Path(".data/PTB/ptb.txt")
+#txtf = Path(".data/PTB/ptb.digits.txt.test")
 tagf = Path(".data/PTB/ptb.tags")
 
 #clustersf = Path("viterbi_clusters/mshmm_k32768_nb128/paths")
@@ -14,12 +15,16 @@ tagf = Path(".data/PTB/ptb.tags")
 
 # brown clusters
 clustersf = Path("viterbi_clusters/brown_45/paths")
+clustersf = Path("viterbi_clusters/brown_digits_45/paths")
 statesf = txtf
 
 # baseline hmm
 #statesf = Path("viterbi_output/wsj_bucket_hmm_k45_wps512_spw128_tspw64_ed512_d512_cd0_dp0_tdp0.0_cdp1_sdp0_dtnone_wd0_tokens_b512_adamw_lr0.001_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind.viterbi.txt")
 #clustersf = None
 
+# mshmm
+statesf = Path("viterbi_output/wsj_bucket_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtnone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind.viterbi.txt")
+clustersf = Path("viterbi_clusters/wsj_mshmm_k16384_nb128/paths")
 
 # compare states and words
 txt = txtf.read_text().strip().split("\n")
@@ -77,6 +82,10 @@ tags_hat = [
 ]
 
 # write out tags_hat
-outf = Path("viterbi_output/brown.tags.out")
+#outf = Path("viterbi_output/brown.tags.out")
+#outf = Path("viterbi_output/brown.digits.tags.out")
 #outf = Path("viterbi_output/hmm45.tags.out")
-outf.write_text("\n".join([" ".join(xs) for xs in tags_hat]))
+#outf = Path("viterbi_output/wsj_mshmm_k16k_nb128.tags.out")
+#outf.write_text("\n".join([" ".join(xs) for xs in tags_hat]))
+outf = Path("viterbi_output/wsj_mshmm_k16k_nb128.cluster.out")
+outf.write_text("\n".join([" ".join(xs) for xs in clusters]))

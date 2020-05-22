@@ -44,14 +44,20 @@ def get_pos(sections, base_path):
 def is_num(x):
     return re.match(r'^-?\d+(?:\.\d+)?$', x)
 
-def write_txt_pos(sentags, ignore_tags, sentence_f, tag_f, lower=False):
+def write_txt_pos(sentags, ignore_tags, sentence_f, tag_f,
+    lower=False,
+    digits=False,
+):
     sentences = []
     tags = []
     for sentag in sentags:
         sentence, tag = zip(*[x for x in sentag if x[1] not in ignore_tags])
         sentences.append(" ".join([
             #x if not is_num(x) else "N"
-            (x.lower() if lower else x) if not is_num(x) else "0"
+            (x.lower() if lower else x)
+            if not is_num(x) else (
+                "0" if not digits else "0" * len(x)
+            )
             for x in sentence
         ]))
         tags.append(" ".join(tag))
@@ -68,14 +74,27 @@ if __name__ == "__main__":
     all_sections = train_pos + valid_pos + test_pos
 
     out_path = pathlib.Path(".data/PTB")
-    sentence_f = out_path / "ptb.txt"
-    tag_f = out_path / "ptb.tags"
+    sentence_f = out_path / "ptb.txt.test"
+    tag_f = out_path / "ptb.tags.test"
 
     sentences, tags = write_txt_pos(all_sections, ignore_tags, sentence_f, tag_f)
 
+    sentence_f = out_path / "ptb.digits.txt.test"
+    tag_f = out_path / "ptb.digits.tags.test"
+
+    sentences, tags = write_txt_pos(
+        all_sections,
+        ignore_tags,
+        sentence_f,
+        tag_f,
+        digits=True,
+    )
+
+    """
     ignore_tags = ["-NONE-"] + punctuation_tags
     sentence_f = out_path / "ptb.nopunct.txt"
     tag_f = out_path / "ptb.nopunct.tags"
     sentences, tags = write_txt_pos(
         all_sections, ignore_tags, sentence_f, tag_f, lower=True,
     )
+    """

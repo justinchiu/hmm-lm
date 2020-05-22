@@ -20,7 +20,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import torchtext
-from datasets.lm import PennTreebank
+from datasets.lm import Wsj
 from datasets.data import BucketIterator, BPTTIterator
 
 from args import get_args
@@ -70,6 +70,8 @@ chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw256_ed256_d256_dp0_tdp0.5_c
 # 16k mshmm state 0.75 nb128
 #chp_path = "wandb_checkpoints/ptb_bptt_mshmm_k16384_wps512_spw128_tspw32_ed256_d256_dp0_tdp0.75_cdp1_sdp0_dtstate_wd0_tokens_b16_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns1_fc1/90799_5.03.pth"
 
+chp_path = "wandb_checkpoints/wsj_bucket_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind/223405_4.45.pth"
+
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
 #config = get_args()
@@ -90,7 +92,7 @@ if "dataset" not in config:
     config.train_spw = config.states_per_word // 2
 
 TEXT = torchtext.data.Field(batch_first = True)
-train, valid, test = PennTreebank.splits(
+train, valid, test = Wsj.splits(
     TEXT,
     newline_eos = True,
 )
@@ -99,7 +101,7 @@ TEXT.build_vocab(train)
 V = TEXT.vocab
 
 # use pos dataset
-dataset = PennTreebank(".data/PTB/ptb.nopunct.txt", TEXT)
+dataset = train
 
 # one sentence at a time?
 if config.iterator == "bptt":
@@ -197,7 +199,22 @@ with th.no_grad():
                 max_margs[0,0].max(-1).values.argmax(-1).item()
             ] + max_margs[:,0].max(-2).values.max(-1).indices.tolist()
             viterbi_sequence = clamped_states[n][range(T+1), viterbi_sequence_compressed].tolist()
-            viterbi_sequences.append(viterbi_sequence)
+            # drop EOS
+            viterbi_sequences.append(viterbi_sequence[:-1])
+
+            # testing
+            log_m, alpha = model.fb_test(log_pots)
+            max_unary_marg_compressed = [
+                log_m[n,0].logsumexp(-2).max(-1).indices.item()
+            ] + log_m[n].logsumexp(-1).max(-1).indices.tolist()
+            max_unary_margs = clamped_states[n][range(T+1), max_unary_marg_compressed].tolist()
+
+            xs = text.squeeze().tolist()
+            for (x,z,zr) in zip(xs, viterbi_sequence, viterbi_sequence[1:]):
+                print(f"{V.itos[x]} | {z}: {emission[z,x].exp().item()}")
+                print(f"{zr} | {z}: {transition[z, zr].exp().item()}")
+
+            import pdb; pdb.set_trace()
 
 # save viterbi sequences
 import pickle
