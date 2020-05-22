@@ -23,8 +23,22 @@ statesf = txtf
 #clustersf = None
 
 # mshmm
-statesf = Path("viterbi_output/wsj_bucket_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtnone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind.viterbi.txt")
-clustersf = Path("viterbi_clusters/wsj_mshmm_k16384_nb128/paths")
+#statesf = Path("viterbi_output/wsj_bucket_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtnone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind.viterbi.txt")
+#clustersf = Path("viterbi_clusters/wsj_mshmm_k16384_nb128/paths")
+
+
+# with ke's data
+tagf = Path(".data/wsj/wsj.tag")
+
+# raw, no preprocessing
+txtf = Path(".data/wsj/wsj.raw")
+clustersf = Path("viterbi_clusters/brown_wsjraw_45/paths")
+
+# preprocessed digits
+txtf = Path(".data/wsj/wsj.txt")
+clustersf = Path("viterbi_clusters/brown_wsj_45/paths")
+
+statesf = txtf
 
 # compare states and words
 txt = txtf.read_text().strip().split("\n")
@@ -60,6 +74,7 @@ clusters = [
     ] for state_seq in states
 ]
 
+"""
 # compute cluster+tag co-occurrences
 cluster_set = set(x for xs in clusters for x in xs)
 cooc = {
@@ -80,6 +95,7 @@ tags_hat = [
         for cluster in cluster_seq
     ] for cluster_seq in clusters
 ]
+"""
 
 # write out tags_hat
 #outf = Path("viterbi_output/brown.tags.out")
@@ -88,4 +104,6 @@ tags_hat = [
 #outf = Path("viterbi_output/wsj_mshmm_k16k_nb128.tags.out")
 #outf.write_text("\n".join([" ".join(xs) for xs in tags_hat]))
 outf = Path("viterbi_output/wsj_mshmm_k16k_nb128.cluster.out")
+outf = Path("viterbi_output/brown.wsjraw.cluster.out")
+outf = Path("viterbi_output/brown.wsj.cluster.out")
 outf.write_text("\n".join([" ".join(xs) for xs in clusters]))
