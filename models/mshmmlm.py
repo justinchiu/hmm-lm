@@ -188,7 +188,8 @@ class MshmmLm(nn.Module):
             num_embeddings2 = config.states_per_word if config.state == "fac" else None,
         )
         """
-        self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
+        #self.next_state_proj = nn.Linear(config.hidden_dim, self.C)
+        self.next_state_proj = nn.Linear(config.hidden_dim, self.C, bias=False)
 
         # p(xt | zt)
         #"""

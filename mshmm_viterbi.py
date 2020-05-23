@@ -70,7 +70,9 @@ chp_path = "wandb_checkpoints/mshmm_k32768_wps512_spw256_ed256_d256_dp0_tdp0.5_c
 # 16k mshmm state 0.75 nb128
 #chp_path = "wandb_checkpoints/ptb_bptt_mshmm_k16384_wps512_spw128_tspw32_ed256_d256_dp0_tdp0.75_cdp1_sdp0_dtstate_wd0_tokens_b16_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns1_fc1/90799_5.03.pth"
 
+# bucket wsj models
 chp_path = "wandb_checkpoints/wsj_bucket_mshmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_tw_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind/223405_4.45.pth"
+chp_path = "wandb_checkpoints/wsj_bucket_factoredhmm_k16384_wps512_spw128_tspw64_ed256_d256_cd16_dp0_tdp0.5_cdp1_sdp0_dtNone_wd0_tokens_b512_adamw_lr0.01_c5_twslIlrIrp_nas0_pw1_asbrown_nb128_nc0_ncs0_spc0_n5_r0_ns0_fc0_eword_ednone_nh0_sind/221720_4.45.pth"
 
 chp = th.load(chp_path)
 # chp["args"] will have the args eventually...
@@ -131,6 +133,9 @@ if config.model == "mshmm":
 elif config.model == "shmm":
     from models.shmmlm import ShmmLm
     model = ShmmLm(V, config)
+elif config.model == "factoredhmm":
+    from models.factoredhmmlm import FactoredHmmLm
+    model = FactoredHmmLm(V, config)
 model.to(device)
 model.load_state_dict(chp["model"])
 
@@ -203,6 +208,7 @@ with th.no_grad():
             viterbi_sequences.append(viterbi_sequence[:-1])
 
             # testing
+            """
             log_m, alpha = model.fb_test(log_pots)
             max_unary_marg_compressed = [
                 log_m[n,0].logsumexp(-2).max(-1).indices.item()
@@ -215,6 +221,7 @@ with th.no_grad():
                 print(f"{zr} | {z}: {transition[z, zr].exp().item()}")
 
             import pdb; pdb.set_trace()
+            """
 
 # save viterbi sequences
 import pickle

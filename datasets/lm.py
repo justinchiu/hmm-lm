@@ -307,7 +307,7 @@ class Wsj(LanguageModelingDataset):
             text_field=text_field, articles=False, **kwargs)
 
 
-class PennTreebankTags(LanguageModelingDataset):
+class TaggedPennTreebank(LanguageModelingDataset):
     """The Penn Treebank dataset.
     A relatively small dataset originally created for POS tagging.
 

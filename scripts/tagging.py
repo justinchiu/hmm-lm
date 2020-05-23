@@ -74,13 +74,13 @@ if __name__ == "__main__":
     all_sections = train_pos + valid_pos + test_pos
 
     out_path = pathlib.Path(".data/PTB")
-    sentence_f = out_path / "ptb.txt.test"
-    tag_f = out_path / "ptb.tags.test"
+    sentence_f = out_path / "ptb.txt"
+    tag_f = out_path / "ptb.tags"
 
     sentences, tags = write_txt_pos(all_sections, ignore_tags, sentence_f, tag_f)
 
-    sentence_f = out_path / "ptb.digits.txt.test"
-    tag_f = out_path / "ptb.digits.tags.test"
+    sentence_f = out_path / "ptb.digits.txt"
+    tag_f = out_path / "ptb.digits.tags"
 
     sentences, tags = write_txt_pos(
         all_sections,
