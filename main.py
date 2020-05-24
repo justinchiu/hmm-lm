@@ -177,11 +177,18 @@ def mixed_cached_eval_loop(
         # blocked transition
         num_blocks = 128
         block_size = model.C // num_blocks
-        next_state_proj = model.next_state_proj.weight
+        next_state_proj = (model.next_state_proj.weight
+            if hasattr(model, "next_state_proj")
+            else model.next_state_emb()
+        )
         transition = th.empty(model.C, model.C, device=th.device("cpu"), dtype=emission.dtype)
         for s in range(0, model.C, block_size):
             states = range(s, s+block_size)
-            x = model.trans_mlp(model.dropout(model.state_emb.weight[states]))
+            x = model.trans_mlp(model.dropout(
+                model.state_emb.weight[states]
+                if hasattr(model.state_emb, "weight")
+                else model.state_emb(th.LongTensor(states).to(model.device))
+            ))
             y = (x @ next_state_proj.t()).log_softmax(-1)
             transition[states] = y.to(transition.device)
 
