@@ -20,11 +20,10 @@ from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 import torchtext
-from datasets.lm import PennTreebank, WikiText2, Wsj
-from datasets.data import BucketIterator, BPTTIterator
-#from torchtext.data import BPTTIterator
+from datasets.tagging import TaggedPennTreebank
+from datasets.tagdata import BucketIterator, BPTTIterator
 
-from args import get_args
+from tag_args import get_args
 
 from utils import set_seed, get_config, get_name, get_mask_lengths
 from utils import Pack
@@ -55,7 +54,7 @@ def update_best_valid(
     if valid_losses.evidence > BEST_VALID:
         # do not save on dryruns
         if wandb.run.mode == "run":
-            save_f = f"wandb_checkpoints/{name}/{WANDB_STEP}_{-valid_losses.evidence / valid_n:.2f}.pth"
+            save_f = f"tag_wandb_checkpoints/{name}/{WANDB_STEP}_{-valid_losses.evidence / valid_n:.2f}.pth"
             print(f"Saving model to {save_f}")
             Path(save_f).parent.mkdir(parents=True, exist_ok=True)
             th.save({
@@ -83,6 +82,8 @@ def report(losses, n, prefix, start_time=None):
         f"xent(word) = {-loss / n:.2f}",
         f"ppl = {math.exp(-loss / n):.2f}",
     ]
+    if "num_correct" in losses:
+        str_list.append(f"acc = {losses.num_correct.float() / n:.4f}")
     if elbo is not None:
         str_list.append(f"elbo = {elbo / n:.2f}")
     total_time = None
@@ -114,7 +115,7 @@ def eval_loop(
             if args.iterator != "bptt":
                 lpz, last_states = None, None
             losses, lpz, _ = model.score(
-                batch.text,
+                batch.text, batch.tags,
                 lpz=lpz, last_states = last_states,
                 mask=mask, lengths=lengths,
             )
@@ -130,16 +131,18 @@ def cached_eval_loop(
     total_ll = 0
     total_elbo = 0
     n = 0
+    n_correct = 0
     with th.no_grad():
         model.train(False)
         lpz = None
-        start, transition, emission = model.compute_parameters(model.word2state)
+        start, transition, emission, tag_emission = model.compute_parameters(model.word2state)
         word2state = model.word2state
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
 
             text = batch.text
+            tags = batch.tags
 
             mask, lengths, n_tokens = get_mask_lengths(text, V)
             N, T = text.shape
@@ -147,8 +150,21 @@ def cached_eval_loop(
             if lpz is not None and args.iterator == "bptt":
                 start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
 
-            log_potentials = model.clamp(text, start, transition, emission, word2state)
+            # oops. no reset?
+            log_potentials = model.clamp(
+                text, tags, start, transition, emission, tag_emission, word2state,
+            )
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
+
+            tags_hat = model.get_tags(
+                text, start, transition, emission, tag_emission, word2state,
+                mask=mask, lengths=lengths,
+            )
+            matches = tags == tags_hat.max(-1).indices
+            num_correct = matches[mask].sum()
+            num_words = mask.sum()
+            n_correct += num_correct
+            n += num_words
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)
@@ -158,8 +174,52 @@ def cached_eval_loop(
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
-            n += n_tokens
-    return Pack(evidence = total_ll, elbo = total_elbo), n
+    return Pack(evidence = total_ll, elbo = total_elbo, num_correct=n_correct), n
+
+def gibbs_cached_eval_loop(
+    args, V, iter, model,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    n_correct = 0
+    with th.no_grad():
+        model.train(False)
+        lpz = None
+        start, transition, emission, tag_emission = model.compute_parameters(model.word2state)
+        word2state = model.word2state
+        for i, batch in enumerate(iter):
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+
+            text = batch.text
+            tags = batch.tags
+
+            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            N, T = text.shape
+
+            if lpz is not None and args.iterator == "bptt":
+                start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+
+            tags_hat = model.blocked_gibbs(
+                text, start, transition, emission, tag_emission, word2state,
+                mask, lengths,
+            )
+            matches = tags == tags_hat.max(-1).indices
+            num_correct = matches[mask].sum()
+            num_words = mask.sum()
+            n_correct += num_correct
+            n += num_words
+
+            if word2state is not None:
+                idx = th.arange(N, device=model.device)
+                last_words = text[idx, lengths-1]
+                last_states = model.word2state[last_words]
+
+            total_ll += losses.evidence.detach()
+            if losses.elbo is not None:
+                total_elbo += losses.elbo.detach()
+    return Pack(evidence = total_ll, elbo = total_elbo, num_correct=n_correct), n
 
 def mixed_cached_eval_loop(
     args, V, iter, model,
@@ -260,6 +320,7 @@ def train_loop(
     total_ll = 0
     total_elbo = 0
     n = 0
+    n_correct = 0
     # check is performed at end of epoch outside loop as well
     checkpoint = len(iter) // (args.num_checks - 1)
     with th.enable_grad():
@@ -271,6 +332,8 @@ def train_loop(
             optimizer.zero_grad()
 
             text = batch.textp1 if "lstm" in args.model else batch.text
+            tags = batch.tags
+
             if args.iterator == "bucket":
                 lpz = None
                 last_states = None
@@ -292,7 +355,10 @@ def train_loop(
 
             # check if iterator == bptt
             losses, lpz, last_states = model.score(
-                text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+                text, tags,
+                lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+
+
 
             if model.timing:
                 print(f"forward time: {timep.time() - start_forward}")
@@ -314,6 +380,26 @@ def train_loop(
                 scheduler.step()
             optimizer.step()
             #import pdb; pdb.set_trace()
+
+            """
+            with th.no_grad():
+                model.eval()
+                start, transition, emission, tag_emission = model.compute_parameters(model.word2state)
+                word2state = model.word2state
+
+                if lpz is not None and args.iterator == "bptt":
+                    start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+                tags_hat = model.get_tags(
+                    text, start, transition, emission, tag_emission, word2state,
+                    mask=mask, lengths=lengths,
+                )
+                matches = tags == tags_hat.max(-1).indices
+                num_correct = matches[mask].sum()
+                n_correct += num_correct
+                print(f"running_acc: {n_correct.float() / n:.4f}")
+                model.train()
+            """
+
             wandb.log({
                 "running_training_loss": total_ll / n,
                 "running_training_ppl": math.exp(min(-total_ll / n, 700)),
@@ -347,6 +433,7 @@ def train_loop(
                 wandb.log({
                     "valid_loss": valid_losses.evidence / valid_n,
                     "valid_ppl": math.exp(-valid_losses.evidence / valid_n),
+                    "valid_acc": valid_losses.num_correct / valid_n,
                 }, step=WANDB_STEP)
 
                 update_best_valid(
@@ -356,6 +443,7 @@ def train_loop(
                     "lr": optimizer.param_groups[0]["lr"],
                 }, step=WANDB_STEP)
                 scheduler.step(valid_losses.evidence)
+
 
                 # remove this later?
                 if args.log_counts > 0 and args.keep_counts > 0:
@@ -399,27 +487,21 @@ def main():
     args.aux_device = aux_device
 
     TEXT = torchtext.data.Field(batch_first = True)
-    ## DBG
-    #TEXT = torchtext.data.Field(batch_first = True, lower=True)
+    TAGS = torchtext.data.Field(batch_first = True)
 
-    if args.dataset == "ptb":
-        Dataset = PennTreebank
-    elif args.dataset == "wikitext103":
-        Dataset = WikiText103
-    elif args.dataset == "wikitext2":
-        # shuffling the articles is annoying
-        Dataset = WikiText2
-        #Dataset = torchtext.datasets.WikiText2
-    elif args.dataset == "wsj":
-        Dataset = Wsj
-
-    train, valid, test = Dataset.splits(
+    train, valid, test = TaggedPennTreebank.splits(
         TEXT,
-        newline_eos = True,
+        TAGS,
+        # need to mask out when computing accuracy (num_correct)
+        # and use n_tags (instead of n_tokens)
+        # only a concern if doing bptt
+        newline_eos = args.newline_eos > 0,
     )
 
     TEXT.build_vocab(train)
+    TAGS.build_vocab(train)
     V = TEXT.vocab
+    Vtag = TAGS.vocab
 
     def batch_size_tokens(new, count, sofar):
         return max(len(new.text), sofar)
@@ -428,7 +510,7 @@ def main():
 
     if args.iterator == "bucket":
         # independent sentences...bad
-        train_iter, valid_iter, text_iter = BucketIterator.splits(
+        train_iter, valid_iter, test_iter = BucketIterator.splits(
             (train, valid, test),
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
             #batch_size = args.bsz,
@@ -437,8 +519,7 @@ def main():
             batch_size_fn = batch_size_tokens if args.bsz_fn == "tokens" else batch_size_sents,
         )
     elif args.iterator == "bptt":
-        #train_iter, valid_iter, text_iter = BPTTIterator.splits(
-        train_iter, valid_iter, text_iter = BPTTIterator.splits(
+        train_iter, valid_iter, test_iter = BPTTIterator.splits(
             (train, valid, test),
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
             #batch_size = args.bsz,
@@ -460,7 +541,7 @@ def main():
     """
     name = get_name(args)
     import tempfile
-    wandb.init(project="hmm-lm", name=name, config=args, dir=tempfile.mkdtemp())
+    wandb.init(project="hmm-pos", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
 
     model = None
@@ -471,33 +552,9 @@ def main():
         model = HmmLm(V, args)
     elif args.model == "ff":
         model = FfLm(V, args)
-    elif args.model == "arhmm":
-        from models.arhmmlm import ArHmmLm
-        model = ArHmmLm(V, args)
-    elif args.model == "poehmm":
-        from models.poehmmlm import PoeHmmLm
-        model = PoeHmmLm(V, args)
-    elif args.model == "chmm":
-        from models.chmmlm import ChmmLm
-        model = ChmmLm(V, args)
-    elif args.model == "dhmm":
-        from models.dhmmlm import DhmmLm
-        model = DhmmLm(V, args)
-    elif args.model == "shmm":
-        from models.shmmlm import ShmmLm
-        model = ShmmLm(V, args)
-    elif args.model == "dhmm":
-        from models.dhmmlm import DhmmLm
-        model = DhmmLm(V, args)
-    elif args.model == "mshmm":
-        from models.mshmmlm import MshmmLm
-        model = MshmmLm(V, args)
-    elif args.model == "dshmm":
-        from models.dshmmlm import DshmmLm
-        model = DshmmLm(V, args)
     elif args.model == "factoredhmm":
-        from models.factoredhmmlm import FactoredHmmLm
-        model = FactoredHmmLm(V, args)
+        from models.tagfactoredhmmlm import FactoredHmmLm
+        model = FactoredHmmLm(V, Vtag, args)
     else:
         raise ValueError("Invalid model type")
     model.to(device)
@@ -518,8 +575,9 @@ def main():
     #valid_losses, valid_n = mixed_cached_eval_loop(args, V, valid_iter, model)
     #import pdb; pdb.set_trace()
     if args.eval_only:
+        # DBG
         # uncomment this later
-        #model.load_state_dict(th.load(args.eval_only)["model"])
+        model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(
@@ -538,11 +596,25 @@ def main():
         )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
 
+        v_start_time = time.time()
+        valid_losses, valid_n = gibbs_cached_eval_loop(
+            args, V, valid_iter, model,
+        )
+        report(valid_losses, valid_n, f"Valid perf gibbs", v_start_time)
+
         t_start_time = time.time()
-        test_losses, test_n = eval_fn(
+        test_losses, test_n  = eval_fn(
             args, V, test_iter, model,
         )
-        report(test_losses, test_n, f"Test perf", t_start_time)
+        report(test_losses, test_n, "Test eval", t_start_time)
+
+        v_start_time = time.time()
+        test_losses, test_n = gibbs_cached_eval_loop(
+            args, V, test_iter, model,
+        )
+        report(test_losses, test_n, f"Test perf gibbs", v_start_time)
+
+        import pdb; pdb.set_trace()
 
         sys.exit()
 
@@ -616,6 +688,8 @@ def main():
         update_best_valid(
             valid_losses, valid_n, model, optimizer, scheduler, args.name)
 
+
+        # TODO: add accuracy
         wandb.log({
             "train_loss": train_losses.evidence / train_n,
             "train_ppl": math.exp(-train_losses.evidence / train_n),
@@ -626,6 +700,14 @@ def main():
             "best_valid_ppl": math.exp(-BEST_VALID / valid_n),
             "epoch": e,
         }, step=WANDB_STEP)
+
+        # check test out of curiosity, REMOVE
+        t_start_time = time.time()
+        test_losses, test_n  = eval_fn(
+            args, V, test_iter, model,
+        )
+        report(test_losses, test_n, "Test eval", t_start_time)
+
 
         if args.log_counts > 0 and args.keep_counts > 0:
             # TODO: FACTOR OUT
@@ -667,13 +749,12 @@ def main():
             }, step=WANDB_STEP)
             del cg2
             del counts
-
-    # won't use best model. Rerun with eval_only
+    # after training is done
     t_start_time = time.time()
-    test_losses, test_n = eval_fn(
+    test_losses, test_n  = eval_fn(
         args, V, test_iter, model,
     )
-    report(test_losses, test_n, f"Test perf", t_start_time)
+    report(test_losses, test_n, "Test eval", t_start_time)
 
 if __name__ == "__main__":
     print(" ".join(sys.argv))
