@@ -380,10 +380,13 @@ class FactoredHmmLm(nn.Module):
             preterminal_emb
         )
 
-    def tag_emission(self, states=None):
+    def tag_emission(self, text, states=None):
         # share preterminal emb with vocab.
         preterminal_emb = self.preterminal_emb(states)
-        h = self.tag_mlp(self.dropout(preterminal_emb))
+        word_emb = self.terminal_proj.weight[text]
+        h = self.tag_mlp(self.dropout(
+            word_emb[:,:,None] + preterminal_emb
+        ))
         return self.tag_proj(h).log_softmax(-1)
 
     def forward(self, inputs, state=None):
@@ -431,7 +434,13 @@ class FactoredHmmLm(nn.Module):
 
         obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
         if tags is not None:
-            tag_obs = tag_emission[clamped_states[:,:,:,None], tags[:,:,None,None]]
+            # tag_emission will be None
+            tag_obs = self.tag_emission(text, clamped_states)
+            tag_obs = tag_obs.gather(
+                -1,
+                tags[:,:,None,None].expand(obs.shape)
+            )
+            #tag_obs = tag_emission[clamped_states[:,:,:,None], tags[:,:,None,None]]
             obs += tag_obs
         # word dropout == replace with uniform emission matrix (within cluster)?
         # precompute that and sample mask
@@ -478,7 +487,9 @@ class FactoredHmmLm(nn.Module):
             # hope this isn't too big
              
         emission = self.mask_emission(self.emission_logits(states), word2state)
-        tag_emission = self.tag_emission(states)
+        #tag_emission = self.tag_emission(states)
+        # Do not compute here, since p(tag | word, state) is too expensive
+        tag_emission = None
         return start, transition, emission, tag_emission
 
     def log_potentials(
@@ -609,7 +620,7 @@ class FactoredHmmLm(nn.Module):
             log_m.logsumexp(-1),
         ], 1)
         clamped_states = word2state[text]
-        emit = tag_emission[clamped_states]
+        emit = self.tag_emission(text, clamped_states)
         log_p_tag = (log_unary_marginals.unsqueeze(-1) + emit).logsumexp(-2)
         return log_p_tag
 

@@ -9,6 +9,8 @@ w2finput=.data/wikitext-2/wikitext-2/wiki.train.tokens.flat
 
 wsjinput=.data/PTB/ptb.txt
 
+supwsjinput=.data/PTB/sup/ptb.train.txt
+
 if [[ "$1" == "pmi" ]]; then
     cluster=/n/rush_lab/jc/code/tan-clustering/pmi_cluster.py
     python $cluster $input clusters/pmi/ptb.train.clusters > clusters/pmi/log
@@ -175,6 +177,10 @@ elif [[ "$1" == "wsj8" ]]; then
 elif [[ "$1" == "wsj4" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $wsjinput --c 4 --output_dir clusters/wsj-4
+
+elif [[ "$1" == "supwsj128" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 128 --output_dir clusters/sup-wsj-128
 else
     echo "Improper argument"
 fi

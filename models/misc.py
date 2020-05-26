@@ -22,7 +22,6 @@ class ResidualLayerOld(nn.Module):
 
     #@profile
     def forward(self, x):
-        y = x + 1
         x = self.lin1(x)
         x = x.relu()
         x = self.dropout(x)

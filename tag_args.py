@@ -35,6 +35,7 @@ def get_args():
     parser.add_argument("--model", choices=[
         "hmm", "lstm", "ff",
         "factoredhmm",
+        "tag",
     ], default="factoredhmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)

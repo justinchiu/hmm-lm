@@ -438,7 +438,7 @@ def train_loop(
                 #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
                 #valid_losses, valid_n  = eval_loop(
                 #valid_losses, valid_n  = cached_eval_loop(
-                if args.model == "mshmm" or args.model == "factoredhmm":
+                if args.model == "tag" or args.model == "factoredhmm":
                     if args.num_classes > 2 ** 15:
                         eval_fn = mixed_cached_eval_loop
                     else:
@@ -576,6 +576,9 @@ def main():
     elif args.model == "factoredhmm":
         from models.tagfactoredhmmlm import FactoredHmmLm
         model = FactoredHmmLm(V, Vtag, args)
+    elif args.model == "tag":
+        from models.taglm import FactoredHmmLm
+        model = FactoredHmmLm(V, Vtag, args)
     else:
         raise ValueError("Invalid model type")
     model.to(device)
@@ -602,7 +605,7 @@ def main():
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(
-        if args.model == "mshmm" or args.model == "factoredhmm":
+        if args.model == "tag" or args.model == "factoredhmm":
             if args.num_classes > 2 ** 15:
                 eval_fn = mixed_cached_eval_loop
             else:
@@ -690,7 +693,7 @@ def main():
 
         v_start_time = time.time()
         #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
-        if args.model == "mshmm" or args.model == "factoredhmm":
+        if args.model == "tag" or args.model == "factoredhmm":
             if args.num_classes > 2 ** 15:
                 eval_fn = mixed_cached_eval_loop
             else:
