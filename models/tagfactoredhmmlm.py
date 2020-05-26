@@ -700,4 +700,137 @@ class FactoredHmmLm(nn.Module):
         return th.LongTensor([c.most_common(1)[0][0] for c in counts])
 
 
+    def clamp_mt(
+        self,
+        t,
+        text, tags,
+        start, transition, emission, tag_emission,
+        word2state,
+        uniform_emission = None, word_mask = None,
+        reset = None,
+    ):
+        clamped_states = word2state[text]
+        batch, time = text.shape
+        timem1 = time - 1
+        log_potentials = transition[
+            clamped_states[:,:-1,:,None],
+            clamped_states[:,1:,None,:],
+        ]
+        if reset is not None:
+            eos_mask = text[:,:-1] == self.V["<eos>"]
+            # reset words following eos
+            reset_states = word2state[text[:,1:][eos_mask]]
+            log_potentials[eos_mask] = reset[reset_states][:,None]
+            #lp = log_potentials.clone()
+        
+        # this gets messed up if it's the same thing multiple times?
+        # need to mask.
+        b_idx = th.arange(batch, device=self.device)
+        init = (
+            start[clamped_states[:,0]]
+            if start.ndim == 1
+            else start[b_idx[:,None], clamped_states[:,0]]
+        )
+
+        obs = emission[clamped_states[:,:,:,None], text[:,:,None,None]]
+        if tags is not None:
+            tag_obs_l = tag_emission[clamped_states[:,:t,:,None], tags[:,:t,None,None]]
+            obs[:,:t] += tag_obs_l
+            tag_obs_r = tag_emission[clamped_states[:,t+1:,:,None], tags[:,t+1:,None,None]]
+            obs[:,t+1:] += tag_obs_r
+        # word dropout == replace with uniform emission matrix (within cluster)?
+        # precompute that and sample mask
+        if uniform_emission is not None and word_mask is not None:
+            unif_obs = uniform_emission[
+                clamped_states[:,:,:,None],
+                text[:,:,None,None],
+            ]
+            obs[word_mask] = unif_obs[word_mask]
+        log_potentials[:,0] += init.unsqueeze(-1)
+        log_potentials += obs[:,1:].transpose(-1, -2)
+        log_potentials[:,0] += obs[:,0]
+        #if wandb.run.mode == "dryrun":
+            #print(f"total clamp time: {timep.time() - start_clamp}")
+        #import pdb; pdb.set_trace()
+        return log_potentials.transpose(-1, -2)
+
+
+    def collapsed_gibbs(
+        self,
+        text,
+        start, transition, emission, tag_emission,
+        word2state,
+        mask, lengths,
+        n_iters=100,
+        take_every=5,
+    ):
+        # one sentence at a time for now
+        N, T = text.shape
+        #assert N == 1
+        # initialize tags
+        log_p_tag = self.get_tags(
+            text,
+            start, transition, emission, tag_emission,
+            word2state,
+            mask, lengths,
+        )
+        # start with max
+        tags = log_p_tag.max(-1).indices
+        # start counter
+        counts = [Counter() for _ in range(N)]
+        # add in initial
+        for n in range(N):
+            counts[n][tuple(tags[n].tolist())] += 1
+        for i in range(n_iters):
+            for t in range(T):
+                # marginalize over p(z | x, y-t)
+                # edge marginals
+                log_potentials = self.clamp_mt(
+                    t,
+                    text, tags,
+                    start, transition, emission, tag_emission,
+                    word2state,
+                )
+
+                # get p(yt | y-t, x, z)
+                tags_hat = self.get_tags(
+                    text, start, transition, emission, tag_emission, word2state,
+                    mask=mask, lengths=lengths,
+                )
+                # sample tag given all other tags
+                tag = tags_hat[lengths > t,t].exp().multinomial(1).squeeze()
+                tags[lengths > t,t] = tag
+
+            for n in range(N):
+                counts[n][tuple(tags[n].tolist())] += 1
+
+        # rerank 10 most common
+        K = 10
+        log_probs = []
+        k_tags = []
+        for k in range(K):
+            tags = th.LongTensor([
+                c.most_common(K)[k if len(c) > k else 0][0]
+                for c in counts
+            ]).to(text.device)
+            log_potentials = self.clamp(
+                text, tags,
+                start, transition, emission, tag_emission,
+                word2state,
+            )
+            log_m, alphas = self.fb_test(log_potentials, mask=mask)
+            idx = th.arange(N, device=self.device)
+            alpha_T = alphas[lengths-1, idx]
+            evidence = alpha_T.logsumexp(-1)
+
+            log_probs.append(evidence)
+            k_tags.append(tags)
+
+        best_tags = th.stack(k_tags, 1)[idx,th.stack(log_probs, -1).max(-1).indices]
+        return best_tags, counts
+
+        #return th.LongTensor([c.most_common(1)[0][0] for c in counts]), counts
+
+
+
 

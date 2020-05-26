@@ -215,6 +215,12 @@ def gibbs_cached_eval_loop(
             pred = score(tags_hat)
             print(true.evidence.item(), pred.evidence.item())
             print(true.evidence.item() > pred.evidence.item())
+            tags_hat_gibbs, counts = model.collapsed_gibbs(
+                text,
+                start, transition, emission, tag_emission,
+                word2state,
+                mask, lengths,
+            )
             import pdb; pdb.set_trace()
 
             """
