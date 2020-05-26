@@ -201,11 +201,29 @@ def gibbs_cached_eval_loop(
             if lpz is not None and args.iterator == "bptt":
                 start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
 
+            tags_hat = model.get_tags(
+                text, start, transition, emission, tag_emission, word2state,
+                mask=mask, lengths=lengths,
+            ).max(-1).indices
+
+            def score(tags):
+                log_potentials = model.clamp(
+                    text, tags, start, transition, emission, tag_emission, word2state,
+                )
+                return model.compute_loss(log_potentials, mask, lengths)[0]
+            true = score(tags)
+            pred = score(tags_hat)
+            print(true.evidence.item(), pred.evidence.item())
+            print(true.evidence.item() > pred.evidence.item())
+            import pdb; pdb.set_trace()
+
+            """
             tags_hat = model.blocked_gibbs(
                 text, start, transition, emission, tag_emission, word2state,
                 mask, lengths,
             )
-            matches = tags == tags_hat.max(-1).indices
+            """
+            matches = tags == tags_hat
             num_correct = matches[mask].sum()
             num_words = mask.sum()
             n_correct += num_correct
@@ -216,10 +234,7 @@ def gibbs_cached_eval_loop(
                 last_words = text[idx, lengths-1]
                 last_states = model.word2state[last_words]
 
-            total_ll += losses.evidence.detach()
-            if losses.elbo is not None:
-                total_elbo += losses.elbo.detach()
-    return Pack(evidence = total_ll, elbo = total_elbo, num_correct=n_correct), n
+    return Pack(num_correct=n_correct), n
 
 def mixed_cached_eval_loop(
     args, V, iter, model,

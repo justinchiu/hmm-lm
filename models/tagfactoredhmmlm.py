@@ -654,7 +654,10 @@ class FactoredHmmLm(nn.Module):
                 ).softmax(-1).multinomial(1)
                 states.append(clamped_states[n,t,last_state])
             # reverse and pad
-            batch_states.append(list(reversed(states)) + [0] * (lengths.max() - len(states)))
+            batch_states.append(
+                list(reversed(states))
+                + [self.Vtag.stoi["<pad>"]] * (lengths.max() - len(states))
+            )
         return th.LongTensor(batch_states)
 
 
@@ -693,7 +696,8 @@ class FactoredHmmLm(nn.Module):
                 # sample tag conditioned on state
                 tags[:,t] = tag_emission[states[:,t]].softmax(-1).multinomial(1).squeeze()
                 for n in range(N):
-                    counts[n][tuple(tags[n,:lengths[n]].tolist())] += 1
-        import pdb; pdb.set_trace()
+                    counts[n][tuple(tags[n].tolist())] += 1
+        return th.LongTensor([c.most_common(1)[0][0] for c in counts])
+
 
 

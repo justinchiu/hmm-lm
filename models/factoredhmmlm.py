@@ -313,16 +313,8 @@ class FactoredHmmLm(nn.Module):
         return logits.log_softmax(-1)
 
     def transition_chp(self, states=None):
-        raise NotImplementedError
-        state_emb = (self.state_emb.weight[states]
-            if states is not None
-            else self.state_emb.weight
-        )
-        next_state_proj = (self.next_state_proj.weight[states]
-            if states is not None
-            else self.next_state_proj.weight
-        )
-        #import pdb; pdb.set_trace()
+        state_emb = self.state_emb(states)
+        next_state_proj = self.next_state_emb(states)
         return checkpoint(
             lambda x, y: (self.trans_mlp(self.dropout(x)) @ y.t()).log_softmax(-1),
             state_emb, next_state_proj,
