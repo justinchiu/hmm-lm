@@ -100,3 +100,17 @@ class CharLinear(nn.Module):
             y = self.mlp(th.cat(outs, -1))
         return x @ y.t()
 
+    def get_embs(self):
+        char_embs = self.char_emb(self.char_buffer)
+        conv_input = char_embs.transpose(-1, -2)
+        # this should be pretty slow.
+        outs = []
+        for conv in self.convs:
+            conv_out = conv(conv_input)
+            outs.append(conv_out.max(-1).values.tanh())
+        if not self.emit_dims:
+            y = th.stack(outs, -1).sum(-1)
+        else:
+            y = self.mlp(th.cat(outs, -1))
+        return y
+

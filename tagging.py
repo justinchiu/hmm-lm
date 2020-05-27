@@ -507,8 +507,10 @@ def main():
     aux_device = th.device("cpu" if args.aux_devid < 0 else f"cuda:{args.aux_devid}")
     args.aux_device = aux_device
 
-    TEXT = torchtext.data.Field(batch_first = True)
+    #TEXT = torchtext.data.Field(batch_first = True)
+    TEXT = torchtext.data.Field(batch_first = True, lower = args.lower > 0)
     TAGS = torchtext.data.Field(batch_first = True)
+
 
     train, valid, test = TaggedPennTreebank.splits(
         TEXT,
@@ -519,7 +521,18 @@ def main():
         newline_eos = args.newline_eos > 0,
     )
 
-    TEXT.build_vocab(train)
+    all_wsj_txt = ".data/PTB/ptb.txt"
+    all_wsj_tags = ".data/PTB/ptb.tags"
+    all_wsj = TaggedPennTreebank(
+        all_wsj_txt, all_wsj_tags,
+        TEXT, TAGS, newline_eos = args.newline_eos > 0,
+    )
+
+    #TEXT.build_vocab(train)
+    TEXT.build_vocab(
+        train if args.all_vocab == 0 else all_wsj,
+        min_freq = args.min_freq,
+    )
     TAGS.build_vocab(train)
     V = TEXT.vocab
     Vtag = TAGS.vocab

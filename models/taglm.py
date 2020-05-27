@@ -220,7 +220,7 @@ class FactoredHmmLm(nn.Module):
 
         self.tag_mlp = nn.Sequential(
             ResidualLayer(
-                in_dim = config.hidden_dim,
+                in_dim = 2*config.hidden_dim,
                 out_dim = config.hidden_dim,
                 dropout = config.dropout,
             ),
@@ -381,11 +381,20 @@ class FactoredHmmLm(nn.Module):
         )
 
     def tag_emission(self, text, states=None):
+        N, T = text.shape
         # share preterminal emb with vocab.
         preterminal_emb = self.preterminal_emb(states)
-        word_emb = self.terminal_proj.weight[text]
+        word_emb = (self.terminal_proj.weight[text]
+            if self.config.emit == "word"
+            else self.terminal_proj.get_embs()[text]
+        )
         h = self.tag_mlp(self.dropout(
-            word_emb[:,:,None] + preterminal_emb
+            th.cat([
+                word_emb[:,:,None].expand(
+                    N,T,preterminal_emb.shape[-2],word_emb.shape[-1],
+                ),
+                preterminal_emb,
+            ], -1)
         ))
         return self.tag_proj(h).log_softmax(-1)
 

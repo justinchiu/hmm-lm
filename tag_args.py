@@ -7,6 +7,9 @@ def get_args():
     parser.add_argument("--dataset",
         choices=["ptb", "wikitext2", "wsj"], default="ptb")
     parser.add_argument("--iterator", choices=["bucket", "bptt"], default="bucket")
+    parser.add_argument("--lower", type=int, default=0)
+    parser.add_argument("--min_freq", type=int, default=1)
+    parser.add_argument("--all_vocab", type=int, default=0)
     # learning args
     parser.add_argument("--bsz", default=512, type=int,)
     parser.add_argument("--eval_bsz", default=512, type=int,)

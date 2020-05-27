@@ -428,7 +428,7 @@ def main():
 
     if args.iterator == "bucket":
         # independent sentences...bad
-        train_iter, valid_iter, text_iter = BucketIterator.splits(
+        train_iter, valid_iter, test_iter = BucketIterator.splits(
             (train, valid, test),
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
             #batch_size = args.bsz,
@@ -438,7 +438,7 @@ def main():
         )
     elif args.iterator == "bptt":
         #train_iter, valid_iter, text_iter = BPTTIterator.splits(
-        train_iter, valid_iter, text_iter = BPTTIterator.splits(
+        train_iter, valid_iter, test_iter = BPTTIterator.splits(
             (train, valid, test),
             batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
             #batch_size = args.bsz,
