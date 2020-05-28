@@ -52,8 +52,16 @@ def get_args():
     parser.add_argument("--chp_theta", default=0, type=int,
         help="checkpoint hmm parameters if > 0")
 
+    parser.add_argument("--pretrained_emb", choices=[
+        "glove.6B.100d",
+        "glove.6B.300d",
+        "glove.42B.300d",
+        "glove.840B.300d",
+        None,
+    ])
+
     parser.add_argument("--emit", choices=[
-        "word", "char",
+        "word", "char", "wordchar",
     ], default="word",)
     parser.add_argument("--emit_dims", type=int, nargs="+",
         help="use res layers and concat if > 0")

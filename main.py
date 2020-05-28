@@ -495,6 +495,10 @@ def main():
     elif args.model == "dshmm":
         from models.dshmmlm import DshmmLm
         model = DshmmLm(V, args)
+    elif args.model == "factoredhmm" and args.param == "scalar":
+        # hack for scalar
+        from models.newhmmlm import FactoredHmmLm
+        model = FactoredHmmLm(V, args)
     elif args.model == "factoredhmm":
         from models.factoredhmmlm import FactoredHmmLm
         model = FactoredHmmLm(V, args)
@@ -519,7 +523,7 @@ def main():
     #import pdb; pdb.set_trace()
     if args.eval_only:
         # uncomment this later
-        #model.load_state_dict(th.load(args.eval_only)["model"])
+        model.load_state_dict(th.load(args.eval_only)["model"])
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(

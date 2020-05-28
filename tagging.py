@@ -201,6 +201,7 @@ def gibbs_cached_eval_loop(
             if lpz is not None and args.iterator == "bptt":
                 start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
 
+            """
             tags_hat = model.get_tags(
                 text, start, transition, emission, tag_emission, word2state,
                 mask=mask, lengths=lengths,
@@ -215,13 +216,13 @@ def gibbs_cached_eval_loop(
             pred = score(tags_hat)
             print(true.evidence.item(), pred.evidence.item())
             print(true.evidence.item() > pred.evidence.item())
+            """
             tags_hat_gibbs, counts = model.collapsed_gibbs(
                 text,
                 start, transition, emission, tag_emission,
                 word2state,
                 mask, lengths,
             )
-            import pdb; pdb.set_trace()
 
             """
             tags_hat = model.blocked_gibbs(
@@ -229,7 +230,7 @@ def gibbs_cached_eval_loop(
                 mask, lengths,
             )
             """
-            matches = tags == tags_hat
+            matches = tags == tags_hat_gibbs
             num_correct = matches[mask].sum()
             num_words = mask.sum()
             n_correct += num_correct
@@ -536,6 +537,9 @@ def main():
     TAGS.build_vocab(train)
     V = TEXT.vocab
     Vtag = TAGS.vocab
+
+    if args.pretrained_emb is not None:
+        TEXT.vocab.load_vectors(args.pretrained_emb)
 
     def batch_size_tokens(new, count, sofar):
         return max(len(new.text), sofar)

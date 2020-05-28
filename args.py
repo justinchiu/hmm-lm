@@ -48,6 +48,7 @@ def get_args():
     parser.add_argument("--chp_theta", default=0, type=int,
         help="checkpoint hmm parameters if > 0")
 
+    parser.add_argument("--param", choices=["neural", "scalar"], default="neural")
     parser.add_argument("--emit", choices=[
         "word", "char",
     ], default="word",)
