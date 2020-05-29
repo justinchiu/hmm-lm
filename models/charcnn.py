@@ -159,6 +159,10 @@ class WordCharLinear(nn.Module):
                 nn.Conv1d(emb_dim, hidden_dim, k, bias=False)
                 for k in self.kernels
             ])
+            self.mlp = nn.Sequential(
+                nn.Linear(hidden_dim + word_dim, hidden_dim),
+                nn.Tanh(),
+            )
         else:
             self.kernels = list(range(1, len(emit_dims)+1))
             self.convs = nn.ModuleList([
@@ -192,7 +196,10 @@ class WordCharLinear(nn.Module):
             conv_out = conv(conv_input)
             outs.append(conv_out.max(-1).values.tanh())
         if not self.emit_dims:
-            y = th.stack(outs, -1).sum(-1)
+            y = self.mlp(th.cat([
+                th.stack(outs, -1).sum(-1),
+                self.word_emb.weight
+            ], -1))
         else:
             y = self.mlp(th.cat(outs + [self.word_emb.weight], -1))
         return x @ y.t()
