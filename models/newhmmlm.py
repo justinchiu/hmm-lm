@@ -441,9 +441,15 @@ class FactoredHmmLm(nn.Module):
                     else self.start_vec
                 ).log_softmax(-1)
             else:
-                # TODO: use row sparsity here
-                full_transition = self.trans_mat.log_softmax(-1)
-                start = (lpz[:,:,None] + full_transition[last_states[:,:,None], states[None,None]]).logsumexp(1)
+                # row sparsity for softmax
+                full_transition = self.trans_mat[last_states].log_softmax(-1)
+                N,Z = last_states.shape
+                trans_to = full_transition[
+                    th.arange(N)[:,None,None],
+                    th.arange(Z)[None,:,None],
+                    states[None,None],
+                ]
+                start = (lpz[:,:,None] + trans_to).logsumexp(1)
             return start, transition, emission
 
         if self.chp_theta:
