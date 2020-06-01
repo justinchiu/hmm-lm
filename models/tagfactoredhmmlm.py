@@ -98,7 +98,7 @@ class FactoredHmmLm(nn.Module):
             lmstring = "wlm"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
         elif config.dataset == "wsj":
-            lmstring = "sup-wsj"
+            lmstring = "supwsj"
             path = f"clusters/{lmstring}-{num_clusters}/paths"
         else:
             raise ValueError
@@ -775,7 +775,7 @@ class FactoredHmmLm(nn.Module):
         start, transition, emission, tag_emission,
         word2state,
         mask, lengths,
-        n_iters=100,
+        n_iters=5,
         take_every=5,
     ):
         # one sentence at a time for now
@@ -790,6 +790,7 @@ class FactoredHmmLm(nn.Module):
         )
         # start with max
         tags = log_p_tag.max(-1).indices
+        init_tags = tags.clone()
         # start counter
         counts = [Counter() for _ in range(N)]
         # add in initial
@@ -812,11 +813,16 @@ class FactoredHmmLm(nn.Module):
                     mask=mask, lengths=lengths,
                 )
                 # sample tag given all other tags
-                tag = tags_hat[lengths > t,t].exp().multinomial(1).squeeze()
+                ptag = tags_hat[lengths > t,t].exp()
+                if (ptag.sum(-1) == 0).any():
+                    # getting acczero error here. either sum overflowed or all 0?
+                    import pdb; pdb.set_trace()
+                tag = ptag.multinomial(1).squeeze()
+                #import pdb; pdb.set_trace()
                 tags[lengths > t,t] = tag
 
-            for n in range(N):
-                counts[n][tuple(tags[n].tolist())] += 1
+                for n in range(N):
+                    counts[n][tuple(tags[n].tolist())] += 1
 
         # rerank 10 most common
         K = 10
@@ -841,6 +847,8 @@ class FactoredHmmLm(nn.Module):
             k_tags.append(tags)
 
         best_tags = th.stack(k_tags, 1)[idx,th.stack(log_probs, -1).max(-1).indices]
+        #import pdb; pdb.set_trace()
+        # compare to init_tags
         return best_tags, counts
 
         #return th.LongTensor([c.most_common(1)[0][0] for c in counts]), counts

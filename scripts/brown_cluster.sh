@@ -178,9 +178,33 @@ elif [[ "$1" == "wsj4" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
     $l_cluster --text $wsjinput --c 4 --output_dir clusters/wsj-4
 
+elif [[ "$1" == "supwsj256" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 256 --output_dir clusters/supwsj-256
 elif [[ "$1" == "supwsj128" ]]; then
     l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
-    $l_cluster --text $supwsjinput --c 128 --output_dir clusters/sup-wsj-128
+    $l_cluster --text $supwsjinput --c 128 --output_dir clusters/supwsj-128
+elif [[ "$1" == "supwsj64" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 64 --output_dir clusters/supwsj-64
+elif [[ "$1" == "supwsj32" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 32 --output_dir clusters/supwsj-32
+elif [[ "$1" == "supwsj16" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 16 --output_dir clusters/supwsj-16
+elif [[ "$1" == "supwsj10" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 10 --output_dir clusters/supwsj-10
+elif [[ "$1" == "supwsj9" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 9 --output_dir clusters/supwsj-9
+elif [[ "$1" == "supwsj8" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 8 --output_dir clusters/supwsj-8
+elif [[ "$1" == "supwsj4" ]]; then
+    l_cluster=/home/jtc257/cpp/brown-cluster/wcluster
+    $l_cluster --text $supwsjinput --c 4 --output_dir clusters/supwsj-4
 else
     echo "Improper argument"
 fi

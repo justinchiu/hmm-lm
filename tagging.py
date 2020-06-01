@@ -132,6 +132,10 @@ def cached_eval_loop(
     total_elbo = 0
     n = 0
     n_correct = 0
+
+    # all tags, then exclude unk and pad later
+    confusion_matrix = th.LongTensor(
+        len(model.Vtag),len(model.Vtag)).to(model.device).fill_(0)
     with th.no_grad():
         model.train(False)
         lpz = None
@@ -156,15 +160,29 @@ def cached_eval_loop(
             )
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
 
-            tags_hat = model.get_tags(
+            ptags = model.get_tags(
                 text, start, transition, emission, tag_emission, word2state,
                 mask=mask, lengths=lengths,
             )
-            matches = tags == tags_hat.max(-1).indices
+            tags_hat = ptags.max(-1).indices
+
+            matches = tags == tags_hat
             num_correct = matches[mask].sum()
             num_words = mask.sum()
             n_correct += num_correct
             n += num_words
+
+            print(f"% done: {float(i) / len(iter):.3f}")
+            print(f"acc: {float(n_correct) / float(n) * 100:.2f}")
+
+            # confusion matrix update
+            tm = tags[mask]
+            thm = tags_hat[mask]
+            confusion_matrix.view(-1).index_add_(
+                0,
+                tm * len(model.Vtag) + thm,
+                th.ones_like(tm)
+            )
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)
@@ -174,6 +192,15 @@ def cached_eval_loop(
             total_ll += losses.evidence.detach()
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
+    # confusion matrix analysis?
+    cm = confusion_matrix.clone().fill_diagonal_(0)
+    # 10 most common errors
+    errors = cm.view(-1).topk(10, 0)
+    vals = errors.values
+    idxs = errors.indices
+    gold = idxs // len(model.Vtag)
+    pred = idxs % len(model.Vtag)
+    #import pdb; pdb.set_trace()
     return Pack(evidence = total_ll, elbo = total_elbo, num_correct=n_correct), n
 
 def gibbs_cached_eval_loop(
@@ -235,6 +262,9 @@ def gibbs_cached_eval_loop(
             num_words = mask.sum()
             n_correct += num_correct
             n += num_words
+
+            print(f"% done: {float(i) / len(iter):.3f}")
+            print(f"acc: {float(n_correct) / float(n) * 100:.2f}")
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)
@@ -632,10 +662,13 @@ def main():
         else:
             eval_fn = eval_loop
         #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
+        # uncomment later
+        #"""
         valid_losses, valid_n = eval_fn(
             args, V, valid_iter, model,
         )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
+        #"""
 
         v_start_time = time.time()
         valid_losses, valid_n = gibbs_cached_eval_loop(

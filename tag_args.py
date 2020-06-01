@@ -5,7 +5,7 @@ def get_args():
     parser = ArgumentParser()
     # dataset
     parser.add_argument("--dataset",
-        choices=["ptb", "wikitext2", "wsj"], default="ptb")
+        choices=["ptb", "wikitext2", "wsj",], default="ptb")
     parser.add_argument("--iterator", choices=["bucket", "bptt"], default="bucket")
     parser.add_argument("--lower", type=int, default=0)
     parser.add_argument("--min_freq", type=int, default=1)
