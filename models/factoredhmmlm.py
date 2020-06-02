@@ -3,13 +3,9 @@ import time as timep
 import os
 
 import importlib.util
-#spec = importlib.util.spec_from_file_location("get_fb", "/n/home13/jchiu/python/genbmm/opt/hmm3.py")
-#spec = importlib.util.spec_from_file_location("get_fb", "/home/jtc257/python/genbmm/opt/hmm3.py")
 spec = importlib.util.spec_from_file_location(
     "get_fb",
-    "/home/justinchiu/code/python/genbmm/opt/hmm3.py"
-    if os.getenv("LOCAL") is not None
-    else "/home/jtc257/python/genbmm/opt/hmm3.py"
+    "hmm_runners/hmm.py",
 )
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
