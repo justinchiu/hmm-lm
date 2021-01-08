@@ -35,8 +35,6 @@ from models.fflm import FfLm
 
 import wandb
 
-from pytorch_memlab import profile, MemReporter
-
 #th.autograd.set_detect_anomaly(True)
 
 valid_schedules = ["reducelronplateau"]

@@ -27,7 +27,6 @@ from utils import Pack
 from assign import read_lm_clusters, assign_states_brown_cluster
 
 import wandb
-from pytorch_memlab import profile, MemReporter
 
 def make_f(t):
     def f(x):
@@ -518,13 +517,16 @@ class FactoredHmmLm(nn.Module):
         else:
             states = None
             word_mask = None
-
+        if self.timing:
+            startpot = timep.time()
         log_potentials = self.log_potentials(
             text,
             states,
             lpz, last_states,
             word_mask,
         )
+        if self.timing:
+            print(f"log pot: {timep.time() - startpot}")
         fb = self.fb_train if self.training else self.fb_test
         with th.no_grad():
             log_m, alphas = fb(log_potentials.detach(), mask=mask)

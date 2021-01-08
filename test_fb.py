@@ -18,7 +18,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import torchtext
-from datasets.ptb import PennTreebank, BucketIterator
+from datasets.lm import PennTreebank, BucketIterator
 
 import argstrings
 

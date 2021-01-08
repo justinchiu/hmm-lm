@@ -9,7 +9,6 @@ def process_file(infile, outfile, sep="<sep>"):
         cur_line = []
         for line in f:
             text = line.strip().split()
-            import pdb; pdb.set_trace()
             if len(text) < 2:
                 # discard empty lines
                 pass
@@ -46,9 +45,6 @@ if __name__ == "__main__":
         ".data/wikitext-2/wikitext-2/wiki.test.tokens",
     ]
     outfiles = [f + ".flat" for f in infiles]
-
-    #for infile, outfile in zip(infiles, outfiles):
-        #process_file(infile, outfile)
 
     infiles = [
         ".data/penn-treebank/ptb.train.txt",

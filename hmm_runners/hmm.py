@@ -4,24 +4,6 @@ import time
 import torch
 import numpy as np
 
-from pytorch_memlab import profile
-
-sys.path.append('/tvm/python')
-sys.path.append('/tvm/topi/python')
-sys.path.append('/tvm/vta/python')
-os.environ['TVM_HOME'] = '/tvm'
-
-TVM_HOME = "/n/home13/jchiu/python/tvm"
-sys.path.append(f'{TVM_HOME}/python')
-sys.path.append(f'{TVM_HOME}/topi/python')
-sys.path.append(f'{TVM_HOME}/vta/python')
-os.environ['TVM_HOME'] = TVM_HOME
-os.environ['LD_LIBRARY_PATH'] = (
-    os.environ['LD_LIBRARY_PATH']
-    + f":{TVM_HOME}/build"
-    #+ os.environ["LLVM_LIB"]
-)
-
 import tvm
 from tvm import autotvm
 import tvm.runtime
