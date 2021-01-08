@@ -52,7 +52,7 @@ def update_best_valid(
     global PREV_SAVE
     if valid_losses.evidence > BEST_VALID:
         # do not save on dryruns
-        if wandb.run.mode == "run":
+        if not wandb.run._settings._offline:
             save_f = f"wandb_checkpoints/{name}/{WANDB_STEP}_{-valid_losses.evidence / valid_n:.2f}.pth"
             print(f"Saving model to {save_f}")
             Path(save_f).parent.mkdir(parents=True, exist_ok=True)

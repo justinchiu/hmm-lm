@@ -5,4 +5,5 @@
 * pytorch 1.5
 * (pytorch-struct)[https://github.com/justinchiu/pytorch-struct] (Optional)
 
-
+## RFF experiments
+    source scripts/rff-hmm.sh && hmm256

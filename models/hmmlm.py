@@ -189,7 +189,7 @@ class HmmLm(nn.Module):
             emission = emission.t(),
             init = start,
             observations = text,
-            semiring = ts.LogSemiring,
+            #semiring = ts.LogSemiring,
         )
 
     def compute_loss(                                           
@@ -277,7 +277,7 @@ class HmmLm(nn.Module):
             emission = self.emission.t(),
             init = start,
             observations = text,
-            semiring = ts.LogSemiring,
+            #semiring = ts.LogSemiring,
         )
         with th.no_grad():                                  
             log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
