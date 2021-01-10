@@ -19,7 +19,7 @@ from .charcnn import CharLinear
 
 from utils import Pack
 
-import linear_utils
+from .linear_utils import get_2d_array, project_logits
 
 class HmmLm(nn.Module):
     def __init__(self, V, config):
@@ -35,7 +35,9 @@ class HmmLm(nn.Module):
         self.parameterization = config.parameterization
         if self.parameterization == "smp":
             self.projection = nn.Parameter(
-                linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
+                #linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
+                #get_2d_array(config.hidden_dim * 2, config.hidden_dim)
+                get_2d_array(config.hidden_dim, config.hidden_dim * 2)
             )
             # freeze projection for now
             self.projection.requires_grad = False
@@ -110,12 +112,14 @@ class HmmLm(nn.Module):
             logits = self.log_dropout(logits, mask).log_softmax(-1)
             logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits
-        elif self.parameterization == "":
-            return linear_utils.project_logits(
-                fx,
-                self.next_state_emb,
+        elif self.parameterization == "smp":
+            #return linear_utils.project_logits(
+            logits = project_logits(
+                fx[None],
+                self.next_state_emb[None],
                 self.projection,
-            )
+            )[0]
+            return logits
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
@@ -124,11 +128,11 @@ class HmmLm(nn.Module):
         if self.parameterization == "softmax":
             return (fx @ self.terminal_emb.T).log_softmax(-1)
         elif self.parameterization == "smp":
-            return linear_utils.project_logits(
-                fx,
-                self.terminal_emb,
+            return project_logits(
+                fx[None],
+                self.terminal_emb[None],
                 self.projection,
-            )
+            )[0]
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
@@ -206,7 +210,7 @@ class HmmLm(nn.Module):
         keep_counts = False,                                    
     ):                                                          
         N = lengths.shape[0]                                    
-        log_m, alphas = self.fb(log_potentials, mask=mask)           
+        log_m, alphas = self.fb(log_potentials.clone(), mask=mask)
                                                                 
         idx = th.arange(N, device=self.device)                  
         alpha_T = alphas[lengths-1, idx]                        
@@ -281,6 +285,7 @@ class HmmLm(nn.Module):
             start_logits = self.start_logits()
             start = self.mask_start(start_logits, start_mask)
 
+
         log_potentials = ts.LinearChain.hmm(
             transition = transition.t(),
             emission = self.emission().t(),
@@ -289,7 +294,7 @@ class HmmLm(nn.Module):
             #semiring = ts.LogSemiring,
         )
         with th.no_grad():                                  
-            log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
+            log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]
         evidence = alpha_T.logsumexp(-1).sum()

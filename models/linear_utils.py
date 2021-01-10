@@ -1,11 +1,15 @@
+import math
+
 import torch
 import torch.nn as nn
+
 
 def nonnegative_softmax_kernel_feature_creator(
     data: torch.Tensor,
     projection_matrix: torch.Tensor,
     is_query: bool,
     eps: float=0.0001,
+    log = False,
 ):
     """
     Constructs nonnegative kernel features for fast softmax attention.
@@ -19,7 +23,8 @@ def nonnegative_softmax_kernel_feature_creator(
       Random features for fast softmax attention.
     """
 
-    ratio = 1.0 / math.sqrt(projection_matrix.shape[0])
+    #ratio = 1.0 / math.sqrt(projection_matrix.shape[0])
+    ratio = 1.0
 
     bsz = data.size(0)
    
@@ -38,6 +43,9 @@ def nonnegative_softmax_kernel_feature_creator(
     diag_data = torch.sum(diag_data, -1) # (bsz, len) ||x||^2
     diag_data = diag_data / 2.0
     diag_data = diag_data.unsqueeze(-1) # bsz, len, 1
+
+    if log:
+        return data_dash - diag_data + eps
 
     # Compute exp(wx - ||x||^2/2)  
     # (Lemma 1, SM(x, y) = E_{w~N(0,I)} exp(wx - ||x||^2/2) exp(wy - ||y||^2/2))
@@ -80,10 +88,23 @@ def get_2d_array(nb_rows, nb_columns, scaling=0):
 
     return multiplier * final_matrix
 
-def project_logits(queries, keys, projection, eps=0.0001):
-    query_features = kernel(query, projection_matrix, is_query=True, eps=0)
-    key_features = kernel(key, projection_matrix, is_query=False, eps=0)
+def project_logits(query, key, projection_matrix, eps=0.0001):
+    kernel = nonnegative_softmax_kernel_feature_creator
+
+    """
+    query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
+    key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
     values = query_features.bmm(key_features.transpose(-1, -2))
     exp_logits = values / values.sum(-1, keepdim=True)
     return exp_logits.log()
+    """
+
+    # log space
+    log_query_features = kernel(query, projection_matrix, is_query=True, eps=eps, log=True)
+    log_key_features = kernel(key, projection_matrix, is_query=False, eps=eps, log=True)
+    # slow...would like log-bmm
+    logits = (
+        log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+    ).logsumexp(-1).log_softmax(-1)
+    return logits
 

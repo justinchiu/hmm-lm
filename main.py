@@ -311,7 +311,6 @@ def train_loop(
                 # this is how huggingface does it
                 scheduler.step()
             optimizer.step()
-            #import pdb; pdb.set_trace()
             wandb.log({
                 "running_training_loss": total_ll / n,
                 "running_training_ppl": math.exp(min(-total_ll / n, 700)),
