@@ -1,5 +1,6 @@
 
 import sys
+import random
 
 from docopt import docopt
 
@@ -35,6 +36,7 @@ def set_seed(seed):
     if th.cuda.is_available():
         th.cuda.manual_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
 
 
 def get_config(path, device):

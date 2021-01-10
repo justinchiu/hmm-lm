@@ -65,6 +65,9 @@ def get_args():
     add_chmm_args(parser)
     add_dhmm_args(parser)
 
+    # add linear args
+    add_linear_args(parser)
+
     return parser.parse_args()
 
 def add_nn_args(parser):
@@ -111,3 +114,12 @@ def add_dhmm_args(parser):
     parser.add_argument("--log_counts", default=0, type=int)
     parser.add_argument("--count_posterior", choices=[], default="",)
     parser.add_argument("--posterior_weight", type=float, default=1,)
+
+def add_linear_args(parser):
+    parser.add_argument_group("linear")
+    parser.add_argument("--parameterization", default="softmax",
+        choices = [
+            "softmax",
+            "smp",
+        ],
+    )

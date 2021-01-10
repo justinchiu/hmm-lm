@@ -19,6 +19,8 @@ from .charcnn import CharLinear
 
 from utils import Pack
 
+import linear_utils
+
 class HmmLm(nn.Module):
     def __init__(self, V, config):
         super(HmmLm, self).__init__()
@@ -28,6 +30,15 @@ class HmmLm(nn.Module):
         self.device = config.device
 
         ResidualLayer = ResidualLayerOld
+
+        # log-linear or linear, etc
+        self.parameterization = config.parameterization
+        if self.parameterization == "smp":
+            self.projection = nn.Parameter(
+                linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
+            )
+            # freeze projection for now
+            self.projection.requires_grad = False
 
         self.timing = config.timing > 0
 
@@ -49,28 +60,19 @@ class HmmLm(nn.Module):
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
-        self.trans_mlp = nn.Sequential(
-            ResidualLayer(config.hidden_dim, config.hidden_dim),
-            nn.Linear(config.hidden_dim, self.C),
+        self.trans_mlp = ResidualLayer(config.hidden_dim, config.hidden_dim)
+        self.next_state_emb = nn.Parameter(
+            th.randn(self.C, config.hidden_dim),
         )
 
         # p(xt | zt)
         self.preterminal_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
-        self.terminal_mlp = nn.Sequential(
-            ResidualLayer(config.hidden_dim, config.hidden_dim),
-            nn.Linear(config.hidden_dim, len(V)) 
-                if config.emit == "word"             
-                else CharLinear(
-                    config.char_dim,
-                    config.hidden_dim,
-                    V,
-                    config.emit_dims,
-                    config.num_highway,
-                ),
+        self.terminal_mlp = ResidualLayer(config.hidden_dim, config.hidden_dim)
+        self.terminal_emb = nn.Parameter(
+            th.randn(len(V), config.hidden_dim)
         )
-
 
         self.transition_dropout = config.transition_dropout
         self.log_dropout = LogDropoutM(config.transition_dropout)
@@ -101,40 +103,45 @@ class HmmLm(nn.Module):
     def mask_start(self, x, mask=None):
         return self.log_dropout(x, mask).log_softmax(-1)
 
-    def transition_logits(self):
-        return self.trans_mlp(self.state_emb)
+    def transition(self, mask=None):
+        fx = self.trans_mlp(self.state_emb)
+        if self.parameterization == "softmax":
+            logits = fx @ self.next_state_emb.T
+            logits = self.log_dropout(logits, mask).log_softmax(-1)
+            logits = logits.masked_fill(logits != logits, float("-inf"))
+            return logits
+        elif self.parameterization == "":
+            return linear_utils.project_logits(
+                fx,
+                self.next_state_emb,
+                self.projection,
+            )
+        else:
+            raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
-    def mask_transition(self, logits, mask=None):
-        # only in the weird case previously?
-        # although now we may have unassigned states, oh well
-        #logits[:,-1] = float("-inf")
-        logits = self.log_dropout(logits, mask).log_softmax(-1)
-        logits = logits.masked_fill(logits != logits, float("-inf"))
-        return logits
-
-    """
-    @property
-    def transition(self):
-        return self.transition_dropout(
-            self.trans_mlp(self.state_emb),
-            column_dropout = True,
-        ).log_softmax(-1).permute(-1, -2)
-    """
-
-    @property
     def emission(self):
-        #return self.terminal_mlp(self.preterminal_emb).log_softmax(-1).permute(-1, -2)
-        return self.terminal_mlp(self.preterminal_emb).log_softmax(-1)#.permute(-1, -2)
+        fx = self.terminal_mlp(self.preterminal_emb)
+        if self.parameterization == "softmax":
+            return (fx @ self.terminal_emb.T).log_softmax(-1)
+        elif self.parameterization == "smp":
+            return linear_utils.project_logits(
+                fx,
+                self.terminal_emb,
+                self.projection,
+            )
+        else:
+            raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
     def forward(self, inputs, state=None):
+        raise NotImplementedError
         # forall x, p(X = x)
         pass
 
     def score_ts(self, text, mask=None, lengths=None):
         # p(X = x)
         log_potentials = ts.LinearChain.hmm(
-            transition = self.transition,
-            emission = self.emission,
+            transition = self.transition(),
+            emission = self.emission(),
             init = self.start,
             observations = text,
             semiring = self.semiring,
@@ -148,11 +155,12 @@ class HmmLm(nn.Module):
         start_logits = self.start_logits()
         transition_logits = self.transition_logits()
         log_potentials = ts.LinearChain.hmm(
-            transition = self.mask_transition(
-                transition_logits,
-                None,
-            ).t(),
-            emission = self.emission.t(),
+            #transition = self.mask_transition(
+                #transition_logits,
+                #None,
+            #).t(),
+            transition = self.transition().t(),
+            emission = self.emission().t(),
             init = self.mask_start(
                 start_logits,
                 None,
@@ -167,8 +175,9 @@ class HmmLm(nn.Module):
         states=None, word_mask=None,       
         lpz=None, last_states=None,         
     ):
-        transition_logits = self.transition_logits()
-        transition = self.mask_transition(transition_logits, None)
+        #transition_logits = self.transition_logits()
+        #transition = self.mask_transition(transition_logits, None)
+        transition = self.transition()
 
         if lpz is not None:
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
@@ -176,7 +185,7 @@ class HmmLm(nn.Module):
             start_logits = self.start_logits()
             start = self.mask_start(start_logits, None)
 
-        emission = self.emission
+        emission = self.emission()
         return start, transition, emission
 
     def clamp(                                              
@@ -189,7 +198,6 @@ class HmmLm(nn.Module):
             emission = emission.t(),
             init = start,
             observations = text,
-            #semiring = ts.LogSemiring,
         )
 
     def compute_loss(                                           
@@ -263,8 +271,9 @@ class HmmLm(nn.Module):
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
 
-        transition_logits = self.transition_logits()
-        transition = self.mask_transition(transition_logits, transition_mask)
+        #transition_logits = self.transition_logits()
+        #transition = self.mask_transition(transition_logits, transition_mask)
+        transition = self.transition(transition_mask)
 
         if lpz is not None:
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
@@ -274,7 +283,7 @@ class HmmLm(nn.Module):
 
         log_potentials = ts.LinearChain.hmm(
             transition = transition.t(),
-            emission = self.emission.t(),
+            emission = self.emission().t(),
             init = start,
             observations = text,
             #semiring = ts.LogSemiring,
@@ -282,7 +291,7 @@ class HmmLm(nn.Module):
         with th.no_grad():                                  
             log_m, alphas = self.fb(log_potentials.detach(), mask=mask)
         idx = th.arange(N, device=self.device)
-        alpha_T = alphas[lengths-1, idx] 
+        alpha_T = alphas[lengths-1, idx]
         evidence = alpha_T.logsumexp(-1).sum()
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
 

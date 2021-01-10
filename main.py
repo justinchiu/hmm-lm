@@ -458,7 +458,7 @@ def main():
     """
     name = get_name(args)
     import tempfile
-    wandb.init(project="hmm-lm", name=name, config=args, dir=tempfile.mkdtemp())
+    wandb.init(project="linear-hmm", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
 
     model = None
