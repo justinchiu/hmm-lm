@@ -45,7 +45,16 @@ def nonnegative_softmax_kernel_feature_creator(
     diag_data = diag_data.unsqueeze(-1) # bsz, len, 1
 
     if log:
-        return data_dash - diag_data + eps
+        if is_query:
+            return (data_dash - diag_data
+                - torch.max(data_dash, dim=-1, keepdim=True)[0]
+                + math.log(eps)
+            )
+        else:
+            return (data_dash - diag_data
+                - torch.max(data_dash)
+                + math.log(eps)
+            )
 
     # Compute exp(wx - ||x||^2/2)  
     # (Lemma 1, SM(x, y) = E_{w~N(0,I)} exp(wx - ||x||^2/2) exp(wy - ||y||^2/2))
@@ -88,23 +97,28 @@ def get_2d_array(nb_rows, nb_columns, scaling=0):
 
     return multiplier * final_matrix
 
-def project_logits(query, key, projection_matrix, eps=0.0001):
+def project_logits(query, key, projection_matrix, eps=0.0001, log=True):
     kernel = nonnegative_softmax_kernel_feature_creator
 
-    """
-    query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
-    key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
-    values = query_features.bmm(key_features.transpose(-1, -2))
-    exp_logits = values / values.sum(-1, keepdim=True)
-    return exp_logits.log()
-    """
+    if not log:
+        query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
+        key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
+        values = query_features.bmm(key_features.transpose(-1, -2))
+        exp_logits = values / values.sum(-1, keepdim=True)
+        return exp_logits.log()
 
     # log space
     log_query_features = kernel(query, projection_matrix, is_query=True, eps=eps, log=True)
     log_key_features = kernel(key, projection_matrix, is_query=False, eps=eps, log=True)
     # slow...would like log-bmm
+    # bxz x src x tgt x dim
+
+    expand = log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+
     logits = (
-        log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
-    ).logsumexp(-1).log_softmax(-1)
+        #log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+        expand
+    ).logsumexp(-1)
+    #import pdb; pdb.set_trace()
     return logits
 

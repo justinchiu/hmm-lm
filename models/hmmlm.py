@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch_struct as ts
 
 #from .misc import ResidualLayer, ResidualLayerOld
-from .misc import ResidualLayerOld, LogDropoutM
+from .misc import ResidualLayerOld, LogDropoutM, ResidualLayerNoNorm
 from .charcnn import CharLinear
 
 from utils import Pack
@@ -29,18 +29,27 @@ class HmmLm(nn.Module):
         self.V = V
         self.device = config.device
 
-        ResidualLayer = ResidualLayerOld
+        #ResidualLayer = ResidualLayerOld if config.parameterization != "smp" else ResidualLayerNoNorm
+        if config.no_layernorm:
+            ResidualLayer = ResidualLayerNoNorm
+        else:
+            ResidualLayer = ResidualLayerOld
 
         # log-linear or linear, etc
         self.parameterization = config.parameterization
         if self.parameterization == "smp":
-            self.projection = nn.Parameter(
-                #linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
-                #get_2d_array(config.hidden_dim * 2, config.hidden_dim)
-                get_2d_array(config.hidden_dim, config.hidden_dim * 2)
-            )
-            # freeze projection for now
-            self.projection.requires_grad = False
+            if config.projection_method == "static":
+                self._projection = nn.Parameter(
+                    #linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
+                    #get_2d_array(config.hidden_dim * 2, config.hidden_dim)
+                    get_2d_array(config.hidden_dim, config.hidden_dim * 2)
+                )
+                if not config.update_projection:
+                    self._projection.requires_grad = False
+            self.projection_method = config.projection_method
+
+        self.sm_emit = config.sm_emit
+        self.sm_trans = config.sm_trans
 
         self.timing = config.timing > 0
 
@@ -48,6 +57,8 @@ class HmmLm(nn.Module):
 
         self.fb = foo.get_fb(self.C)
         self.word2state = None
+
+        self.hidden_dim = config.hidden_dim
 
         # p(z0)
         self.start_emb = nn.Parameter(
@@ -63,6 +74,7 @@ class HmmLm(nn.Module):
             th.randn(self.C, config.hidden_dim),
         )
         self.trans_mlp = ResidualLayer(config.hidden_dim, config.hidden_dim)
+        #self.trans_mlp2 = ResidualLayer(config.hidden_dim, config.hidden_dim)
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -96,6 +108,16 @@ class HmmLm(nn.Module):
         return self.start.unsqueeze(0).expand(bsz, self.C)
 
     @property
+    def projection(self):
+        if self.projection_method == "static":
+            pass
+        elif self.projection_method == "random":
+            self._projection = get_2d_array(self.hidden_dim, self.hidden_dim * 2).to(self.device)
+        else:
+            raise ValueError(f"Invalid projection_method: {self.projection_method}")
+        return self._projection
+
+    @property
     def start(self):
         return self.start_mlp(self.start_emb).squeeze(-1).log_softmax(-1)
 
@@ -107,27 +129,33 @@ class HmmLm(nn.Module):
 
     def transition(self, mask=None):
         fx = self.trans_mlp(self.state_emb)
-        if self.parameterization == "softmax":
+        #gy = self.trans_mlp2(self.next_state_emb)
+        #fx = self.state_emb
+        if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ self.next_state_emb.T
-            logits = self.log_dropout(logits, mask).log_softmax(-1)
-            logits = logits.masked_fill(logits != logits, float("-inf"))
+            #logits = fx @ gy.T
+            logits = logits.log_softmax(-1)
+            #logits = self.log_dropout(logits, mask).log_softmax(-1)
+            #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits
-        elif self.parameterization == "smp":
+        elif self.parameterization == "smp" and not self.sm_trans:
             #return linear_utils.project_logits(
             logits = project_logits(
                 fx[None],
                 self.next_state_emb[None],
                 self.projection,
-            )[0]
+                log = not self.config.explog,
+            )[0].log_softmax(-1)
+            #import pdb; pdb.set_trace()
             return logits
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
     def emission(self):
         fx = self.terminal_mlp(self.preterminal_emb)
-        if self.parameterization == "softmax":
+        if self.parameterization == "softmax" or self.sm_emit:
             return (fx @ self.terminal_emb.T).log_softmax(-1)
-        elif self.parameterization == "smp":
+        elif self.parameterization == "smp" and not self.sm_emit:
             return project_logits(
                 fx[None],
                 self.terminal_emb[None],
@@ -196,7 +224,7 @@ class HmmLm(nn.Module):
         self, text, start, transition, emission, word2state=None,
         uniform_emission = None, word_mask = None,          
         reset = None,                                       
-    ):                                                      
+    ):
         return ts.LinearChain.hmm(
             transition = transition.t(),
             emission = emission.t(),
@@ -212,7 +240,7 @@ class HmmLm(nn.Module):
         N = lengths.shape[0]                                    
         log_m, alphas = self.fb(log_potentials.clone(), mask=mask)
                                                                 
-        idx = th.arange(N, device=self.device)                  
+        idx = th.arange(N, device=self.device)            
         alpha_T = alphas[lengths-1, idx]                        
         evidence = alpha_T.logsumexp(-1).sum()                  
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
@@ -278,6 +306,7 @@ class HmmLm(nn.Module):
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
         transition = self.transition(transition_mask)
+        emission = self.emission()
 
         if lpz is not None:
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
@@ -288,12 +317,12 @@ class HmmLm(nn.Module):
 
         log_potentials = ts.LinearChain.hmm(
             transition = transition.t(),
-            emission = self.emission().t(),
+            emission = emission.t(),
             init = start,
             observations = text,
             #semiring = ts.LogSemiring,
         )
-        with th.no_grad():                                  
+        with th.no_grad():
             log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]

@@ -25,6 +25,30 @@ class ResidualLayerOld(nn.Module):
         #x = self.dropout(self.lin1(x).relu())
         return self.layer_norm(self.dropout(self.lin2(x).relu()) + x)
 
+class ResidualLayerNoNorm(nn.Module):
+    def __init__(
+        self, in_dim = 100,
+        out_dim = 100,
+        dropout = 0.,
+        # unused args
+        do_norm = True,
+        pre_norm = True,
+        do_res = True,
+    ):
+        super(ResidualLayerNoNorm, self).__init__()
+        self.lin1 = nn.Linear(in_dim, out_dim)
+        self.lin2 = nn.Linear(out_dim, out_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = self.lin1(x)
+        x = x.relu()
+        #x = x.tanh()
+        x = self.dropout(x)
+        #x = self.dropout(self.lin1(x).relu())
+        return self.dropout(self.lin2(x).relu()) + x
+        #return self.dropout(self.lin2(x).tanh()) + x
+
 
 # pre-LN
 class ResidualLayer(nn.Module):

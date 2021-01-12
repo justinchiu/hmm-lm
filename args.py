@@ -123,3 +123,11 @@ def add_linear_args(parser):
             "smp",
         ],
     )
+    parser.add_argument("--update_projection", default=0, type=int)
+    parser.add_argument("--projection_method",
+        choices = ["static", "random"],
+    )
+    parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
+    parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
+    parser.add_argument("--no_layernorm", default=0, type=int, help="remove layernorm")
+    parser.add_argument("--explog", default=0, type=int, help="use exp version of linear utils")

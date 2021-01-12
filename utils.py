@@ -85,6 +85,12 @@ def get_name(config):
         f"ed{'-'.join(str(x) for x in config.emit_dims) if config.emit_dims is not None else 'none'}",
         f"nh{config.num_highway}",
         f"s{config.state}",
+        f"p{config.parameterization}",
+        f"up{config.update_projection}",
+        f"pm{config.projection_method}",
+        f"st{config.sm_trans}",
+        f"se{config.sm_emit}",
+        f"nl{config.no_layernorm}",
     ])
 
 def get_args(args):

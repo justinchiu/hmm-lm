@@ -132,6 +132,8 @@ def cached_eval_loop(
         model.train(False)
         lpz = None
         start, transition, emission = model.compute_parameters(model.word2state)
+        # assert that transition and emission are well-formed
+        # 
         word2state = model.word2state
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):
