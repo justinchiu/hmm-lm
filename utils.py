@@ -93,6 +93,7 @@ def get_name(config):
         f"nl{config.no_layernorm}",
         f"rm{config.rff_method}",
         f"nf{config.num_features}",
+        f"ns{config.no_shift}",
     ])
 
 def get_args(args):

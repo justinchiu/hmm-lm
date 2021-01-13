@@ -11,6 +11,7 @@ def nonnegative_softmax_kernel_feature_creator(
     is_query: bool,
     eps: float=0.0001,
     log = False,
+    no_shift = False,
 ):
     """
     Constructs nonnegative kernel features for fast softmax attention.
@@ -24,8 +25,8 @@ def nonnegative_softmax_kernel_feature_creator(
       Random features for fast softmax attention.
     """
 
-    #ratio = 1.0 / math.sqrt(projection_matrix.shape[0])
-    ratio = 1.0
+    ratio = 1.0 / math.sqrt(projection_matrix.shape[0])
+    #ratio = 1.0
 
     bsz = data.size(0)
    
@@ -46,14 +47,19 @@ def nonnegative_softmax_kernel_feature_creator(
     diag_data = diag_data.unsqueeze(-1) # bsz, len, 1
 
     if log:
+        if no_shift:
+            return math.log(ratio) + data_dash - diag_data + math.log(eps)
+
         if is_query:
-            return (data_dash - diag_data
-                - torch.max(data_dash, dim=-1, keepdim=True)[0]
+            return (math.log(ratio) + data_dash - diag_data
+                - torch.max(data_dash, dim=-1, keepdim=True)[0].detach()
+                #- torch.max(data_dash, dim=-1, keepdim=True)[0]
                 + math.log(eps)
             )
         else:
-            return (data_dash - diag_data
-                - torch.max(data_dash)
+            return (math.log(ratio) + data_dash - diag_data
+                - torch.max(data_dash).detach()
+                #- torch.max(data_dash)
                 + math.log(eps)
             )
 
@@ -108,7 +114,7 @@ def logbmm(x, y):
     expand = x[:,:,None,:] + y[:,None,:,:]
     return expand.logsumexp(-1)
 
-def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log"):
+def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", no_shift=False):
     kernel = nonnegative_softmax_kernel_feature_creator
 
     if rff_method == "exp":
@@ -132,8 +138,15 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log"):
         return logits
     elif rff_method == "log":
         # log space
-        log_query_features = kernel(query, projection_matrix, is_query=True, eps=eps, log=True)
-        log_key_features = kernel(key, projection_matrix, is_query=False, eps=eps, log=True)
+        log_query_features = kernel(
+            query, projection_matrix, is_query=True, eps=eps, log=True,
+            no_shift = no_shift,
+        )
+        log_key_features = kernel(
+            key, projection_matrix, is_query=False, eps=eps, log=True,
+            no_shift = no_shift,
+        )
+        #import pdb; pdb.set_trace()
         # slow and memory...would like log-bmm
         # bxz x src x tgt x dim
 

@@ -132,3 +132,4 @@ def add_linear_args(parser):
     parser.add_argument("--no_layernorm", default=0, type=int, help="remove layernorm")
     parser.add_argument("--rff_method", choices=["log", "exp", "mixed"], default="log")
     parser.add_argument("--num_features", default=512, type=int, help="num features")
+    parser.add_argument("--no_shift", default=0, type=int, help="remove shift in proj")

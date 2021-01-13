@@ -314,9 +314,11 @@ def train_loop(
             if model.timing:
                 start_backward = timep.time()
             loss.backward()
+
             #print(model.state_emb.grad.max(), model.state_emb.grad.min())
             #print(model.next_state_emb.grad.max(), model.next_state_emb.grad.min())
             #import pdb; pdb.set_trace()
+
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
             clip_grad_norm_(parameters, args.clip)
