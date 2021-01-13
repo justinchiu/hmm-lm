@@ -39,14 +39,21 @@ class HmmLm(nn.Module):
         self.parameterization = config.parameterization
         if self.parameterization == "smp":
             if config.projection_method == "static":
-                self._projection = nn.Parameter(
-                    #linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
-                    #get_2d_array(config.hidden_dim * 2, config.hidden_dim)
-                    get_2d_array(config.hidden_dim, config.num_features)
-                )
+                if not config.anti:
+                    self._projection = nn.Parameter(
+                        get_2d_array(config.num_features, config.hidden_dim).t()
+                    )
+                else:
+                    projection_matrix = get_2d_array(config.num_features//2, config.hidden_dim).t()
+                    self._projection = nn.Parameter(
+                        th.cat([projection_matrix, -projection_matrix], -1)
+                    )
                 if not config.update_projection:
                     self._projection.requires_grad = False
             self.projection_method = config.projection_method
+            #print("initialized projection")
+            #print(self._projection)
+            #import pdb; pdb.set_trace()
 
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
