@@ -238,7 +238,8 @@ class HmmLm(nn.Module):
         keep_counts = False,                                    
     ):                                                          
         N = lengths.shape[0]                                    
-        log_m, alphas = self.fb(log_potentials.clone(), mask=mask)
+        #log_m, alphas = self.fb(log_potentials.clone(), mask=mask)
+        log_m, alphas = self.fb(log_potentials.clone().float(), mask=mask)
                                                                 
         idx = th.arange(N, device=self.device)            
         alpha_T = alphas[lengths-1, idx]                        
@@ -323,7 +324,8 @@ class HmmLm(nn.Module):
             #semiring = ts.LogSemiring,
         )
         with th.no_grad():
-            log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
+            #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
+            log_m, alphas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]
         evidence = alpha_T.logsumexp(-1).sum()

@@ -411,6 +411,11 @@ def main():
     aux_device = th.device("cpu" if args.aux_devid < 0 else f"cuda:{args.aux_devid}")
     args.aux_device = aux_device
 
+    if args.dbg_double:
+        # test higher precision
+        th.set_default_tensor_type(th.cuda.DoubleTensor)
+        # reminder: never use 'as th' again
+
     TEXT = torchtext.data.Field(batch_first = True)
     ## DBG
     #TEXT = torchtext.data.Field(batch_first = True, lower=True)

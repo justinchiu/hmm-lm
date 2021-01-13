@@ -178,9 +178,9 @@ def get_fb(size):
         betas = out_fb[:, batch:].flip(0)
         """
 
-        out_fb = torch.empty(2, time+1, batch, size, device=x.device)
+        out_fb = torch.empty(2, time+1, batch, size, device=x.device, dtype=torch.float32)
         out_fb.fill_(float("-inf"))
-        inp = torch.empty(time+1, batch, size, size, device=x.device)
+        inp = torch.empty(time+1, batch, size, size, device=x.device, dtype=torch.float32)
         inp[-1] = lex
         # forward
         inp[:-1] = x

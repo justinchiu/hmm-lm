@@ -126,6 +126,7 @@ def add_linear_args(parser):
     parser.add_argument("--update_projection", default=0, type=int)
     parser.add_argument("--projection_method",
         choices = ["static", "random"],
+        default = "static",
     )
     parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
     parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
@@ -133,3 +134,5 @@ def add_linear_args(parser):
     parser.add_argument("--rff_method", choices=["log", "exp", "mixed"], default="log")
     parser.add_argument("--num_features", default=512, type=int, help="num features")
     parser.add_argument("--no_shift", default=0, type=int, help="remove shift in proj")
+
+    parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")
