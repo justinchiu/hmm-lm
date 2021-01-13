@@ -91,6 +91,8 @@ def get_name(config):
         f"st{config.sm_trans}",
         f"se{config.sm_emit}",
         f"nl{config.no_layernorm}",
+        f"rm{config.rff_method}",
+        f"nf{config.num_features}",
     ])
 
 def get_args(args):

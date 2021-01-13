@@ -130,4 +130,5 @@ def add_linear_args(parser):
     parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
     parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
     parser.add_argument("--no_layernorm", default=0, type=int, help="remove layernorm")
-    parser.add_argument("--explog", default=0, type=int, help="use exp version of linear utils")
+    parser.add_argument("--rff_method", choices=["log", "exp", "mixed"], default="log")
+    parser.add_argument("--num_features", default=512, type=int, help="num features")

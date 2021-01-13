@@ -42,7 +42,7 @@ class HmmLm(nn.Module):
                 self._projection = nn.Parameter(
                     #linear_utils.get_2d_array(config.hidden_dim, config.hidden_dim)
                     #get_2d_array(config.hidden_dim * 2, config.hidden_dim)
-                    get_2d_array(config.hidden_dim, config.hidden_dim * 2)
+                    get_2d_array(config.hidden_dim, config.num_features)
                 )
                 if not config.update_projection:
                     self._projection.requires_grad = False
@@ -144,7 +144,7 @@ class HmmLm(nn.Module):
                 fx[None],
                 self.next_state_emb[None],
                 self.projection,
-                log = not self.config.explog,
+                rff_method = self.config.rff_method,
             )[0].log_softmax(-1)
             #import pdb; pdb.set_trace()
             return logits
@@ -160,7 +160,7 @@ class HmmLm(nn.Module):
                 fx[None],
                 self.terminal_emb[None],
                 self.projection,
-            )[0]
+            )[0].log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 

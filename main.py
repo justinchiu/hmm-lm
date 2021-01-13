@@ -44,6 +44,15 @@ WANDB_STEP = -1
 BEST_VALID = -math.inf
 PREV_SAVE = None
 
+def max_diff(log_p):
+    P = log_p.exp()
+    n = P.shape[0]
+    xy = [(x,y) for x in range(n) for y in range(x, n)]
+    diff = th.tensor([(P[x] - P[y]).abs().max() for x,y in xy])
+    print(f"Max diff < 0.01: {(diff < 0.01).sum()} / {diff.shape[0]}")
+    #import pdb; pdb.set_trace()
+
+
 def update_best_valid(
     valid_losses, valid_n, model, optimizer, scheduler, name,
 ):
@@ -305,6 +314,9 @@ def train_loop(
             if model.timing:
                 start_backward = timep.time()
             loss.backward()
+            #print(model.state_emb.grad.max(), model.state_emb.grad.min())
+            #print(model.next_state_emb.grad.max(), model.next_state_emb.grad.min())
+            #import pdb; pdb.set_trace()
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
             clip_grad_norm_(parameters, args.clip)

@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 
+from torch.utils.checkpoint import checkpoint
 
 def nonnegative_softmax_kernel_feature_creator(
     data: torch.Tensor,
@@ -97,28 +98,62 @@ def get_2d_array(nb_rows, nb_columns, scaling=0):
 
     return multiplier * final_matrix
 
-def project_logits(query, key, projection_matrix, eps=0.0001, log=True):
+def keops_logbmm(x, y):
+    # wow keops sucks.
+    expand = x[:,:,None,:] + y[:,None,:,:]
+    result = expand.logsumexp(-1)
+    return result
+
+def logbmm(x, y):
+    expand = x[:,:,None,:] + y[:,None,:,:]
+    return expand.logsumexp(-1)
+
+def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log"):
     kernel = nonnegative_softmax_kernel_feature_creator
 
-    if not log:
+    if rff_method == "exp":
         query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
         key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
         values = query_features.bmm(key_features.transpose(-1, -2))
-        exp_logits = values / values.sum(-1, keepdim=True)
-        return exp_logits.log()
+        return values.log()
+        #exp_logits = values / values.sum(-1, keepdim=True)
+        #return exp_logits.log()
+    elif rff_method == "mixed":
+        query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
+        key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
+        expand = (query_features[:,:,None] * key_features[:,None]).log()
+        logits = expand.logsumexp(-1)
 
-    # log space
-    log_query_features = kernel(query, projection_matrix, is_query=True, eps=eps, log=True)
-    log_key_features = kernel(key, projection_matrix, is_query=False, eps=eps, log=True)
-    # slow...would like log-bmm
-    # bxz x src x tgt x dim
+        # values.log == logits
+        #values = query_features.bmm(key_features.transpose(-1, -2))
+        #import pdb; pdb.set_trace()
+        # both lead to 0 gradients
+        
+        return logits
+    elif rff_method == "log":
+        # log space
+        log_query_features = kernel(query, projection_matrix, is_query=True, eps=eps, log=True)
+        log_key_features = kernel(key, projection_matrix, is_query=False, eps=eps, log=True)
+        # slow and memory...would like log-bmm
+        # bxz x src x tgt x dim
 
-    expand = log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+        return checkpoint(logbmm, log_query_features, log_key_features)
 
-    logits = (
-        #log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
-        expand
-    ).logsumexp(-1)
-    #import pdb; pdb.set_trace()
-    return logits
+        # chunking
+        #N = 256
+        #num_features = 
+        #import pdb; pdb.set_trace()
+        #for 
+        """
+        expand = log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+        logits = (
+            #log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
+            expand
+        ).logsumexp(-1)
+        #import pdb; pdb.set_trace()
+        return logits
+        """
+
+    else:
+        raise ValueError(f"Invalid rff_method: {rff_method}")
 
