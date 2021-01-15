@@ -48,19 +48,30 @@ def nonnegative_softmax_kernel_feature_creator(
 
     if log:
         if no_shift:
-            return math.log(ratio) + data_dash - diag_data + math.log(eps)
+            return data_dash - diag_data
+            #return math.log(ratio) + data_dash - diag_data + math.log(eps)
 
         if is_query:
+            # test
+            stuff = math.log(ratio) + data_dash - diag_data
+            return stuff - stuff.max(dim=-1, keepdim=True)[0].detach()
+            # /test
+            # looks like the above is fine and equivalent to no_shift
             return (math.log(ratio) + data_dash - diag_data
                 - torch.max(data_dash, dim=-1, keepdim=True)[0].detach()
                 #- torch.max(data_dash, dim=-1, keepdim=True)[0]
-                + math.log(eps)
+                #+ math.log(eps)
             )
         else:
+            # test
+            stuff = math.log(ratio) + data_dash - diag_data
+            return stuff - stuff.max().detach()
+            # /test
+            # looks like the above is fine and equivalent to no_shift
             return (math.log(ratio) + data_dash - diag_data
                 - torch.max(data_dash).detach()
                 #- torch.max(data_dash)
-                + math.log(eps)
+                #+ math.log(eps)
             )
 
     # Compute exp(wx - ||x||^2/2)  

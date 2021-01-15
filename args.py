@@ -36,6 +36,7 @@ def get_args():
         "shmm", "dhmm", "chmm", "hmm", "lstm", "ff",
         "mshmm", "dshmm",
         "factoredhmm",
+        "lhmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)
@@ -135,5 +136,6 @@ def add_linear_args(parser):
     parser.add_argument("--num_features", default=512, type=int, help="num features")
     parser.add_argument("--no_shift", default=0, type=int, help="remove shift in proj")
     parser.add_argument("--anti", default=1, type=int, help="antithetic sample for proj")
+    parser.add_argument("--l2norm", default=1, type=int, help="l2 norm embeddings")
 
     parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")

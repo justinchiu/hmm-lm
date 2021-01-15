@@ -13,48 +13,20 @@ import torch.nn as nn
 
 import torch_struct as ts
 
-#from .misc import ResidualLayer, ResidualLayerOld
-from .misc import ResidualLayerOld, LogDropoutM, ResidualLayerNoNorm
-from .charcnn import CharLinear
+from .misc import ResLayer, LogDropoutM
 
 from utils import Pack
 
 from .linear_utils import get_2d_array, project_logits
 
-class HmmLm(nn.Module):
+class LHmmLm(nn.Module):
     def __init__(self, V, config):
-        super(HmmLm, self).__init__()
+        super(LHmmLm, self).__init__()
 
         self.config = config
         self.V = V
         self.device = config.device
 
-        #ResidualLayer = ResidualLayerOld if config.parameterization != "smp" else ResidualLayerNoNorm
-        if config.no_layernorm:
-            ResidualLayer = ResidualLayerNoNorm
-        else:
-            ResidualLayer = ResidualLayerOld
-
-        # log-linear or linear, etc
-        self.parameterization = config.parameterization
-        self.l2norm = config.l2norm
-        if self.parameterization == "smp":
-            if config.projection_method == "static":
-                if not config.anti:
-                    self._projection = nn.Parameter(
-                        get_2d_array(config.num_features, config.hidden_dim).t()
-                    )
-                else:
-                    projection_matrix = get_2d_array(config.num_features//2, config.hidden_dim).t()
-                    self._projection = nn.Parameter(
-                        th.cat([projection_matrix, -projection_matrix], -1)
-                    )
-                if not config.update_projection:
-                    self._projection.requires_grad = False
-            self.projection_method = config.projection_method
-            #print("initialized projection")
-            #print(self._projection)
-            #import pdb; pdb.set_trace()
 
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
@@ -70,23 +42,19 @@ class HmmLm(nn.Module):
 
         # p(z0)
         self.start_emb = nn.Parameter(
-            th.randn(self.C, config.hidden_dim),
+            th.randn(config.hidden_dim),
         )
         self.start_mlp = nn.Sequential(
-            ResidualLayer(config.hidden_dim, config.hidden_dim),
-            #nn.Linear(config.hidden_dim, config.hidden_dim),
-            nn.Linear(config.hidden_dim, 1),
+            nn.Linear(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
+            nn.Linear(config.hidden_dim, self.C),
         )
 
         # p(zt | zt-1)
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
-        self.trans_mlp = nn.Sequential(
-            ResidualLayer(config.hidden_dim, config.hidden_dim),
-            #nn.Linear(config.hidden_dim, config.hidden_dim),
-        )
-        #self.trans_mlp2 = ResidualLayer(config.hidden_dim, config.hidden_dim)
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -96,8 +64,8 @@ class HmmLm(nn.Module):
             th.randn(self.C, config.hidden_dim),
         )
         self.terminal_mlp = nn.Sequential(
-            ResidualLayer(config.hidden_dim, config.hidden_dim),
-            #nn.Linear(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
         )
         self.terminal_emb = nn.Parameter(
             th.randn(len(V), config.hidden_dim)
@@ -118,6 +86,29 @@ class HmmLm(nn.Module):
                 th.zeros(self.C, dtype=th.int),
             )
 
+        # init
+        for p in self.parameters():
+            if p.dim() > 1:
+                th.nn.init.xavier_uniform_(p)
+
+        # log-linear or linear, etc
+        self.parameterization = config.parameterization
+        self.l2norm = config.l2norm
+        if self.parameterization == "smp":
+            if config.projection_method == "static":
+                if not config.anti:
+                    self._projection = nn.Parameter(
+                        get_2d_array(config.num_features, config.hidden_dim).t()
+                    )
+                else:
+                    projection_matrix = get_2d_array(config.num_features//2, config.hidden_dim).t()
+                    self._projection = nn.Parameter(
+                        th.cat([projection_matrix, -projection_matrix], -1)
+                    )
+                if not config.update_projection:
+                    self._projection.requires_grad = False
+            self.projection_method = config.projection_method
+
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
@@ -127,14 +118,15 @@ class HmmLm(nn.Module):
         if self.projection_method == "static":
             pass
         elif self.projection_method == "random":
-            self._projection = get_2d_array(self.hidden_dim, self.hidden_dim * 2).to(self.device)
+            raise NotImplementedError
+            #self._projection = get_2d_array(self.hidden_dim, self.hidden_dim).to(self.device)
         else:
             raise ValueError(f"Invalid projection_method: {self.projection_method}")
         return self._projection
 
     @property
     def start(self):
-        return self.start_mlp(self.start_emb).squeeze(-1).log_softmax(-1)
+        return self.start_mlp(self.start_emb).log_softmax(-1)
 
     def start_logits(self):
         return self.start_mlp(self.start_emb).squeeze(-1)
@@ -143,7 +135,7 @@ class HmmLm(nn.Module):
         return self.log_dropout(x, mask).log_softmax(-1)
 
     def transition(self, mask=None):
-        fx = self.trans_mlp(self.state_emb)
+        fx = self.state_emb
         #gy = self.trans_mlp2(self.next_state_emb)
         #fx = self.state_emb
         if self.parameterization == "softmax" or self.sm_trans:
@@ -154,10 +146,15 @@ class HmmLm(nn.Module):
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits
         elif self.parameterization == "smp" and not self.sm_trans:
-            #return linear_utils.project_logits(
+            # important to renormalize. maybe move this into project_logits
+            if self.l2norm:
+                fx = fx / fx.norm(dim=-1, keepdim=True)
+                fy = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
+            else:
+                fy = self.next_state_emb
             logits = project_logits(
                 fx[None],
-                self.next_state_emb[None],
+                fy[None],
                 self.projection,
                 rff_method = self.config.rff_method,
             )[0].log_softmax(-1)
@@ -171,9 +168,16 @@ class HmmLm(nn.Module):
         if self.parameterization == "softmax" or self.sm_emit:
             return (fx @ self.terminal_emb.T).log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_emit:
+            # renormalize, important
+            if self.l2norm:
+                fx = fx / fx.norm(dim=-1, keepdim=True)
+                fy = self.terminal_emb / self.terminal_emb.norm(dim=-1, keepdim=True)
+            else:
+                fy = self.terminal_emb
+
             return project_logits(
                 fx[None],
-                self.terminal_emb[None],
+                fy[None],
                 self.projection,
             )[0].log_softmax(-1)
         else:
