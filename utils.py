@@ -94,6 +94,9 @@ def get_name(config):
         f"rm{config.rff_method}",
         f"nf{config.num_features}",
         f"ns{config.no_shift}",
+        f"a{config.anti}",
+        f"l2{config.l2norm}",
+
     ])
 
 def get_args(args):

@@ -94,35 +94,54 @@ class LHmmLm(nn.Module):
         # log-linear or linear, etc
         self.parameterization = config.parameterization
         self.l2norm = config.l2norm
+        self.anti = config.anti
         if self.parameterization == "smp":
             if config.projection_method == "static":
-                if not config.anti:
-                    self._projection = nn.Parameter(
-                        get_2d_array(config.num_features, config.hidden_dim).t()
-                    )
-                else:
-                    projection_matrix = get_2d_array(config.num_features//2, config.hidden_dim).t()
-                    self._projection = nn.Parameter(
-                        th.cat([projection_matrix, -projection_matrix], -1)
-                    )
+                self._projection = nn.Parameter(self.init_proj())
                 if not config.update_projection:
                     self._projection.requires_grad = False
+                self._projection_emit = nn.Parameter(self.init_proj())
+                if not config.update_projection:
+                    self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
 
+    def init_proj(self):
+        if not self.anti:
+            return get_2d_array(self.config.num_features, self.config.hidden_dim).t().to(self.device)
+        else:
+            projection_matrix = get_2d_array(
+                self.config.num_features//2, self.config.hidden_dim).t().to(self.device)
+            return th.cat([projection_matrix, -projection_matrix], -1)
+
     @property
     def projection(self):
         if self.projection_method == "static":
             pass
         elif self.projection_method == "random":
-            raise NotImplementedError
-            #self._projection = get_2d_array(self.hidden_dim, self.hidden_dim).to(self.device)
+            self._projection = nn.Parameter(
+                self.init_proj()
+            )
+            self._projection.requires_grad = False
         else:
             raise ValueError(f"Invalid projection_method: {self.projection_method}")
         return self._projection
+
+    @property
+    def projection_emit(self):
+        if self.projection_method == "static":
+            pass
+        elif self.projection_method == "random":
+            self._projection_emit = nn.Parameter(
+                self.init_proj()
+            )
+            self._projection_emit.requires_grad = False
+        else:
+            raise ValueError(f"Invalid projection_method: {self.projection_method}")
+        return self._projection_emit
 
     @property
     def start(self):
@@ -178,7 +197,7 @@ class LHmmLm(nn.Module):
             return project_logits(
                 fx[None],
                 fy[None],
-                self.projection,
+                self.projection_emit,
             )[0].log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
