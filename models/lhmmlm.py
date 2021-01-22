@@ -95,14 +95,16 @@ class LHmmLm(nn.Module):
         self.parameterization = config.parameterization
         self.l2norm = config.l2norm
         self.anti = config.anti
+        self.diffproj = config.diffproj
         if self.parameterization == "smp":
             if config.projection_method == "static":
                 self._projection = nn.Parameter(self.init_proj())
                 if not config.update_projection:
                     self._projection.requires_grad = False
-                self._projection_emit = nn.Parameter(self.init_proj())
-                if not config.update_projection:
-                    self._projection_emit.requires_grad = False
+                if self.diffproj:
+                    self._projection_emit = nn.Parameter(self.init_proj())
+                    if not config.update_projection:
+                        self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
 
@@ -197,7 +199,7 @@ class LHmmLm(nn.Module):
             return project_logits(
                 fx[None],
                 fy[None],
-                self.projection_emit,
+                self.projection_emit if self.diffproj else self.projection,
             )[0].log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")

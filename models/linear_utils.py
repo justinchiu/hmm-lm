@@ -2,6 +2,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torch.utils.checkpoint import checkpoint
 
@@ -87,6 +88,42 @@ def nonnegative_softmax_kernel_feature_creator(
             torch.exp(data_dash - diag_data - torch.max(data_dash)) + eps)
 
     return data_dash
+
+def relu_softmax_kernel_feature_creator(
+    data: torch.Tensor,
+    projection_matrix: torch.Tensor,
+    eps: float=0.0001,
+):
+    """
+    Constructs relu kernel features for fast softmax attention.
+    Args:
+      data: input for which features are computes
+      projection_matrix: random matrix used to compute features
+      is_query: predicate indicating whether input data corresponds to queries or
+        keys
+      eps: numerical stabilizer.
+    Returns:
+      Random features for fast softmax attention.
+    """
+    #ratio = 1.0 / math.sqrt(projection_matrix.shape[0])
+    #ratio = 1.0
+
+    bsz = data.size(0)
+   
+    projection = projection_matrix.unsqueeze(0).expand(bsz, -1, -1)
+
+    # Compute wx
+    # data:       bsz, len, D
+    # projection: bsz, D, #features
+    data_dash = torch.bmm(
+        data,
+        projection
+    ) # bsz, len, #features
+
+    # relu
+    # only on torch==1.7
+    #return torch.maximum(data_dash, eps).log()
+    return F.threshold(data_dash, eps, eps).log()
 
 def get_2d_array(nb_rows, nb_columns, scaling=0):
     nb_full_blocks = int(nb_rows / nb_columns)
@@ -178,6 +215,17 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         return logits
         """
 
+    elif rff_method == "relu":
+        kernel = relu_softmax_kernel_feature_creator
+        log_query_features = kernel(
+            query, projection_matrix, eps=eps,
+        )
+        log_key_features = kernel(
+            key, projection_matrix, eps=eps,
+        )
+        return checkpoint(logbmm, log_query_features, log_key_features)
+
     else:
         raise ValueError(f"Invalid rff_method: {rff_method}")
+
 

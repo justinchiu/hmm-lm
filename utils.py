@@ -96,7 +96,7 @@ def get_name(config):
         f"ns{config.no_shift}",
         f"a{config.anti}",
         f"l2{config.l2norm}",
-
+        f"dfp{config.diffproj}",
     ])
 
 def get_args(args):
