@@ -138,5 +138,9 @@ def add_linear_args(parser):
     parser.add_argument("--anti", default=1, type=int, help="antithetic sample for proj")
     parser.add_argument("--l2norm", default=1, type=int, help="l2 norm embeddings")
     parser.add_argument("--diffproj", default=0, type=int, help="use different projections")
+    parser.add_argument("--eff", default=0, type=int, help="use efficient implementation of fwd")
+
+    parser.add_argument("--tie_start", default=1, type=int, help="tie start embedding")
 
     parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")
+

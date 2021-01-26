@@ -313,6 +313,12 @@ def train_loop(
             losses, lpz, last_states = model.score(
                 text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
 
+            if hasattr(args, "eff") and args.eff:
+                losses_old = losses
+                losses, _, _= model.score_rff(
+                    text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+                #import pdb; pdb.set_trace()
+
             if model.timing:
                 print(f"forward time: {timep.time() - start_forward}")
             total_ll += losses.evidence.detach()
