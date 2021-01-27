@@ -72,7 +72,7 @@ logp_emit = emission[
     text[:,:,None],
 ]
 
-# EFFICIENCY: anything involving C we want to checkpoint away
+# EFFICIENCY: anything involving C we want to checkpoint away / logbmm / tvm / custom bwd
 
 ## First term
 # D
