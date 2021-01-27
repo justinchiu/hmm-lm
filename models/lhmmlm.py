@@ -444,6 +444,8 @@ class LHmmLm(nn.Module):
         log_phi_w = w @ self.projection
         log_phi_u = u @ self.projection
 
+        # EFFICIENCY: anything involving C we want to checkpoint away
+
         # D
         log_sum_phi_u = log_phi_u.logsumexp(0)
 
@@ -458,6 +460,9 @@ class LHmmLm(nn.Module):
         # D
         log_start_vec = log_phi_start - log_start_denominator
 
+        # we want to checkpoint most of the below since it contains terms that scale with C
+        # or maybe even write custom forward/backward?
+         
         # C
         #log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
         log_denominator = checkpoint(logdot, log_phi_w, log_sum_phi_u)
@@ -475,41 +480,52 @@ class LHmmLm(nn.Module):
         ).fill_(float("-inf"))
         log_eye.diagonal().fill_(0.)
 
-        # N x T- x Du x Dw
+        def logbmm(a,b):
+            return (
+                # N x C + C x D x D
+                a[:,:,None,None] + b[None]
+            ).logsumexp(1)        # N x T-1 x Du x Dw
         # we have to do this online.
         #log_potentials = (logp_emit[:,:-1,:,None,None] + log_trans_mat[None,None]).logsumexp(2)
         log_potentials_list = []
         for t in range(T-1):
             # most likely need to checkpoint
-            log_pot_t = (
-                logp_emit[:,t,:,None,None] + log_trans_mat[None]
-            ).logsumexp(1)
+            #log_pot_t = (
+                #logp_emit[:,t,:,None,None] + log_trans_mat[None]
+            #).logsumexp(1)
+            log_pot_t = checkpoint(logbmm, logp_emit[:,t], log_trans_mat)
             # check mask slice
             mask_t = mask[:,t]
             masked_log_pot_t = th.where(mask_t[:,None,None], log_pot_t, log_eye[None])
             log_potentials_list.append(masked_log_pot_t)
+            #import pdb; pdb.set_trace()
         # N x T-1 x Du x Dw
         #log_potentials = th.stack(log_potentials_list, 1)
 
+        # checkpoint
         log_end_vec = (
             logp_emit[:,-1,:,None] # N x (T=-1) x C x {D}
             + log_phi_u[None] # {N} x C x D
         ).logsumexp(1)
         # check mask slice
         mask_t = mask[:,-1]
-        log_end_vec = log_end_vec.masked_fill(mask_t[:,None], 0.)
+        log_end_vec = log_end_vec.masked_fill(~mask_t[:,None], 0.)
         # i think only torch 1.7 allows scalar
         #log_end_vec = th.where(mask_t[:,None], log_end_vec, 0.)
         #import pdb; pdb.set_trace()
 
-        evidence = log_start_vec[None] # {N} x D
+        evidence = log_start_vec[None] # {N} x Dw
         for t in range(T-1):
             # logbmm
             evidence = (evidence[:,:,None] + log_potentials_list[t]).logsumexp(-2)
+            #evidence = (evidence[:,:,None] + log_potentials_list[t]).logsumexp(-1)
+            # below is wrong i think
+            #evidence = (evidence[:,None,:] + log_potentials_list[t]).logsumexp(-1)
+        #import pdb; pdb.set_trace()
         evidence = (evidence + log_end_vec).logsumexp(-1).sum()
 
         return Pack(
-            elbo = 0,
+            elbo = evidence,
             evidence = evidence,
             loss = evidence,
         ), None, None
