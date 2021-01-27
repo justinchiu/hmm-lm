@@ -15,6 +15,8 @@ from torch.utils.checkpoint import checkpoint
 
 import torch_struct as ts
 
+from genbmm import logbmm
+
 from .misc import ResLayer, LogDropoutM
 
 from utils import Pack
@@ -399,23 +401,36 @@ class LHmmLm(nn.Module):
             log_m, alphas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]
+        print(alpha_T.logsumexp(-1))
         evidence = alpha_T.logsumexp(-1).sum()
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
 
-        if self.keep_counts and self.training:
-            raise NotImplementedError("need to fix")
-            with th.no_grad():
-                unary_marginals = th.cat([
-                    log_m[:,0,None].logsumexp(-2),
-                    log_m.logsumexp(-1),
-                ], 1).exp()
-                self.counts.index_add_(
-                    1,
-                    text.view(-1),
-                    unary_marginals.view(-1, self.C).t(),
-                )
-                max_states = unary_marginals[mask].max(-1).indices
-                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
+        """
+        # DBG
+        # utility
+        log_eye = th.empty(
+            self.C,
+            self.C,
+            device=self.device,
+        ).fill_(float("-inf"))
+        log_eye.diagonal().fill_(0.)
+
+        # gather emission
+        # N x T x C
+        logp_emit = emission[
+            th.arange(self.C)[None,None],
+            text[:,:,None],
+        ]
+        log_pots = logp_emit[:,1:,None,:] + transition[None,None]
+        log_pots = th.where(mask[:,1:,None,None], log_pots, log_eye[None,None])
+        # first word cannot be masked
+        alpha = start[None] + logp_emit[:,0] # {N} x C
+        for t in range(T-1):
+            # logbmm
+            alpha = (alpha[:,:,None] + log_pots[:,t]).logsumexp(-2)
+        print(alpha.logsumexp(-1))
+        # /DBG
+        """
 
         return Pack(
             elbo = elbo,
@@ -491,13 +506,18 @@ class LHmmLm(nn.Module):
         for t in range(T-1):
             # most likely need to checkpoint
             #log_pot_t = (
+                # N x (T=t) x C + C x D x D
                 #logp_emit[:,t,:,None,None] + log_trans_mat[None]
             #).logsumexp(1)
             log_pot_t = checkpoint(logbmm, logp_emit[:,t], log_trans_mat)
-            # check mask slice
-            mask_t = mask[:,t]
-            masked_log_pot_t = th.where(mask_t[:,None,None], log_pot_t, log_eye[None])
-            log_potentials_list.append(masked_log_pot_t)
+            if mask is not None:
+                # check mask slice
+                mask_t = mask[:,t]
+                masked_log_pot_t = th.where(mask_t[:,None,None], log_pot_t, log_eye[None])
+                log_potentials_list.append(masked_log_pot_t)
+                #import pdb; pdb.set_trace()
+            else:
+                log_potentials_list.append(log_pot_t)
             #import pdb; pdb.set_trace()
         # N x T-1 x Du x Dw
         #log_potentials = th.stack(log_potentials_list, 1)
@@ -507,22 +527,23 @@ class LHmmLm(nn.Module):
             logp_emit[:,-1,:,None] # N x (T=-1) x C x {D}
             + log_phi_u[None] # {N} x C x D
         ).logsumexp(1)
-        # check mask slice
-        mask_t = mask[:,-1]
-        log_end_vec = log_end_vec.masked_fill(~mask_t[:,None], 0.)
-        # i think only torch 1.7 allows scalar
-        #log_end_vec = th.where(mask_t[:,None], log_end_vec, 0.)
-        #import pdb; pdb.set_trace()
+        if mask is not None:
+            # check mask slice
+            mask_t = mask[:,-1]
+            log_end_vec = log_end_vec.masked_fill(~mask_t[:,None], 0.)
+            # i think only torch 1.7 allows scalar
+            #log_end_vec = th.where(mask_t[:,None], log_end_vec, 0.)
+            #import pdb; pdb.set_trace()
 
+        # can use tvm here
         evidence = log_start_vec[None] # {N} x Dw
         for t in range(T-1):
             # logbmm
             evidence = (evidence[:,:,None] + log_potentials_list[t]).logsumexp(-2)
-            #evidence = (evidence[:,:,None] + log_potentials_list[t]).logsumexp(-1)
-            # below is wrong i think
-            #evidence = (evidence[:,None,:] + log_potentials_list[t]).logsumexp(-1)
+        evidence = (evidence + log_end_vec).logsumexp(-1)
+        print(evidence)
         #import pdb; pdb.set_trace()
-        evidence = (evidence + log_end_vec).logsumexp(-1).sum()
+        evidence = evidence.sum()
 
         return Pack(
             elbo = evidence,
