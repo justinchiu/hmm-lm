@@ -106,6 +106,8 @@ for t in range(T-1):
     evidence0 = (evidence0[:,:,None] + log_potentials[:,t]).logsumexp(-2)
 evidence0 = (evidence0 + log_end_vec).logsumexp(-1)
 
+# TODO: check grads
+
 print(evidence)
 print(evidence_slow)
 print(evidence0)
