@@ -38,8 +38,10 @@ class LHmmLm(nn.Module):
         self.timing = config.timing > 0
 
         self.C = config.num_classes
+        self.D = config.num_features
 
         self.fb = foo.get_fb(self.C)
+        self.fbd = foo.get_fb(self.D)
         self.word2state = None
 
         self.hidden_dim = config.hidden_dim
@@ -401,36 +403,8 @@ class LHmmLm(nn.Module):
             log_m, alphas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]
-        print(alpha_T.logsumexp(-1))
         evidence = alpha_T.logsumexp(-1).sum()
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
-
-        """
-        # DBG
-        # utility
-        log_eye = th.empty(
-            self.C,
-            self.C,
-            device=self.device,
-        ).fill_(float("-inf"))
-        log_eye.diagonal().fill_(0.)
-
-        # gather emission
-        # N x T x C
-        logp_emit = emission[
-            th.arange(self.C)[None,None],
-            text[:,:,None],
-        ]
-        log_pots = logp_emit[:,1:,None,:] + transition[None,None]
-        log_pots = th.where(mask[:,1:,None,None], log_pots, log_eye[None,None])
-        # first word cannot be masked
-        alpha = start[None] + logp_emit[:,0] # {N} x C
-        for t in range(T-1):
-            # logbmm
-            alpha = (alpha[:,:,None] + log_pots[:,t]).logsumexp(-2)
-        print(alpha.logsumexp(-1))
-        # /DBG
-        """
 
         return Pack(
             elbo = elbo,
@@ -440,6 +414,8 @@ class LHmmLm(nn.Module):
 
     def score_rff(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         N, T = text.shape
+        C = self.C
+        D = self.D
 
         start_mask, transition_mask = None, None
         # TODO: dropout
@@ -454,140 +430,58 @@ class LHmmLm(nn.Module):
         ]
 
         # sum vectors and sum matrices
-        w = self.state_emb
-        u = self.next_state_emb
-        log_phi_w = w @ self.projection
-        log_phi_u = u @ self.projection
+        log_phi_start = self.start_emb @ self.projection
+        log_phi_w = self.state_emb @ self.projection
+        log_phi_u = self.next_state_emb @ self.projection
 
         # EFFICIENCY: anything involving C we want to checkpoint away
-
+        ## First term
         # D
         log_sum_phi_u = log_phi_u.logsumexp(0)
-
-        # D
-        log_phi_start = self.start_emb @ self.projection
-        # check everything!
         # SCALAR, logdot
-        #log_start_denominator =  (log_phi_start + log_sum_phi_u).logsumexp(0)
-        def logdot(a, b):
-            return (a+b).logsumexp(-1)
-        log_start_denominator = checkpoint(logdot, log_phi_start, log_sum_phi_u)
+        log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
         # D
         log_start_vec = log_phi_start - log_start_denominator
 
-        # we want to checkpoint most of the below since it contains terms that scale with C
-        # or maybe even write custom forward/backward?
-         
-        # C
-        #log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
-        log_denominator = checkpoint(logdot, log_phi_w, log_sum_phi_u)
-        # check this, make sure not transposed
-        # C x Du x Dw
+        ## Middle terms
+        # C = C x D + D
+        log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
+        # C x Du x {Dw} + C x {Du} x Dw
         log_numerator = log_phi_u[:,:,None] + log_phi_w[:,None,:]
         # C x Du x Dw
         log_trans_mat = log_numerator - log_denominator[:,None,None]
 
-        # utility
-        log_eye = th.empty(
-            self.config.num_features,
-            self.config.num_features,
-            device=self.device,
-        ).fill_(float("-inf"))
+        log_potentials = logbmm(
+            logp_emit.view(1, -1, C), # N x T x C
+            log_trans_mat.view(1, C, -1), # C x D x D
+        ).view(N, T, D, D)
+        log_eye = th.empty(D,D,device=self.device).fill_(float("-inf"))
         log_eye.diagonal().fill_(0.)
+        log_potentials = th.where(mask[:,:,None,None], log_potentials, log_eye[None,None])
 
-        def logbmm(a,b):
-            return (
-                # N x C + C x D x D
-                a[:,:,None,None] + b[None]
-            ).logsumexp(1)        # N x T-1 x Du x Dw
-        # we have to do this online.
-        #log_potentials = (logp_emit[:,:-1,:,None,None] + log_trans_mat[None,None]).logsumexp(2)
-        log_potentials_list = []
-        for t in range(T-1):
-            # most likely need to checkpoint
-            #log_pot_t = (
-                # N x (T=t) x C + C x D x D
-                #logp_emit[:,t,:,None,None] + log_trans_mat[None]
-            #).logsumexp(1)
-            log_pot_t = checkpoint(logbmm, logp_emit[:,t], log_trans_mat)
-            if mask is not None:
-                # check mask slice
-                mask_t = mask[:,t]
-                masked_log_pot_t = th.where(mask_t[:,None,None], log_pot_t, log_eye[None])
-                log_potentials_list.append(masked_log_pot_t)
-                #import pdb; pdb.set_trace()
-            else:
-                log_potentials_list.append(log_pot_t)
-            #import pdb; pdb.set_trace()
-        # N x T-1 x Du x Dw
-        #log_potentials = th.stack(log_potentials_list, 1)
-
-        # checkpoint
-        log_end_vec = (
-            logp_emit[:,-1,:,None] # N x (T=-1) x C x {D}
-            + log_phi_u[None] # {N} x C x D
-        ).logsumexp(1)
-        if mask is not None:
-            # check mask slice
-            mask_t = mask[:,-1]
-            log_end_vec = log_end_vec.masked_fill(~mask_t[:,None], 0.)
-            # i think only torch 1.7 allows scalar
-            #log_end_vec = th.where(mask_t[:,None], log_end_vec, 0.)
-            #import pdb; pdb.set_trace()
-
-        # can use tvm here
-        evidence = log_start_vec[None] # {N} x Dw
-        for t in range(T-1):
-            # logbmm
-            evidence = (evidence[:,:,None] + log_potentials_list[t]).logsumexp(-2)
-        evidence = (evidence + log_end_vec).logsumexp(-1)
-        print(evidence)
-        #import pdb; pdb.set_trace()
-        evidence = evidence.sum()
-
-        return Pack(
-            elbo = evidence,
-            evidence = evidence,
-            loss = evidence,
-        ), None, None
-        """
-
-        if lpz is not None:
-            start = (lpz[:,:,None] + transition[None]).logsumexp(1)
-        else:
-            start = self.start(start_mask)
-        transition = self.transition(transition_mask)
-
-        log_potentials = ts.LinearChain.hmm(
-            transition = transition.t(),
-            emission = emission.t(),
-            init = start,
-            observations = text,
-            #semiring = ts.LogSemiring,
+        log_end_vec = logbmm(
+            logp_emit[None,th.arange(N),lengths-1],
+            log_phi_u[None],
         )
-        """
+
+        log_potentials[th.arange(N), lengths-1,:,0] = log_end_vec
+        log_potentials[th.arange(N), lengths-1,:,1:] = float("-inf")
+        log_potentials[:,0] += log_start_vec[None,:,None]
         with th.no_grad():
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
-            log_m, alphas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
+            log_m, alphas = self.fbd(
+                log_potentials.transpose(-1,-2).detach().clone().to(dtype=th.float32),
+                #mask=th.cat([mask[:,(0,)],mask], dim=-1),
+            )
         idx = th.arange(N, device=self.device)
-        alpha_T = alphas[lengths-1, idx]
+        alpha_T = alphas[lengths, idx]
         evidence = alpha_T.logsumexp(-1).sum()
-        elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
-
-        if self.keep_counts and self.training:
-            raise NotImplementedError("need to fix")
-            with th.no_grad():
-                unary_marginals = th.cat([
-                    log_m[:,0,None].logsumexp(-2),
-                    log_m.logsumexp(-1),
-                ], 1).exp()
-                self.counts.index_add_(
-                    1,
-                    text.view(-1),
-                    unary_marginals.view(-1, self.C).t(),
-                )
-                max_states = unary_marginals[mask].max(-1).indices
-                self.state_counts.index_add_(0, max_states, th.ones_like(max_states, dtype=th.int))
+        #import pdb; pdb.set_trace()
+        # mask to get rid of nans
+        log_potentials[log_potentials == float("-inf")] = 0
+        #elbo = (log_m.exp() * log_potentials)[mask].sum()
+        elbo = (log_m.exp_() * log_potentials)[mask].sum()
+        #import pdb; pdb.set_trace()
 
         return Pack(
             elbo = elbo,

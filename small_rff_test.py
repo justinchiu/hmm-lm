@@ -156,6 +156,5 @@ for x,y in grad_pairs:
     print((x-y).abs().max())
     print(x.max())
     print(x.min())
-    print(torch.allclose(x,y, rtol=1e-3, atol=1e-5))
+    print(torch.allclose(x,y, rtol=1e-3))
 
-import pdb; pdb.set_trace()

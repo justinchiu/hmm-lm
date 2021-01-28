@@ -312,19 +312,11 @@ def train_loop(
             # check if iterator == bptt
 
             if hasattr(args, "eff") and args.eff:
-                # DBG
-                #mask.fill_(True)
-                #lengths.fill_(lengths.max())
-                # /DBG
                 losses, _, _= model.score_rff(
                     text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
-                losses_old, lpz, last_states = model.score(
-                    text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
-                import pdb; pdb.set_trace()
             else:
                 losses, lpz, last_states = model.score(
                     text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
-
 
             if model.timing:
                 print(f"forward time: {timep.time() - start_forward}")
