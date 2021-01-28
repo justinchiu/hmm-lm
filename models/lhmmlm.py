@@ -1,4 +1,5 @@
 import os
+import time as timep
 
 import importlib.util
 spec = importlib.util.spec_from_file_location(
@@ -420,7 +421,12 @@ class LHmmLm(nn.Module):
         start_mask, transition_mask = None, None
         # TODO: dropout
 
+        if self.timing:
+            start_ = timep.time()
         emission = self.emission()
+        if self.timing:
+            print(f"total emit time: {timep.time() - start_}")
+            start_ = timep.time()
 
         # gather emission
         # N x T x C
@@ -428,11 +434,17 @@ class LHmmLm(nn.Module):
             th.arange(self.C)[None,None],
             text[:,:,None],
         ]
+        if self.timing:
+            print(f"total emit index time: {timep.time() - start_}")
+            start_ = timep.time()
 
         # sum vectors and sum matrices
         log_phi_start = self.start_emb @ self.projection
         log_phi_w = self.state_emb @ self.projection
         log_phi_u = self.next_state_emb @ self.projection
+        if self.timing:
+            print(f"total phi projection emit time: {timep.time() - start_}")
+            start_ = timep.time()
 
         # EFFICIENCY: anything involving C we want to checkpoint away
         ## First term
@@ -442,6 +454,9 @@ class LHmmLm(nn.Module):
         log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
         # D
         log_start_vec = log_phi_start - log_start_denominator
+        if self.timing:
+            print(f"total first term time: {timep.time() - start_}")
+            start_ = timep.time()
 
         ## Middle terms
         # C = C x D + D
@@ -450,25 +465,42 @@ class LHmmLm(nn.Module):
         log_numerator = log_phi_u[:,:,None] + log_phi_w[:,None,:]
         # C x Du x Dw
         log_trans_mat = log_numerator - log_denominator[:,None,None]
+        if self.timing:
+            print(f"total trans mat time: {timep.time() - start_}")
+            start_ = timep.time()
 
         log_potentials = logbmm(
-            logp_emit.view(1, -1, C), # N x T x C
-            log_trans_mat.view(1, C, -1), # C x D x D
+            logp_emit.view(1, -1, C), # N * T x C
+            log_trans_mat.view(1, C, -1), # C x D * D
         ).view(N, T, D, D)
+        #import pdb; pdb.set_trace()
+        th.zeros(1,device=self.device) + 1
+        if self.timing:
+            print(f"total big logbmm time: {timep.time() - start_}")
+            start_ = timep.time()
         log_eye = th.empty(D,D,device=self.device).fill_(float("-inf"))
         log_eye.diagonal().fill_(0.)
         log_potentials = th.where(mask[:,:,None,None], log_potentials, log_eye[None,None])
+        if self.timing:
+            print(f"total mask log pots time: {timep.time() - start_}")
+            start_ = timep.time()
 
         log_end_vec = logbmm(
             logp_emit[None,th.arange(N),lengths-1],
             log_phi_u[None],
         )
+        if self.timing:
+            print(f"total last term time: {timep.time() - start_}")
+            start_ = timep.time()
 
         log_potentials[th.arange(N), lengths-1,:,0] = log_end_vec
         log_potentials[th.arange(N), lengths-1,:,1:] = float("-inf")
         log_potentials[:,0] += log_start_vec[None,:,None]
         # flip for torch_struct compat
         log_potentials = log_potentials.transpose(-1, -2)
+        if self.timing:
+            print(f"total mask time: {timep.time() - start_}")
+            start_ = timep.time()
 
         with th.no_grad():
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
@@ -476,6 +508,9 @@ class LHmmLm(nn.Module):
                 log_potentials.detach().clone().to(dtype=th.float32),
                 mask=th.cat([mask[:,(0,)],mask], dim=-1),
             )
+        if self.timing:
+            print(f"total tvm time: {timep.time() - start_}")
+            start_ = timep.time()
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths, idx]
         evidence = alpha_T.logsumexp(-1).sum()
@@ -485,6 +520,9 @@ class LHmmLm(nn.Module):
         #elbo = (log_m.exp() * log_potentials)[mask].sum()
         elbo = (log_m.exp_() * log_potentials)[mask].sum()
         #import pdb; pdb.set_trace()
+        if self.timing:
+            print(f"total loss time: {timep.time() - start_}")
+            start_ = timep.time()
 
         return Pack(
             elbo = elbo,

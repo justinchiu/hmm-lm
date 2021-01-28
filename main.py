@@ -28,7 +28,7 @@ from args import get_args
 
 from utils import set_seed, get_config, get_name, get_mask_lengths
 from utils import Pack
-from utils import plot_counts
+from utils import plot_counts, print_gpu_mem
 
 from models.lstmlm import LstmLm
 from models.fflm import FfLm
@@ -346,6 +346,8 @@ def train_loop(
                 "running_training_loss": total_ll / n,
                 "running_training_ppl": math.exp(min(-total_ll / n, 700)),
             }, step=WANDB_STEP)
+            if model.timing:
+                print_gpu_mem()
 
             if verbose and i % args.report_every == args.report_every - 1:
                 report(

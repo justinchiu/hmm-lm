@@ -209,3 +209,8 @@ def plot_counts(counts):
     axs[1].spy(counts, precision=0.001, markersize=1, aspect="auto")
     axs[2].spy(counts, precision=0.01, markersize=1, aspect="auto")
     return plt
+
+def print_gpu_mem():
+    print(f"Max mem allocated {th.cuda.max_memory_allocated() / 2 ** 30:.2f}")
+    print(f"Max mem cached {th.cuda.max_memory_cached() / 2 ** 30:.2f}")
+
