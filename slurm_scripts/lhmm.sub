@@ -13,9 +13,9 @@ source /home/jtc257/scripts/env.sh
 
 hmmenv
 
-WANDB_MODE=dryrun python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 \
-    --dropout_type none --model lhmm --bsz 256 --num_classes 256 \
+python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 \
+    --dropout_type none --model lhmm --bsz 256 --num_classes 512 \
     --emb_dim 256 --hidden_dim 256 --dataset ptb --iterator bucket \
     --parameterization smp --projection_method static --update_proj 1 \
-    --num_features 512 --anti 0 --l2norm 0 \
-    --rff_method relu
+    --num_features 512 --anti 0 --l2norm 1 \
+    --rff_method relu --eff 1

@@ -162,21 +162,21 @@ def train_loop(
             loss.backward()
 
             # copy gradient
-            grad1 = model.next_state_emb.grad.clone().detach()
+            grad1 = model.next_state_emb.grad.detach().clone()
             #import pdb; pdb.set_trace()
 
             optimizer.zero_grad()
+            print(model.next_state_emb.grad.max())
             #import pdb; pdb.set_trace()
             losses_old, lpz, last_states = model.score(
                 text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
-            import pdb; pdb.set_trace()
 
             loss_old = -losses_old.loss / n_tokens
             if model.timing:
                 start_backward = timep.time()
             loss_old.backward()
 
-            grad2 = model.next_state_emb.grad.clone().detach()
+            grad2 = model.next_state_emb.grad.detach().clone()
 
             import pdb; pdb.set_trace()
 

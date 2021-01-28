@@ -467,11 +467,14 @@ class LHmmLm(nn.Module):
         log_potentials[th.arange(N), lengths-1,:,0] = log_end_vec
         log_potentials[th.arange(N), lengths-1,:,1:] = float("-inf")
         log_potentials[:,0] += log_start_vec[None,:,None]
+        # flip for torch_struct compat
+        log_potentials = log_potentials.transpose(-1, -2)
+
         with th.no_grad():
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
             log_m, alphas = self.fbd(
-                log_potentials.transpose(-1,-2).detach().clone().to(dtype=th.float32),
-                #mask=th.cat([mask[:,(0,)],mask], dim=-1),
+                log_potentials.detach().clone().to(dtype=th.float32),
+                mask=th.cat([mask[:,(0,)],mask], dim=-1),
             )
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths, idx]
