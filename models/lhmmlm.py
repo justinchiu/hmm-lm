@@ -9,6 +9,13 @@ spec = importlib.util.spec_from_file_location(
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
+spec2 = importlib.util.spec_from_file_location(
+    "get_logmm",
+    "hmm_runners/logmm.py",
+)
+foo2 = importlib.util.module_from_spec(spec2)
+spec2.loader.exec_module(foo2)
+
 import torch as th
 import torch.nn as nn
 
@@ -43,6 +50,66 @@ class LHmmLm(nn.Module):
 
         self.fb = foo.get_fb(self.C)
         self.fbd = foo.get_fb(self.D)
+
+        # logmm setup
+        if config.iterator == "bptt":
+            raise NotImplementedError()
+            self.N = config.bsz
+            self.T = config.bptt
+            logmm_ = foo2.get_logmm(self.N * self.T, self.C, self.D * self.D)
+        elif config.iterator == "bucket":
+            self.NT = config.bsz
+            logmm_ = foo2.get_logmm(self.NT, self.C, self.D * self.D)
+        else:
+            raise ValueError()
+
+        class LogBmm(th.autograd.Function):
+            @staticmethod
+            def forward(ctx, a, b):
+                output = th.empty(1, self.D*self.D, self.NT, device=self.device)
+                out = logmm_(
+                    a,
+                    b,
+                    output,
+                )
+                #ctx.save_for_backward(a, b, output)
+                #import pdb; pdb.set_trace()
+                ctx.save_for_backward(
+                    a[0].exp(),
+                    b[0].T.exp(),
+                    output[0].T.exp(),
+                )
+                return output
+
+            @staticmethod
+            def backward(ctx, grad_output):
+                #a, b, output = ctx.saved_tensors
+                #a_exp = a.exp()
+                #b_exp = b.exp()
+                #c_exp = output.exp()
+                a_exp, b_exp, c_exp = ctx.saved_tensors
+                do = grad_output[0].T
+                grad_a = a_exp * ((do / c_exp) @ b_exp.T)
+                grad_b = b_exp * (a_exp.T @ (do / c_exp))
+                return grad_a[None], grad_b.T[None]
+
+        def logmm(a, b):
+            N, T, C = a.shape
+            _, D, _ = b.shape
+            # pad, can shove this somewhere else later
+            a_padded = th.cat([
+                a.view(-1, C),
+                th.zeros(self.NT - N*T, C, device=self.device),
+            ], 0)
+            output = LogBmm.apply(
+                a_padded[None], # N * T x C
+                b.view(1, C, -1).transpose(-1, -2).contiguous(), # C x D * D
+            )
+            return output[0,:,:N*T].T.view(N, T, D, D)
+
+        self.logmm = logmm
+        # /logmm setup
+
         self.word2state = None
 
         self.hidden_dim = config.hidden_dim
@@ -419,7 +486,7 @@ class LHmmLm(nn.Module):
         D = self.D
 
         start_mask, transition_mask = None, None
-        # TODO: dropout
+        # TODO: dropout?
 
         if self.timing:
             start_ = timep.time()
@@ -448,12 +515,15 @@ class LHmmLm(nn.Module):
 
         # EFFICIENCY: anything involving C we want to checkpoint away
         ## First term
-        # D
-        log_sum_phi_u = log_phi_u.logsumexp(0)
-        # SCALAR, logdot
-        log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
-        # D
-        log_start_vec = log_phi_start - log_start_denominator
+        if lpz is not None:
+            log_start_vec = lpz
+        else:
+            # D
+            log_sum_phi_u = log_phi_u.logsumexp(0)
+            # SCALAR, logdot
+            log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
+            # D
+            log_start_vec = log_phi_start - log_start_denominator
         if self.timing:
             print(f"total first term time: {timep.time() - start_}")
             start_ = timep.time()
@@ -469,12 +539,17 @@ class LHmmLm(nn.Module):
             print(f"total trans mat time: {timep.time() - start_}")
             start_ = timep.time()
 
-        log_potentials = logbmm(
+
+        log_potentials = self.logmm(logp_emit, log_trans_mat)
+
+        """
+        log_potentials_slow = logbmm(
             logp_emit.view(1, -1, C), # N * T x C
             log_trans_mat.view(1, C, -1), # C x D * D
         ).view(N, T, D, D)
+        print((log_potentials - log_potentials_slow).abs().max())
+        """
         #import pdb; pdb.set_trace()
-        th.zeros(1,device=self.device) + 1
         if self.timing:
             print(f"total big logbmm time: {timep.time() - start_}")
             start_ = timep.time()
@@ -506,13 +581,14 @@ class LHmmLm(nn.Module):
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
             log_m, alphas = self.fbd(
                 log_potentials.detach().clone().to(dtype=th.float32),
-                mask=th.cat([mask[:,(0,)],mask], dim=-1),
+                #mask=th.cat([mask[:,(0,)],mask], dim=-1),
             )
         if self.timing:
             print(f"total tvm time: {timep.time() - start_}")
             start_ = timep.time()
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths, idx]
+        #import pdb; pdb.set_trace()
         evidence = alpha_T.logsumexp(-1).sum()
         #import pdb; pdb.set_trace()
         # mask to get rid of nans
