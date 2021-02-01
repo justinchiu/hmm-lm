@@ -132,7 +132,7 @@ def add_linear_args(parser):
     parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
     parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
     parser.add_argument("--no_layernorm", default=0, type=int, help="remove layernorm")
-    parser.add_argument("--rff_method", choices=["log", "exp", "mixed", "relu"], default="log")
+    parser.add_argument("--rff_method", choices=["log", "exp", "relu"], default="log")
     parser.add_argument("--num_features", default=512, type=int, help="num features")
     parser.add_argument("--no_shift", default=0, type=int, help="remove shift in proj")
     parser.add_argument("--anti", default=1, type=int, help="antithetic sample for proj")

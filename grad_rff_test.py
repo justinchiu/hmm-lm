@@ -15,13 +15,7 @@ spec = importlib.util.spec_from_file_location(
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
 
-spec2 = importlib.util.spec_from_file_location(
-    "get_logmm",
-    "hmm_runners/logmm.py",
-)
-foo2 = importlib.util.module_from_spec(spec2)
-spec2.loader.exec_module(foo2)
-
+from hmm_runners.logmm2 import get_logmm_fwd, get_logmm_bwd
 
 import math
 import random
@@ -32,11 +26,14 @@ import numpy as np
 from genbmm import logbmm
 
 torch.set_default_tensor_type(torch.cuda.FloatTensor)
-seed = 1234
-torch.manual_seed(1234)
-torch.cuda.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+torch.set_printoptions(precision=10)
+#torch.autograd.set_detect_anomaly(True)
+
+seed = 12
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
 
 N = 4 # batch size
 T = 16 # length of sequence
@@ -45,13 +42,24 @@ V = 128 # vocab size
 C = 256 # number of classes
 H = 128 # embedding dimension
 D = 128 # number of samples / projection dim
+temp = 0.1
+#temp = 0.2
+#temp = 0.5
+#temp = 1.
+#temp = 5.
 
-start_emb = torch.randn(H)
-state_emb = torch.randn(C, H)
-next_state_emb = torch.randn(C, H)
-preterminal_emb = torch.randn(C, H)
-terminal_emb = torch.randn(V, H)
-projection = torch.randn(H, D)
+start_emb = torch.randn(H) / temp
+state_emb = torch.randn(C, H) / temp
+next_state_emb = torch.randn(C, H) / temp
+preterminal_emb = torch.randn(C, H) / temp
+terminal_emb = torch.randn(V, H) / temp
+projection = torch.randn(H, D) / temp
+
+if True:
+#if False:
+    start_emb = start_emb / start_emb.norm(dim=-1, keepdim=True)
+    state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
+    next_state_emb = next_state_emb / next_state_emb.norm(dim=-1, keepdim=True)
 
 start_emb.requires_grad = True
 state_emb.requires_grad = True
@@ -172,6 +180,9 @@ log_phi_u = next_state_emb @ projection
 start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
 transition = (log_phi_w[:,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
 emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+# TEST
+#emission = torch.zeros_like(emission).fill_(math.log(1/V))
+# /TEST
 
 log_potentials = torch_struct.LinearChain.hmm(
     transition = transition.T,
@@ -181,12 +192,18 @@ log_potentials = torch_struct.LinearChain.hmm(
 )
 fb = foo.get_fb(C)
 with torch.no_grad():
-    log_m, alphas = fb(log_potentials.detach().clone().to(dtype=torch.float32).cuda(), mask=mask)
+    log_m2, alphas2 = fb(log_potentials.detach().clone().to(dtype=torch.float32).cuda(), mask=mask)
 idx = torch.arange(N)
-alpha_T2 = alphas[lengths-1, idx]
+alpha_T2 = alphas2[lengths-1, idx]
 evidence2 = alpha_T2.logsumexp(-1)
-elbo2 = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
+elbo2 = (log_m2.exp() * log_potentials)[mask[:,1:]].sum()
 elbo2.sum().backward()
+print(f"elbo2 {elbo2}")
+print(f"evidence2 {evidence2}")
+sur2 = log_potentials.view(N,-1).max(-1).values
+print(f"max log pots {sur2}")
+log_m_sum2 = log_m2.view(N,-1).max(-1).values
+print(f"max log marginals {log_m_sum2}")
 
 # clone grad then zero
 start_emb_grad2 = start_emb.grad.detach().clone()
@@ -207,6 +224,9 @@ projection.grad.zero_()
 # another rff one with tvm
 
 emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+# TEST
+#emission = torch.zeros_like(emission).fill_(math.log(1/V))
+# /TEST
 logp_emit = emission[
     torch.arange(C)[None,None],
     text[:,:,None],
@@ -245,25 +265,39 @@ log_potentials0 = torch.where(mask[:,:,None,None], log_potentials0, log_eye[None
 log_end_vec0 = logbmm(
     logp_emit[None,torch.arange(N),lengths-1],
     log_phi_u[None],
-)
+)[0]
 
 log_potentials0[torch.arange(N), lengths-1,:,0] = log_end_vec0
 log_potentials0[torch.arange(N), lengths-1,:,1:] = float("-inf")
+# No difference with the above.
+#log_potentials0[torch.arange(N), lengths-1] = log_eye
+#log_potentials0[torch.arange(N), lengths-1] += torch.diag_embed(log_end_vec0)
 log_potentials0[:,0] += log_start_vec[None,:,None]
 log_potentials0 = log_potentials0.transpose(-1, -2)
 
 fbd = foo.get_fb(D)
 with torch.no_grad():
-    log_m, alphas = fbd(
+    log_m1, alphas1 = fbd(
         log_potentials0.detach().clone().to(dtype=torch.float32).cuda(),
         #mask=torch.cat([mask[:,(0,)],mask], dim=-1),
     )
+Z1 = log_m1.contiguous().view(N, -1).logsumexp(-1)
 idx = torch.arange(N)
-alpha_T = alphas[lengths, idx]
-evidence1 = alpha_T.logsumexp(-1)
-log_potentials0[log_potentials0 == float("-inf")] = 0
-elbo1 = (log_m.exp() * log_potentials0)[mask].sum()
+alpha_T1 = alphas1[lengths, idx]
+evidence1 = alpha_T1.logsumexp(-1)
+sur1 = log_potentials0.contiguous().view(N,-1).max(-1).values
+
+log_potentials_m = log_potentials0.clone()
+log_potentials_m[log_potentials_m == float("-inf")] = 0
+elbo1 = (log_m1.exp() * log_potentials_m)[mask].sum()
 elbo1.backward()
+
+log_m_sum1 = log_m1.contiguous().view(N,-1).max(-1).values
+
+print(f"elbo1 {elbo1}")
+print(f"evidence1 {evidence1}")
+print(f"max log pots1 {sur1}")
+print(f"max log marginals1 {log_m_sum1}")
 
 start_emb_grad1 = start_emb.grad.detach().clone()
 state_emb_grad1 = state_emb.grad.detach().clone()
@@ -279,45 +313,89 @@ preterminal_emb.grad.zero_()
 terminal_emb.grad.zero_()
 projection.grad.zero_()
 
+print("grad norms")
+print(start_emb_grad1.norm())
+print(start_emb_grad2.norm())
+print(state_emb_grad1.norm())
+print(state_emb_grad2.norm())
+print(next_state_emb_grad1.norm())
+print(next_state_emb_grad2.norm())
+print(projection_grad1.norm())
+print(projection_grad2.norm())
+
+#import pdb; pdb.set_trace()
 
 # rff with tvm forward + logmm
  
-logmm_ = foo2.get_logmm(N*T, C, D * D)
+#logmm_fwd_ = get_logmm_fwd(D*D, C, N*T)
+#logmm_back_ = get_logmm_bwd(D*D, C, N*T)
+logmm_fwd_ = get_logmm_fwd(N*T, C, D*D)
+logmm_back_a_ = get_logmm_bwd(N*T, C, D*D)
+logmm_back_b_ = get_logmm_bwd(D*D, C, N*T)
+
+def trans(s):
+    return s.transpose(-2, -1).contiguous()
 
 class LogBmm(torch.autograd.Function):
     @staticmethod
     def forward(ctx, a, b):
-        output = torch.empty(1, D*D, N*T)
-        out = logmm_(
-            a,
+        #output = torch.empty(1, D*D, N*T)
+        #M = torch.empty(1, D*D, N*T)
+        output = torch.empty(1, N*T, D*D)
+        M = torch.empty(1, N*T, D*D)
+        logmm_fwd_(
             b,
+            a,
             output,
+            M,
         )
-        #ctx.save_for_backward(a, b, output)
+        #z = logbmm(a, b.transpose(-1, -2).contiguous())
+        #torch.allclose(z, output)
+        # is close to output
+        ctx.save_for_backward(a, b, output, M)
         #import pdb; pdb.set_trace()
+        """
+        print(f"a.max {a.max()}")
+        print(f"b.max {b.max()}")
         ctx.save_for_backward(
             a[0].exp(),
             b[0].T.exp(),
             output[0].T.exp(),
         )
+        """
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        #a, b, output = ctx.saved_tensors
-        #a_exp = a.exp()
-        #b_exp = b.exp()
-        #c_exp = output.exp()
+        a, b, output, M = ctx.saved_tensors
+        print(a.shape)
+        print(b.shape)
+        grad_a = torch.empty(1, N*T, C)
+        grad_b = torch.empty(1, D*D, C)
+        logmm_back_a_(b, a, output, M, grad_output, grad_a)
+        logmm_back_b_(a, b, trans(output), trans(M), trans(grad_output), grad_b)
+        """
         a_exp, b_exp, c_exp = ctx.saved_tensors
         do = grad_output[0].T
         grad_a = a_exp * ((do / c_exp) @ b_exp.T)
         grad_b = b_exp * (a_exp.T @ (do / c_exp))
-        return grad_a[None], grad_b.T[None]
+
+        print(torch.isnan(a_exp).any())
+        print(torch.isnan(b_exp).any())
+        print(torch.isnan(c_exp).any())
+        print(torch.isnan(do / c_exp).any())
+        print(torch.isnan((do / c_exp) @ b_exp.T).any())
+        print(torch.isnan(a_exp.T @ (do / c_exp)).any())
+        print(torch.isnan(grad_a).any())
+        print(torch.isnan(grad_b).any())
+        """
+        #return grad_a, grad_b.transpose(1, 2)
+        return grad_a, grad_b
 
 def logmm(a, b):
     N, T, C = a.shape
     _, D, _ = b.shape
-    # pad, can shove this somewhere else later
+    # pad to constant N*T size, not important here but comes up with bucket batching.
     a_padded = torch.cat([
         a.view(-1, C),
         torch.zeros(N*T - N*T, C),
@@ -326,7 +404,7 @@ def logmm(a, b):
         a_padded[None], # N * T x C
         b.view(1, C, -1).transpose(-1, -2).contiguous(), # C x D * D
     )
-    return output[0,:,:N*T].T.view(N, T, D, D)
+    return output[0].view(N, T, D, D)
 
 emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
 logp_emit = emission[
@@ -353,43 +431,62 @@ log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
 # C x Du x {Dw} + C x {Du} x Dw
 log_numerator = log_phi_u[:,:,None] + log_phi_w[:,None,:]
 # C x Du x Dw
-log_trans_mat = log_numerator - log_denominator[:,None,None]
+log_trans_mat3 = log_numerator - log_denominator[:,None,None]
 
 """correct masking"""
-log_potentials0 = logmm(logp_emit, log_trans_mat)
+log_potentials3 = logmm(logp_emit, log_trans_mat3)
+"""
+log_potentials3 = logbmm(
+    logp_emit.view(1, -1, C), # N x T x C
+    log_trans_mat3.view(1, C, -1), # C x D x D
+).view(N, T, D, D)
+"""
+#import pdb; pdb.set_trace()
 log_eye = torch.empty(D,D).fill_(float("-inf"))
 log_eye.diagonal().fill_(0.)
-log_potentials0 = torch.where(mask[:,:,None,None], log_potentials0, log_eye[None,None])
+log_potentials3 = torch.where(mask[:,:,None,None], log_potentials3, log_eye[None,None])
 
-log_end_vec0 = logbmm(
+log_end_vec3 = logbmm(
     logp_emit[None,torch.arange(N),lengths-1],
     log_phi_u[None],
 )
 
-log_potentials0[torch.arange(N), lengths-1,:,0] = log_end_vec0
-log_potentials0[torch.arange(N), lengths-1,:,1:] = float("-inf")
-log_potentials0[:,0] += log_start_vec[None,:,None]
-log_potentials0 = log_potentials0.transpose(-1, -2)
+log_potentials3[torch.arange(N), lengths-1,:,0] = log_end_vec3
+log_potentials3[torch.arange(N), lengths-1,:,1:] = float("-inf")
+log_potentials3[:,0] += log_start_vec[None,:,None]
+log_potentials3 = log_potentials3.transpose(-1, -2)
 
 fbd = foo.get_fb(D)
 with torch.no_grad():
-    log_m, alphas = fbd(
-        log_potentials0.detach().clone().to(dtype=torch.float32).cuda(),
+    log_m3, alphas3 = fbd(
+        log_potentials3.detach().clone().to(dtype=torch.float32).cuda(),
         #mask=torch.cat([mask[:,(0,)],mask], dim=-1),
     )
+
+Z3 = log_m3.contiguous().view(N, -1).logsumexp(-1)
 idx = torch.arange(N)
-alpha_T = alphas[lengths, idx]
-evidence3 = alpha_T.logsumexp(-1)
-log_potentials0[log_potentials0 == float("-inf")] = 0
-elbo3 = (log_m.exp() * log_potentials0)[mask].sum()
+alpha_T3 = alphas3[lengths, idx]
+evidence3 = alpha_T3.logsumexp(-1)
+sur3 = log_potentials0.contiguous().view(N,-1).max(-1).values
+
+log_potentials_m = log_potentials3.clone()
+log_potentials_m[log_potentials_m == float("-inf")] = 0
+elbo3 = (log_m3.exp() * log_potentials_m)[mask].sum()
 elbo3.backward()
 
-start_emb_grad3 = start_emb.grad.detach().clone()
-state_emb_grad3 = state_emb.grad.detach().clone()
-next_state_emb_grad3 = next_state_emb.grad.detach().clone()
-preterminal_emb_grad3 = preterminal_emb.grad.detach().clone()
-terminal_emb_grad3 = terminal_emb.grad.detach().clone()
-projection_grad3 = projection.grad.detach().clone()
+log_m_sum3 = log_m3.contiguous().view(N,-1).max(-1).values
+
+print(f"elbo3 {elbo3}")
+print(f"evidence3 {evidence3}")
+print(f"max log pots3 {sur3}")
+print(f"max log marginals3 {log_m_sum3}")
+
+start_emb_grad3  = start_emb.grad.detach().clone()
+state_emb_grad3  = state_emb.grad.detach().clone()
+next_state_emb_grad3  = next_state_emb.grad.detach().clone()
+preterminal_emb_grad3  = preterminal_emb.grad.detach().clone()
+terminal_emb_grad3  = terminal_emb.grad.detach().clone()
+projection_grad3  = projection.grad.detach().clone()
 
 start_emb.grad.zero_()
 state_emb.grad.zero_()
@@ -398,8 +495,13 @@ preterminal_emb.grad.zero_()
 terminal_emb.grad.zero_()
 projection.grad.zero_()
 
+print("grad norms")
+print(start_emb_grad3.norm())
+print(state_emb_grad3.norm())
+print(next_state_emb_grad3.norm())
+print(projection_grad3.norm())
 
-
+import pdb; pdb.set_trace()
 
 
 print("evidence")
@@ -426,12 +528,13 @@ grad_pairs = [
 ]
 for x,y in grad_pairs:
     print((x-y).abs().max())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
 
+"""
 print("softmax v RFFTVM")
 grad_pairs = [
     (start_emb_grad,start_emb_grad1,),
@@ -443,11 +546,12 @@ grad_pairs = [
 ]
 for x,y in grad_pairs:
     print((x-y).abs().max())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
+"""
 
 print("softmax TVM v softmax")
 grad_pairs = [
@@ -460,8 +564,8 @@ grad_pairs = [
 ]
 for x,y in grad_pairs:
     print((x-y).abs().max())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
@@ -477,12 +581,13 @@ grad_pairs = [
 ]
 for x,y in grad_pairs:
     print((x-y).abs().max())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
 
+"""
 print("LOGBMM RFF TVM v softmax")
 grad_pairs = [
     (start_emb_grad3,start_emb_grad,),
@@ -494,8 +599,8 @@ grad_pairs = [
 ]
 for x,y in grad_pairs:
     print((x-y).abs().max())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
@@ -512,12 +617,14 @@ grad_pairs = [
 for x,y in grad_pairs:
     print((x-y).abs().max())
     print((x-y).abs().median())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
+"""
 
+"""
 print("LOGBMM RFF TVM v RFF TVM")
 grad_pairs = [
     (start_emb_grad3,start_emb_grad1,),
@@ -530,12 +637,12 @@ grad_pairs = [
 for x,y in grad_pairs:
     print((x-y).abs().max())
     print((x-y).abs().median())
-    print(x.max())
-    print(x.min())
+    print(x.abs().max())
+    print(x.abs().min())
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-5,))
     print(torch.allclose(x,y, rtol=1e-5, atol=1e-4,))
     print(torch.allclose(x,y, rtol=1e-4, atol=1e-4,))
-
+"""
 
 # requires pretty big error bars
 

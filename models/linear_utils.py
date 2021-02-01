@@ -125,6 +125,36 @@ def relu_softmax_kernel_feature_creator(
     #return torch.maximum(data_dash, eps).log()
     return F.threshold(data_dash, eps, eps).log()
 
+def exp_softmax_kernel_feature_creator(
+    data: torch.Tensor,
+    projection_matrix: torch.Tensor,
+    eps: float=0.0001,
+):
+    """
+    Constructs exp kernel features for fast softmax attention.
+    Args:
+      data: input for which features are computes
+      projection_matrix: random matrix used to compute features
+      is_query: predicate indicating whether input data corresponds to queries or
+        keys
+      eps: numerical stabilizer.
+    Returns:
+      Random features for fast softmax attention.
+    """
+    bsz = data.size(0)
+   
+    projection = projection_matrix.unsqueeze(0).expand(bsz, -1, -1)
+
+    # Compute wx
+    # data:       bsz, len, D
+    # projection: bsz, D, #features
+    data_dash = torch.bmm(
+        data,
+        projection
+    ) # bsz, len, #features
+
+    return data_dash + eps
+
 def get_2d_array(nb_rows, nb_columns, scaling=0):
     nb_full_blocks = int(nb_rows / nb_columns)
     block_list = []
@@ -166,24 +196,15 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
     kernel = nonnegative_softmax_kernel_feature_creator
 
     if rff_method == "exp":
-        query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
-        key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
-        values = query_features.bmm(key_features.transpose(-1, -2))
-        return values.log()
-        #exp_logits = values / values.sum(-1, keepdim=True)
-        #return exp_logits.log()
-    elif rff_method == "mixed":
-        query_features = kernel(query, projection_matrix, is_query=True, eps=eps)
-        key_features = kernel(key, projection_matrix, is_query=False, eps=eps)
-        expand = (query_features[:,:,None] * key_features[:,None]).log()
-        logits = expand.logsumexp(-1)
+        kernel = exp_softmax_kernel_feature_creator
+        log_query_features = kernel(
+            query, projection_matrix, eps=eps,
+        )
+        log_key_features = kernel(
+            key, projection_matrix, eps=eps,
+        )
+        return checkpoint(logbmm, log_query_features, log_key_features)
 
-        # values.log == logits
-        #values = query_features.bmm(key_features.transpose(-1, -2))
-        #import pdb; pdb.set_trace()
-        # both lead to 0 gradients
-        
-        return logits
     elif rff_method == "log":
         # log space
         log_query_features = kernel(
@@ -199,21 +220,7 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         # bxz x src x tgt x dim
 
         return checkpoint(logbmm, log_query_features, log_key_features)
-
-        # chunking
-        #N = 256
-        #num_features = 
-        #import pdb; pdb.set_trace()
-        #for 
-        """
-        expand = log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
-        logits = (
-            #log_query_features[:,:,None,:] + log_key_features[:,None,:,:]
-            expand
-        ).logsumexp(-1)
-        #import pdb; pdb.set_trace()
-        return logits
-        """
+        # use tvm logbmm
 
     elif rff_method == "relu":
         kernel = relu_softmax_kernel_feature_creator

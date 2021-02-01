@@ -174,7 +174,8 @@ if __name__ == "__main__":
     #N = 16
     #T = 32
     NT = 256
-    C = 256
+    #C = 256
+    C = 512
     D = 512
 
     task = autotvm.task.create("logsummul", args=(NT, C, D*D,'float32',), target='cuda', target_host="llvm")

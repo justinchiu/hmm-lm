@@ -201,6 +201,7 @@ def get_fb(size):
             log_marginals.masked_fill_(~mask[1:,:,None,None], float("-inf"))
         log_marginals = log_marginals.permute(1, 0, 3, 2)
         return log_marginals, alphas
+        #return log_marginals, alphas, betas
         #marginals = log_marginals.exp()
         # switch back marginals: batch x time x zt x zt-1
         #return marginals, alphas, betas, log_marginals

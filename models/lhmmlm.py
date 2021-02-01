@@ -1,6 +1,7 @@
 import os
 import time as timep
 
+"""
 import importlib.util
 spec = importlib.util.spec_from_file_location(
     "get_fb",
@@ -8,13 +9,7 @@ spec = importlib.util.spec_from_file_location(
 )
 foo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(foo)
-
-spec2 = importlib.util.spec_from_file_location(
-    "get_logmm",
-    "hmm_runners/logmm.py",
-)
-foo2 = importlib.util.module_from_spec(spec2)
-spec2.loader.exec_module(foo2)
+"""
 
 import torch as th
 import torch.nn as nn
@@ -30,6 +25,12 @@ from .misc import ResLayer, LogDropoutM
 from utils import Pack
 
 from .linear_utils import get_2d_array, project_logits
+
+from hmm_runners.hmm import get_fb
+from hmm_runners.logmm2 import get_logmm_fwd, get_logmm_bwd
+
+def trans(s):
+    return s.transpose(-2, -1).contiguous()
 
 class LHmmLm(nn.Module):
     def __init__(self, V, config):
@@ -48,51 +49,62 @@ class LHmmLm(nn.Module):
         self.C = config.num_classes
         self.D = config.num_features
 
-        self.fb = foo.get_fb(self.C)
-        self.fbd = foo.get_fb(self.D)
+        self.fb = get_fb(self.C)
+        self.fbd = get_fb(self.D)
 
         # logmm setup
         if config.iterator == "bptt":
             raise NotImplementedError()
             self.N = config.bsz
             self.T = config.bptt
-            logmm_ = foo2.get_logmm(self.N * self.T, self.C, self.D * self.D)
+            logmm_ = get_logmm(self.N * self.T, self.C, self.D * self.D)
         elif config.iterator == "bucket":
             self.NT = config.bsz
-            logmm_ = foo2.get_logmm(self.NT, self.C, self.D * self.D)
+            #logmm_ = foo2.get_logmm(self.NT, self.C, self.D * self.D)
+            logmm_fwd_ = get_logmm_fwd(self.NT, self.C, self.D*self.D)
+            logmm_back_a_ = get_logmm_bwd(self.NT, self.C, self.D*self.D)
+            logmm_back_b_ = get_logmm_bwd(self.D*self.D, self.C, self.NT)
         else:
             raise ValueError()
 
+        # inner class
         class LogBmm(th.autograd.Function):
             @staticmethod
             def forward(ctx, a, b):
-                output = th.empty(1, self.D*self.D, self.NT, device=self.device)
-                out = logmm_(
-                    a,
+                output = th.empty(1, self.NT, self.D*self.D, device=self.device)
+                M = th.empty(1, self.NT, self.D*self.D, device=self.device)
+                logmm_fwd_(
                     b,
+                    a,
                     output,
+                    M,
                 )
-                #ctx.save_for_backward(a, b, output)
-                #import pdb; pdb.set_trace()
-                ctx.save_for_backward(
-                    a[0].exp(),
-                    b[0].T.exp(),
-                    output[0].T.exp(),
-                )
+                ctx.save_for_backward(a, b, output, M)
                 return output
 
             @staticmethod
             def backward(ctx, grad_output):
-                #a, b, output = ctx.saved_tensors
-                #a_exp = a.exp()
-                #b_exp = b.exp()
-                #c_exp = output.exp()
-                a_exp, b_exp, c_exp = ctx.saved_tensors
-                do = grad_output[0].T
-                grad_a = a_exp * ((do / c_exp) @ b_exp.T)
-                grad_b = b_exp * (a_exp.T @ (do / c_exp))
-                return grad_a[None], grad_b.T[None]
+                a, b, output, M = ctx.saved_tensors
+                grad_a = th.empty(1, self.NT, self.C, device=self.device)
+                grad_b = th.empty(1, self.D*self.D, self.C, device=self.device)
+                logmm_back_a_(b, a, output, M, grad_output, grad_a)
+                logmm_back_b_(a, b, trans(output), trans(M), trans(grad_output), grad_b)
+                return grad_a, grad_b
 
+        def logmm(a, b):
+            N, T, C = a.shape
+            _, D, _ = b.shape
+            # pad to constant N*T size, not important here but comes up with bucket batching.
+            a_padded = th.cat([
+                a.view(-1, C),
+                th.zeros(self.NT - N*T, C, device=self.device),
+            ], 0)
+            output = LogBmm.apply(
+                a_padded[None], # N * T x C
+                b.view(1, C, -1).transpose(-1, -2).contiguous(), # C x D * D
+            )
+            return output[0,:N*T].view(N, T, D, D)
+        """
         def logmm(a, b):
             N, T, C = a.shape
             _, D, _ = b.shape
@@ -106,6 +118,7 @@ class LHmmLm(nn.Module):
                 b.view(1, C, -1).transpose(-1, -2).contiguous(), # C x D * D
             )
             return output[0,:,:N*T].T.view(N, T, D, D)
+        """
 
         self.logmm = logmm
         # /logmm setup
@@ -128,6 +141,19 @@ class LHmmLm(nn.Module):
         self.next_start_emb = nn.Parameter(
             th.randn(config.hidden_dim),
         )
+        """
+        if self.tie_start:
+            # to prevent changing results, which previously had this bug
+            # that was never seen since this parameter is not used
+            # if start is tied.
+            self.next_start_emb = nn.Parameter(
+                th.randn(config.hidden_dim),
+            )
+        else:
+            self.next_start_emb = nn.Parameter(
+                th.randn(self.C, config.hidden_dim),
+            )
+        """
 
         # p(zt | zt-1)
         self.state_emb = nn.Parameter(
@@ -469,6 +495,8 @@ class LHmmLm(nn.Module):
         with th.no_grad():
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
             log_m, alphas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
+            #log_m, alphas, betas = self.fb(log_potentials.detach().clone().to(dtype=th.float32), mask=mask)
+        #import pdb; pdb.set_trace()
         idx = th.arange(N, device=self.device)
         alpha_T = alphas[lengths-1, idx]
         evidence = alpha_T.logsumexp(-1).sum()
@@ -540,16 +568,17 @@ class LHmmLm(nn.Module):
             start_ = timep.time()
 
 
-        log_potentials = self.logmm(logp_emit, log_trans_mat)
-
-        """
-        log_potentials_slow = logbmm(
-            logp_emit.view(1, -1, C), # N * T x C
-            log_trans_mat.view(1, C, -1), # C x D * D
-        ).view(N, T, D, D)
-        print((log_potentials - log_potentials_slow).abs().max())
-        """
+        if True:
+            log_potentials = self.logmm(logp_emit, log_trans_mat)
+        else:
+            log_potentials = logbmm(
+            #log_potentials_slow = logbmm(
+                logp_emit.view(1, -1, C), # N * T x C
+                log_trans_mat.view(1, C, -1), # C x D * D
+            ).view(N, T, D, D)
+            #print((log_potentials - log_potentials_slow).abs().max())
         #import pdb; pdb.set_trace()
+        
         if self.timing:
             print(f"total big logbmm time: {timep.time() - start_}")
             start_ = timep.time()
@@ -563,13 +592,17 @@ class LHmmLm(nn.Module):
         log_end_vec = logbmm(
             logp_emit[None,th.arange(N),lengths-1],
             log_phi_u[None],
-        )
+        )[0]
         if self.timing:
             print(f"total last term time: {timep.time() - start_}")
             start_ = timep.time()
 
+        # approach 1
         log_potentials[th.arange(N), lengths-1,:,0] = log_end_vec
         log_potentials[th.arange(N), lengths-1,:,1:] = float("-inf")
+        # approach 2 did not change results
+        #log_potentials[th.arange(N), lengths-1] = log_eye
+        #log_potentials[th.arange(N), lengths-1] += th.diag_embed(log_end_vec)
         log_potentials[:,0] += log_start_vec[None,:,None]
         # flip for torch_struct compat
         log_potentials = log_potentials.transpose(-1, -2)
@@ -580,9 +613,11 @@ class LHmmLm(nn.Module):
         with th.no_grad():
             #log_m, alphas = self.fb(log_potentials.detach().clone(), mask=mask)
             log_m, alphas = self.fbd(
+            #log_m, alphas, betas = self.fbd(
                 log_potentials.detach().clone().to(dtype=th.float32),
                 #mask=th.cat([mask[:,(0,)],mask], dim=-1),
             )
+        #import pdb; pdb.set_trace()
         if self.timing:
             print(f"total tvm time: {timep.time() - start_}")
             start_ = timep.time()

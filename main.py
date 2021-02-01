@@ -168,6 +168,12 @@ def cached_eval_loop(
 
             log_potentials = model.clamp(text, start, transition, emission, word2state)
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
+            if args.eff:
+                # slower because no caching
+                losses, _, _ = model.score_rff(text, mask=mask, lengths=lengths)
+                #print(losses.evidence.item())
+                #print(losses_rff.evidence.item())
+                #import pdb; pdb.set_trace()
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)
@@ -314,6 +320,11 @@ def train_loop(
             if hasattr(args, "eff") and args.eff:
                 losses, _, _= model.score_rff(
                     text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+                """
+                losses2, _, _ = model.score(
+                    text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
+                import pdb; pdb.set_trace()
+                """
             else:
                 losses, lpz, last_states = model.score(
                     text, lpz=lpz, last_states=last_states, mask=mask, lengths=lengths)
@@ -336,7 +347,7 @@ def train_loop(
 
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
-            clip_grad_norm_(parameters, args.clip)
+            gradnorm = clip_grad_norm_(parameters, args.clip)
             if args.schedule not in valid_schedules:
                 # sched before opt since we want step = 1?
                 # this is how huggingface does it
@@ -345,9 +356,14 @@ def train_loop(
             wandb.log({
                 "running_training_loss": total_ll / n,
                 "running_training_ppl": math.exp(min(-total_ll / n, 700)),
+                "running_training_elbo": total_elbo / n,
+                "gradnorm": gradnorm,
             }, step=WANDB_STEP)
             if model.timing:
                 print_gpu_mem()
+
+            #print(f"gradnorm {i}: {gradnorm} || sur {loss} || ev {losses.evidence}")
+            #import pdb; pdb.set_trace()
 
             if verbose and i % args.report_every == args.report_every - 1:
                 report(
