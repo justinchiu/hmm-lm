@@ -362,8 +362,9 @@ def train_loop(
             if model.timing:
                 print_gpu_mem()
 
-            #print(f"gradnorm {i}: {gradnorm} || sur {loss} || ev {losses.evidence}")
-            #import pdb; pdb.set_trace()
+            if model.timing:
+                print(f"gradnorm {i}: {gradnorm} || sur {loss} || ev {losses.evidence}")
+                import pdb; pdb.set_trace()
 
             if verbose and i % args.report_every == args.report_every - 1:
                 report(

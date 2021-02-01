@@ -533,10 +533,19 @@ class LHmmLm(nn.Module):
             print(f"total emit index time: {timep.time() - start_}")
             start_ = timep.time()
 
+        if self.l2norm:
+            start_emb = self.start_emb / self.start_emb.norm(dim=-1, keepdim=True)
+            state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
+            next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
+        else:
+            start_emb = self.start_emb
+            state_emb = self.state_emb
+            next_state_emb = self.next_state_emb
+
         # sum vectors and sum matrices
-        log_phi_start = self.start_emb @ self.projection
-        log_phi_w = self.state_emb @ self.projection
-        log_phi_u = self.next_state_emb @ self.projection
+        log_phi_start = start_emb @ self.projection
+        log_phi_w = state_emb @ self.projection
+        log_phi_u = next_state_emb @ self.projection
         if self.timing:
             print(f"total phi projection emit time: {timep.time() - start_}")
             start_ = timep.time()
