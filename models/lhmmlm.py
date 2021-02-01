@@ -45,6 +45,7 @@ class LHmmLm(nn.Module):
         self.sm_trans = config.sm_trans
 
         self.timing = config.timing > 0
+        self.eff = config.eff
 
         self.C = config.num_classes
         self.D = config.num_features
@@ -85,11 +86,19 @@ class LHmmLm(nn.Module):
             @staticmethod
             def backward(ctx, grad_output):
                 a, b, output, M = ctx.saved_tensors
+                """
+                # if numerical issues. but slow
                 grad_a = th.empty(1, self.NT, self.C, device=self.device)
                 grad_b = th.empty(1, self.D*self.D, self.C, device=self.device)
                 logmm_back_a_(b, a, output, M, grad_output, grad_a)
                 logmm_back_b_(a, b, trans(output), trans(M), trans(grad_output), grad_b)
                 return grad_a, grad_b
+                """
+                a_exp, b_exp, c_exp = a[0].exp(), b[0].T.exp(), output[0].exp()
+                do = grad_output[0]
+                grad_a0 = a_exp * ((do / c_exp) @ b_exp.T)
+                grad_b0 = b_exp * (a_exp.T @ (do / c_exp))
+                return grad_a0[None], grad_b0.T[None]
 
         def logmm(a, b):
             N, T, C = a.shape
@@ -141,6 +150,7 @@ class LHmmLm(nn.Module):
         self.next_start_emb = nn.Parameter(
             th.randn(config.hidden_dim),
         )
+        assert self.tie_start, "Needs tie_start to be correct"
         """
         if self.tie_start:
             # to prevent changing results, which previously had this bug
@@ -374,15 +384,15 @@ class LHmmLm(nn.Module):
         states=None, word_mask=None,       
         lpz=None, last_states=None,         
     ):
-        #transition_logits = self.transition_logits()
-        #transition = self.mask_transition(transition_logits, None)
+        # TODO: return struct instead of passing around distributions
+        if self.eff:
+            return self.compute_rff_parameters()
+
         transition = self.transition()
 
         if lpz is not None:
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
         else:
-            #start_logits = self.start_logits()
-            #start = self.mask_start(start_logits, None)
             start = self.start()
 
         emission = self.emission()
@@ -390,9 +400,19 @@ class LHmmLm(nn.Module):
 
     def clamp(                                              
         self, text, start, transition, emission, word2state=None,
-        uniform_emission = None, word_mask = None,          
-        reset = None,                                       
+        uniform_emission = None, word_mask = None,
+        reset = None,
+        mask = None,
+        lengths = None,
     ):
+        # TODO: return struct instead of passing around distributions
+        if self.eff:
+            return self.clamp_rff(
+                text, start, transition, emission,
+                mask = mask,
+                lengths = lengths,
+            )
+
         return ts.LinearChain.hmm(
             transition = transition.t(),
             emission = emission.t(),
@@ -404,21 +424,25 @@ class LHmmLm(nn.Module):
         self,                                                   
         log_potentials, mask, lengths,                          
         keep_counts = False,                                    
-    ):                                                          
+    ):
+        if self.eff:
+            # return two things, losses struct and next state vec
+            return self.compute_rff_loss(log_potentials, mask, lengths)
+
         N = lengths.shape[0]                                    
         #log_m, alphas = self.fb(log_potentials.clone(), mask=mask)
         log_m, alphas = self.fb(log_potentials.clone().float(), mask=mask)
-                                                                
-        idx = th.arange(N, device=self.device)            
-        alpha_T = alphas[lengths-1, idx]                        
-        evidence = alpha_T.logsumexp(-1).sum()                  
+
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths-1, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
         elbo = (log_m.exp_() * log_potentials)[mask[:,1:]].sum()
-                                                                
-        return Pack(                                            
-            elbo = elbo,                                        
-            evidence = evidence,                                
-            loss = elbo,                                        
-        ), alpha_T.log_softmax(-1)                              
+
+        return Pack(
+            elbo = elbo,
+            evidence = evidence,
+            loss = elbo,
+        ), alpha_T.log_softmax(-1)
 
 
     def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
@@ -649,3 +673,91 @@ class LHmmLm(nn.Module):
             evidence = evidence,
             loss = elbo,
         ), alpha_T.log_softmax(-1), None
+
+
+    def compute_rff_parameters(self):
+        if self.l2norm:
+            start_emb = self.start_emb / self.start_emb.norm(dim=-1, keepdim=True)
+            state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
+            next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
+        else:
+            start_emb = self.start_emb
+            state_emb = self.state_emb
+            next_state_emb = self.next_state_emb
+
+        # sum vectors and sum matrices
+        log_phi_start = start_emb @ self.projection
+        log_phi_w = state_emb @ self.projection
+        log_phi_u = next_state_emb @ self.projection
+
+        # start
+        # D
+        log_sum_phi_u = log_phi_u.logsumexp(0)
+        # SCALAR, logdot
+        log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
+        # D
+        log_start_vec = log_phi_start - log_start_denominator
+
+        ## transition
+        # C = C x D + D
+        log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
+        # C x Du x {Dw} + C x {Du} x Dw
+        log_numerator = log_phi_u[:,:,None] + log_phi_w[:,None,:]
+        # C x Du x Dw
+        log_trans_mat = log_numerator - log_denominator[:,None,None]
+
+        emission = self.emission()
+
+        return log_start_vec, (log_trans_mat, log_phi_u), emission
+
+    def clamp_rff(
+        self, text, start, transition, emission,
+        mask=None, lengths=None,
+    ):
+        N, T = text.shape
+
+        log_start_vec = start
+        log_trans_mat, log_phi_u = transition
+
+        logp_emit = emission[
+            th.arange(self.C)[None,None],
+            text[:,:,None],
+        ]
+
+        log_potentials = self.logmm(logp_emit, log_trans_mat)
+        log_eye = th.empty(self.D,self.D,device=self.device).fill_(float("-inf"))
+        log_eye.diagonal().fill_(0.)
+        log_potentials = th.where(mask[:,:,None,None], log_potentials, log_eye[None,None])
+
+        log_end_vec = logbmm(
+            logp_emit[None,th.arange(N),lengths-1],
+            log_phi_u[None],
+        )[0]
+
+        log_potentials[th.arange(N), lengths-1,:,0] = log_end_vec
+        log_potentials[th.arange(N), lengths-1,:,1:] = float("-inf")
+        log_potentials[:,0] += log_start_vec[None,:,None]
+        # flip for torch_struct compatbility
+        log_potentials = log_potentials.transpose(-1, -2)
+        return log_potentials
+
+    def compute_rff_loss(                                           
+        self,                                                   
+        log_potentials, mask, lengths,                          
+    ):
+        N = lengths.shape[0]                                    
+        log_m, alphas = self.fbd(log_potentials.clone().float())
+
+        idx = th.arange(N, device=self.device)
+        alpha_T = alphas[lengths, idx]
+        evidence = alpha_T.logsumexp(-1).sum()
+        # mask to get rid of nans
+        log_potentials[log_potentials == float("-inf")] = 0
+        elbo = (log_m.exp_() * log_potentials)[mask].sum()
+
+        return Pack(
+            elbo = elbo,
+            evidence = evidence,
+            loss = elbo,
+        ), alpha_T.log_softmax(-1)
+

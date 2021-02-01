@@ -141,17 +141,17 @@ def cached_eval_loop(
         model.train(False)
         lpz = None
         start, transition, emission = model.compute_parameters(model.word2state)
-        # assert that transition and emission are well-formed
-        bigt = transition.logsumexp(-1).abs().max()
-        assert bigt < 1e-4, f"{bigt}"
-        bige = emission.logsumexp(-1).abs().max()
-        assert bige < 1e-4, f"{bige}"
-        # log entropy of transition and emission
+        if not model.eff:
+            # assert that transition and emission are well-formed
+            bigt = transition.logsumexp(-1).abs().max()
+            assert bigt < 1e-4, f"{bigt}"
+            bige = emission.logsumexp(-1).abs().max()
+            assert bige < 1e-4, f"{bige}"
+            # log entropy of transition and emission
 
-        He = -(emission.exp() * emission).sum()
-        Ht = -(transition.exp() * transition).sum()
-        print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
-
+            He = -(emission.exp() * emission).sum()
+            Ht = -(transition.exp() * transition).sum()
+            print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
 
         word2state = model.word2state
         for i, batch in enumerate(iter):
@@ -166,14 +166,12 @@ def cached_eval_loop(
             if lpz is not None and args.iterator == "bptt":
                 start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
 
-            log_potentials = model.clamp(text, start, transition, emission, word2state)
+            log_potentials = model.clamp(
+                text, start, transition, emission, word2state,
+                mask=mask,
+                lengths=lengths,
+            )
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
-            if args.eff:
-                # slower because no caching
-                losses, _, _ = model.score_rff(text, mask=mask, lengths=lengths)
-                #print(losses.evidence.item())
-                #print(losses_rff.evidence.item())
-                #import pdb; pdb.set_trace()
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)

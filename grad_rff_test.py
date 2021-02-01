@@ -42,10 +42,10 @@ V = 128 # vocab size
 C = 256 # number of classes
 H = 128 # embedding dimension
 D = 128 # number of samples / projection dim
-temp = 0.1
+#temp = 0.1
 #temp = 0.2
 #temp = 0.5
-#temp = 1.
+temp = 1.
 #temp = 5.
 
 start_emb = torch.randn(H) / temp
@@ -374,21 +374,17 @@ class LogBmm(torch.autograd.Function):
         grad_b = torch.empty(1, D*D, C)
         logmm_back_a_(b, a, output, M, grad_output, grad_a)
         logmm_back_b_(a, b, trans(output), trans(M), trans(grad_output), grad_b)
-        """
-        a_exp, b_exp, c_exp = ctx.saved_tensors
-        do = grad_output[0].T
-        grad_a = a_exp * ((do / c_exp) @ b_exp.T)
-        grad_b = b_exp * (a_exp.T @ (do / c_exp))
 
-        print(torch.isnan(a_exp).any())
-        print(torch.isnan(b_exp).any())
-        print(torch.isnan(c_exp).any())
-        print(torch.isnan(do / c_exp).any())
-        print(torch.isnan((do / c_exp) @ b_exp.T).any())
-        print(torch.isnan(a_exp.T @ (do / c_exp)).any())
-        print(torch.isnan(grad_a).any())
-        print(torch.isnan(grad_b).any())
+
         """
+        a_exp, b_exp, c_exp = a[0].exp(), b[0].T.exp(), output[0].exp()
+        do = grad_output[0]
+        grad_a0 = a_exp * ((do / c_exp) @ b_exp.T)
+        grad_b0 = b_exp * (a_exp.T @ (do / c_exp))
+        return grad_a0[None], grad_b0.T[None]
+        import pdb; pdb.set_trace()
+        """
+
         #return grad_a, grad_b.transpose(1, 2)
         return grad_a, grad_b
 
