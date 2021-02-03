@@ -111,6 +111,8 @@ class LHmmLm(nn.Module):
             output = LogBmm.apply(
                 a_padded[None], # N * T x C
                 b.view(1, C, -1).transpose(-1, -2).contiguous(), # C x D * D
+                # TODO: runs out of memory here
+                # anything with dimension C needs to be chunked.
             )
             return output[0,:N*T].view(N, T, D, D)
         """
