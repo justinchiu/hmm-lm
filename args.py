@@ -37,6 +37,7 @@ def get_args():
         "mshmm", "dshmm",
         "factoredhmm",
         "lhmm",
+        "sparsekernelhmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)
@@ -144,3 +145,4 @@ def add_linear_args(parser):
 
     parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")
 
+    parser.add_argument("--dbg_sparse", default=0, type=int, help="debug sparse kernel hmm")

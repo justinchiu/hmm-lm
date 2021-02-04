@@ -381,7 +381,7 @@ def train_loop(
                         eval_fn = mixed_cached_eval_loop
                     else:
                         eval_fn = cached_eval_loop
-                elif args.model == "hmm" or args.model == "lhmm":
+                elif args.model == "hmm" or args.model == "lhmm" or args.model == "sparsekernelhmm":
                     eval_fn = cached_eval_loop
                 else:
                     eval_fn = eval_loop
@@ -522,6 +522,9 @@ def main():
     elif args.model == "lhmm":
         from models.lhmmlm import LHmmLm
         model = LHmmLm(V, args)
+    elif args.model == "sparsekernelhmm":
+        from models.sparse_kernel_hmmlm import SparseKernelHmmLm
+        model = SparseKernelHmmLm(V, args)
     elif args.model == "ff":
         model = FfLm(V, args)
     elif args.model == "arhmm":

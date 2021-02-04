@@ -330,6 +330,9 @@ def main():
     elif args.model == "lhmm":
         from models.lhmmlm import LHmmLm
         model = LHmmLm(V, args)
+    elif args.model == "sparsekernelhmm":
+        from models.sparse_kernel_hmmlm import SparseKernelHmmLm
+        model = SparseKernelHmmLm(V, args)
     elif args.model == "ff":
         model = FfLm(V, args)
     elif args.model == "arhmm":
