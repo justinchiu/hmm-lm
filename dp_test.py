@@ -122,7 +122,7 @@ log_phi_u = next_state_emb @ projection
 start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
 #transition = (log_phi_w @ log_phi_u.T).softmax(-1)
 emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
-log_denominator = (log_phi_w[:,None] + log_phi_u[None]).logsumexp(-2).logsumexp(-1)
+log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
 # gather emission
 # N x T x C
 p_emit = emission[
