@@ -14,7 +14,7 @@ import torch_struct
 import numpy as np
 from genbmm import logbmm
 
-torch.set_default_tensor_type(torch.cuda.FloatTensor)
+#torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def time_f(f):
     start = torch.cuda.Event(enable_timing=True)
@@ -28,6 +28,7 @@ def time_f(f):
     torch.cuda.synchronize()
 
     return start.elapsed_time(end)
+    # MILLISECONDS
 
 N = 16 # batch size
 T = 32 # length of sequence
@@ -119,7 +120,7 @@ def get_times(C, H, D):
         for t in range(T-1):
             # matvec over classes
             #beta = (alpha[:,:,None] + log_phi_w[None]).logsumexp(1)
-            beta = alpha @ (normalized_phi_w)
+            beta = alpha @ normalized_phi_w
             #alpha =  logp_emit[:,t+1] - log_denominator + (log_phi_u[None] + beta[:,None,]).logsumexp(-1)
             alpha = p_emit[:,t+1] + (beta @ phi_u.T)
             # logbmm
