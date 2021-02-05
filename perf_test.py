@@ -14,7 +14,7 @@ import torch_struct
 import numpy as np
 from genbmm import logbmm
 
-torch.set_default_tensor_type(torch.cuda.FloatTensor)
+#torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def time_f(f):
     start = torch.cuda.Event(enable_timing=True)
