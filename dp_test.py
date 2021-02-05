@@ -135,8 +135,14 @@ alpha = start + p_emit[:,0]
 alphas.append(alpha)
 for t in range(T-1):
     alpha_slow = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
+
+    logmm = lambda x,y: (x[:,:,None] + y[None]).logsumexp(1)
+    beta0 = logmm(alpha, log_phi_w - log_denominator[:,None])
+    alpha0 = p_emit[:,t+1] + logmm(beta0, log_phi_u.T)
+
     beta = (alpha[:,:,None] + log_phi_w[None] - log_denominator[None,:,None]).logsumexp(-2)
     alpha = p_emit[:,t+1] + (log_phi_u[None] + beta[:,None]).logsumexp(-1)
+
     # logbmm
     #alpha = (alpha @ transition) * p_emit[:,t+1]
     alphas.append(alpha)
