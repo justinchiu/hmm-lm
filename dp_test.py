@@ -122,7 +122,10 @@ log_phi_u = next_state_emb @ projection
 start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
 #transition = (log_phi_w @ log_phi_u.T).softmax(-1)
 emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+# O(CD)
 log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+# O(CD)
+normed_log_phi_w = log_phi_w - log_denominator[:,None]
 # gather emission
 # N x T x C
 p_emit = emission[
@@ -137,7 +140,7 @@ for t in range(T-1):
     alpha_slow = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
 
     logmm = lambda x,y: (x[:,:,None] + y[None]).logsumexp(1)
-    beta0 = logmm(alpha, log_phi_w - log_denominator[:,None])
+    beta0 = logmm(alpha, normed_log_phi_w)
     alpha0 = p_emit[:,t+1] + logmm(beta0, log_phi_u.T)
 
     beta = (alpha[:,:,None] + log_phi_w[None] - log_denominator[None,:,None]).logsumexp(-2)
