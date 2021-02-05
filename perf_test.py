@@ -14,7 +14,7 @@ import torch_struct
 import numpy as np
 from genbmm import logbmm
 
-#torch.set_default_tensor_type(torch.cuda.FloatTensor)
+torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def time_f(f):
     start = torch.cuda.Event(enable_timing=True)
@@ -109,7 +109,9 @@ def get_times(C, H, D):
         ]
 
         #denominator = (log_phi_w[:,None] + log_phi_u[None,:]).logsumexp(-1).logsumexp(-1).exp()
-        denominator = (phi_w @ phi_u.T).sum(-1)
+        #denominator = (phi_w @ phi_u.T).sum(-1)
+        denominator = (phi_w * phi_u.sum(0, keepdim=True)).sum(-1)
+        normalized_phi_w = phi_w / denominator[:,None]
 
         alphas_fast = []
         alpha = start * p_emit[:,0]
@@ -117,9 +119,9 @@ def get_times(C, H, D):
         for t in range(T-1):
             # matvec over classes
             #beta = (alpha[:,:,None] + log_phi_w[None]).logsumexp(1)
-            beta = alpha @ phi_w
+            beta = alpha @ (normalized_phi_w)
             #alpha =  logp_emit[:,t+1] - log_denominator + (log_phi_u[None] + beta[:,None,]).logsumexp(-1)
-            alpha = p_emit[:,t+1] / denominator[None] + (beta @ phi_u.T)
+            alpha = p_emit[:,t+1] + (beta @ phi_u.T)
             # logbmm
         evidence_slow = alpha.logsumexp(-1)
 
@@ -138,7 +140,8 @@ def get_times(C, H, D):
 
 
 H = 256 # embedding dim
-D = 1 # num features
+#D = 1 # num features
+D = 512
 for C in [512, 1024, 2048, 4098, 8000, 16000]: # class size
     slow_time, fast_time = get_times(C, H, D)
     print(f"Num classes: {C} | slow: {slow_time} fast: {fast_time}")
