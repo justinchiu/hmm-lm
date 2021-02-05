@@ -214,3 +214,10 @@ def print_gpu_mem():
     print(f"Max mem allocated {th.cuda.max_memory_allocated() / 2 ** 30:.2f}")
     print(f"Max mem cached {th.cuda.max_memory_cached() / 2 ** 30:.2f}")
 
+
+def dump_transition(hmm):
+    transition = hmm.transition()
+    np.save(f"{hmm.parameterization}-transition.npy", transition.detach().cpu().numpy())
+    import sys
+    sys.exit()
+

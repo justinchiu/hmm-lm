@@ -580,6 +580,9 @@ def main():
     if args.eval_only:
         # uncomment this later
         model.load_state_dict(th.load(args.eval_only)["model"])
+        from utils import dump_transition
+        dump_transition(model)
+
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(
         #valid_losses, valid_n = cached_eval_loop(
@@ -588,7 +591,7 @@ def main():
                 eval_fn = mixed_cached_eval_loop
             else:
                 eval_fn = cached_eval_loop
-        elif args.model == "hmm":
+        elif args.model == "hmm" or args.model =="lhmm":
             eval_fn = cached_eval_loop
         else:
             eval_fn = eval_loop

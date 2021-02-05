@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 from torch.utils.checkpoint import checkpoint
 
+from genbmm import logbmm
+
 def nonnegative_softmax_kernel_feature_creator(
     data: torch.Tensor,
     projection_matrix: torch.Tensor,
@@ -218,6 +220,7 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         #import pdb; pdb.set_trace()
         # slow and memory...would like log-bmm
         # bxz x src x tgt x dim
+        #import pdb; pdb.set_trace()
 
         return checkpoint(logbmm, log_query_features, log_key_features)
         # use tvm logbmm
