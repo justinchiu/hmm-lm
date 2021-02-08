@@ -142,10 +142,10 @@ for t in range(T-1):
     # for a single timestep, we project previous alpha, ie posterior over last state
     # given words up to t, compute next alpha by projection to feature space and back
 
-    # logmm: (A,B) @ (B,C)
-    # A = batch
-    # B = num states
-    # C = num features
+    # logmm: (N,C) @ (C,D)
+    # N = batch
+    # C = num states
+    # D = num features
     logmm = lambda x,y: (x[:,:,None] + y[None]).logsumexp(1)
     beta0 = logmm(alpha, normed_log_phi_w)
     alpha0 = p_emit[:,t+1] + logmm(beta0, log_phi_u.T)
