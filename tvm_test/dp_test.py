@@ -153,7 +153,11 @@ for t in range(T-1):
     beta0 = logmm(alpha, normed_log_phi_w)
     alpha0 = p_emit[:,t+1] + logmm(beta0, log_phi_u.T)
 
+    # alpha: N x C
+    # log_phi_w: C x D {normed_log_phi_w as well}
+    # beta: N x D
     beta = (alpha[:,:,None] + log_phi_w[None] - log_denominator[None,:,None]).logsumexp(-2)
+    # p_emit[:,t+1]: N x C 
     alpha = p_emit[:,t+1] + (log_phi_u[None] + beta[:,None]).logsumexp(-1)
 
     # logbmm
