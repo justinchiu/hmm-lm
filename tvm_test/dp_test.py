@@ -25,12 +25,12 @@ np.random.seed(1234)
 random.seed(1234)
 
 N = 3 # batch size
-T = 32 # length of sequence
+T = 35 # length of sequence
 V = 128 # vocab size
 
-C = 8 # number of classes
+C = 64# number of classes
 H = 128 # embedding dimension
-D = 4 # number of samples / projection dim
+D = 32 # number of samples / projection dim
 
 start_emb = torch.randn(H, device=device)
 state_emb = torch.randn(C, H, device=device)
@@ -226,6 +226,9 @@ p_emit = emission[
     torch.arange(C)[None,None],
     text[:,:,None],
 ]
+
+# implement in TVM
+
 # logmm: (N,C) @ (C,D)
 # N = batch
 # C = num states
@@ -277,6 +280,8 @@ gamma = torch.stack(gammas, 1)
 beta = torch.stack(aligned_betas, 1)
 xi = torch.stack(aligned_xis, 1)
 
+# / implement in TVM
+
 # sanity checks
 log_marginals = alpha + beta
 normed_log_marginals = log_marginals.log_softmax(-1)
@@ -298,6 +303,7 @@ marg_diff = normed_log_marginals[:,1:] - (
     - evidence[:,None,None,None]
 ).logsumexp(-1)
 print("log marg diff gamma u beta", marg_diff.abs().max().item())
+# / sanity checks
 
 # gradient wrt p_emit, log_phi_u, and log_phi_w
 emit_loss = p_emit * log_marginals.softmax(-1).detach()
