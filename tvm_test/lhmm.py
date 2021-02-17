@@ -211,7 +211,22 @@ if __name__ == "__main__":
     # TVM VERSION
     forward_tvm = get_fb(N, T, Z, F)
     # initialize buffers
-    forward_tvm()
+    X = p_emit
+    Wzf = normed_log_phi_w
+    Wfz = log_phi_u
+    Mg = torch.empty(T, N, F, device=device)
+    #Gm = torch.empty(N, T, F, device=device) # not needed?
+    G = torch.empty(T, N, F, device=device)
+    Ma = torch.empty(T, N, Z, device=device) 
+    #Am = torch.empty(N, T, Z, device=device) # not needed?
+    A = torch.empty(T, N, Z, device=device)
+    forward_tvm(
+        X.transpose(0, 1),
+        Wzf, Wfz,
+        alphas[0], # alphas[0] shape might be wrong
+        Mg, G,
+        Ma, A,
+    )
 
 
     """
