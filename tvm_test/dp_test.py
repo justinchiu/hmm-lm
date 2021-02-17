@@ -16,7 +16,7 @@ np.random.seed(1234)
 random.seed(1234)
 
 N = 3 # batch size
-T = 35 # length of sequence
+T = 8 # length of sequence
 V = 128 # vocab size
 
 C = 64 # number of classes
