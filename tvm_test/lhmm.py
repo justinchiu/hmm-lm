@@ -75,7 +75,6 @@ def zf_hmm_runner(b, t, z, f, dtype):
     Ma = tvm.te.compute(
         (t, b, z),
         lambda t, bb, zz: tvm.te.max(
-            # wait im confused, this needs to fill in s_f
             s_f[tt, bb, ffm] + X[tt, bb, zz] + Wfz[zz, ff],
             axis=ffm,
         ),
