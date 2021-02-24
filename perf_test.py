@@ -14,7 +14,9 @@ import torch_struct
 import numpy as np
 from genbmm import logbmm
 
-#torch.set_default_tensor_type(torch.cuda.FloatTensor)
+from hmm_runners.hmm import get_fb
+
+torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def time_f(f):
     start = torch.cuda.Event(enable_timing=True)
@@ -51,6 +53,7 @@ projection = torch.randn(H, D)
 text = torch.from_numpy(np.random.choice(V, size=(N, T)))
 # no masking for now
 #print(text)
+
 
 def get_times(C, H, D):
     start_emb = torch.randn(H)
@@ -122,9 +125,110 @@ def get_times(C, H, D):
             #beta = (alpha[:,:,None] + log_phi_w[None]).logsumexp(1)
             beta = alpha @ normalized_phi_w
             #alpha =  logp_emit[:,t+1] - log_denominator + (log_phi_u[None] + beta[:,None,]).logsumexp(-1)
-            alpha = p_emit[:,t+1] + (beta @ phi_u.T)
+            alpha = p_emit[:,t+1] * (beta @ phi_u.T)
             # logbmm
         evidence_slow = alpha.logsumexp(-1)
+
+    """
+    fb = get_fb(C)
+    def tvm(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
+        # LOOP VERSION
+        log_phi_start = start_emb @ projection
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
+
+        start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
+        transition = (log_phi_w @ log_phi_u.T).log_softmax(-1)
+        emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+        # gather emission
+        # N x T x C
+        p_emit = emission[
+            torch.arange(C)[None,None],
+            text[:,:,None],
+        ]
+        log_potentials = torch_struct.LinearChain.hmm(
+            transition = transition.T,
+            emission = emission.T,
+            init = start,
+            observations = text,
+        )
+        with torch.no_grad():
+            log_m, alphas = fb(log_potentials.detach().clone())
+    """
+
+    @torch.jit.script
+    def forward_jit(p_emit, start, transition, T):
+        # type: (Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor]]
+        alphas = []
+        alpha = start * p_emit[:,0] # {N} x C
+        for t in range(T-1):
+            # logbmm
+            #alpha = (alpha[:,:,None] + log_pots[:,t]).logsumexp(-2)
+            alpha = (alpha @ transition) * p_emit[:,t+1]
+            #alpha = (alpha[:,None] @ log_pots[:,t])[:,0]
+        evidence_slow = alpha.logsumexp(-1)
+        return evidence_slow, alphas
+
+    def jit(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
+        # LOOP VERSION
+        log_phi_start = start_emb @ projection
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
+
+        start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).softmax(-1)
+        transition = (log_phi_w @ log_phi_u.T).softmax(-1)
+        emission = (preterminal_emb @ terminal_emb.T).softmax(-1)
+        # gather emission
+        # N x T x C
+        p_emit = emission[
+            torch.arange(C)[None,None],
+            text[:,:,None],
+        ]
+        evidence_slow, alphas = forward_jit(p_emit, start, transition, T)
+
+    @torch.jit.script
+    def forward_jit2(p_emit, start, normalized_phi_w, phi_u, T):
+        # type: (Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor], List[Tensor]]
+        alphas = []
+        gammas = []
+        alpha = start * p_emit[:,0]
+        alphas.append(alpha)
+        for t in range(T-1):
+            # matvec over classes
+            #beta = (alpha[:,:,None] + log_phi_w[None]).logsumexp(1)
+            gamma = alpha @ normalized_phi_w
+            #alpha =  logp_emit[:,t+1] - log_denominator + (log_phi_u[None] + beta[:,None,]).logsumexp(-1)
+            alpha = p_emit[:,t+1] * (gamma@ phi_u.T)
+            alphas.append(alpha)
+            gammas.append(gamma)
+            # logbmm
+        evidence_slow = alpha.logsumexp(-1)
+        return evidence_slow, alphas, gammas
+
+    def jitfast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
+        # EMBEDDED VERSION
+        log_phi_start = start_emb @ projection
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
+        phi_start = log_phi_start.exp()
+        phi_w = log_phi_w.exp()
+        phi_u = log_phi_u.exp()
+
+        start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).softmax(-1)
+        emission = (preterminal_emb @ terminal_emb.T).softmax(-1)
+        # gather emission
+        # N x T x C
+        p_emit = emission[
+            torch.arange(C)[None,None],
+            text[:,:,None],
+        ]
+
+        #denominator = (log_phi_w[:,None] + log_phi_u[None,:]).logsumexp(-1).logsumexp(-1).exp()
+        #denominator = (phi_w @ phi_u.T).sum(-1)
+        denominator = (phi_w * phi_u.sum(0, keepdim=True)).sum(-1)
+        normalized_phi_w = phi_w / denominator[:,None]
+
+        evidence, alphas, gammas = forward_jit2(p_emit, start, normalized_phi_w, phi_u, T)
 
     slow_times = []
     for _ in range(15):
@@ -136,13 +240,37 @@ def get_times(C, H, D):
         fast_times.append(time_f(
             lambda: fast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection)
         ))
+    """
+    tvm_times = []
+    for _ in range(15):
+        tvm_times.append(time_f(
+            lambda: tvm(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection)
+        ))
+    """
+    jit_times = []
+    for _ in range(15):
+        jit_times.append(time_f(
+            lambda: jit(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection)
+        ))
+    jitfast_times = []
+    for _ in range(15):
+        jitfast_times.append(time_f(
+            lambda: jitfast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection)
+        ))
 
-    return np.mean(slow_times[1:]), np.mean(fast_times[1:])
-
+    return (
+        np.mean(slow_times[1:]),
+        np.mean(fast_times[1:]),
+        #np.mean(tvm_times[1:]),
+        np.mean(jit_times[1:]),
+        np.mean(jitfast_times[1:]),
+    )
 
 H = 256 # embedding dim
 #D = 1 # num features
 D = 512
 for C in [512, 1024, 2048, 4098, 8000, 16000]: # class size
-    slow_time, fast_time = get_times(C, H, D)
-    print(f"Num classes: {C} | slow: {slow_time} fast: {fast_time}")
+    #slow_time, fast_time, tvm_time, jit_time, jitfast_time = get_times(C, H, D)
+    #print(f"Num classes: {C} | slow: {slow_time:.2f} fast: {fast_time:.2f} tvm: {tvm_time:.2f} jit: {jit_time:.2f} jitfast: {jitfast_time:.2f}")
+    slow_time, fast_time, jit_time, jitfast_time = get_times(C, H, D)
+    print(f"Num classes: {C} | slow: {slow_time:.2f} fast: {fast_time:.2f} jit: {jit_time:.2f} jitfast: {jitfast_time:.2f}")
