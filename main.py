@@ -209,7 +209,8 @@ def fast_eval_loop(
                 raise NotImplementedError()
 
             losses, lpz = model.compute_loss(
-                text, start, transition, emission, word2state, mask=mask, lengths=lengths)
+                text, start, transition, emission, word2state,
+                mask=mask, lengths=lengths)
 
             if word2state is not None:
                 idx = th.arange(N, device=model.device)

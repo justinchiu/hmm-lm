@@ -291,7 +291,7 @@ class BLHmmLm(nn.Module):
             start = self.start()
 
         emission = self.emission()
-        return start, transition, emission
+        return start, transition.exp(), emission
 
     def compute_loss(                                           
         self,
@@ -331,8 +331,9 @@ class BLHmmLm(nn.Module):
             evidences_bmm.append(Ot)
         O = th.cat(evidences_bmm, -1)
         evidence = O[mask].sum(-1)
+        #import pdb; pdb.set_trace()
         return Pack(
-            elbo = evidence,
+            elbo = None,
             evidence = evidence,
             loss = evidence,
         ), alpha.log()
@@ -391,7 +392,7 @@ class BLHmmLm(nn.Module):
 
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
-        transition = self.transition(transition_mask)
+        transition = self.transition(transition_mask).exp()
         emission = self.emission()
 
         if lpz is not None:
@@ -425,7 +426,7 @@ class BLHmmLm(nn.Module):
         evidence = O[mask].sum(-1)
 
         return Pack(
-            elbo = evidence,
+            elbo = None,
             evidence = evidence,
             loss = evidence,
         ), alpha.log(), None
@@ -496,9 +497,10 @@ class BLHmmLm(nn.Module):
             Os.append(Ot)
         O = th.cat(Os, -1)
         evidence = O[mask].sum()
+        #import pdb; pdb.set_trace()
 
         return Pack(
-            elbo = evidence,
+            elbo = None,
             evidence = evidence,
             loss = evidence,
         ), alpha.log(), None
@@ -506,38 +508,23 @@ class BLHmmLm(nn.Module):
 
     def compute_rff_parameters(self):
         if self.l2norm:
-            start_emb = self.start_emb / self.start_emb.norm(dim=-1, keepdim=True)
             state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
         else:
-            start_emb = self.start_emb
             state_emb = self.state_emb
             next_state_emb = self.next_state_emb
 
         # sum vectors and sum matrices
-        log_phi_start = start_emb @ self.projection
         log_phi_w = state_emb @ self.projection
         log_phi_u = next_state_emb @ self.projection
 
-        # start
-        # D
-        log_sum_phi_u = log_phi_u.logsumexp(0)
-        # SCALAR, logdot
-        log_start_denominator = (log_phi_start + log_sum_phi_u).logsumexp(0)
-        # D
-        log_start_vec = log_phi_start - log_start_denominator
+        log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+        normed_log_phi_w = log_phi_w - log_denominator[:, None]
 
-        ## transition
-        # C = C x D + D
-        log_denominator = (log_phi_w + log_sum_phi_u).logsumexp(-1)
-        # C x Du x {Dw} + C x {Du} x Dw
-        log_numerator = log_phi_u[:,:,None] + log_phi_w[:,None,:]
-        # C x Du x Dw
-        log_trans_mat = log_numerator - log_denominator[:,None,None]
-
+        start = self.start()
         emission = self.emission()
 
-        return log_start_vec, (log_trans_mat, log_phi_u), emission
+        return start, (normed_log_phi_w.exp(), log_phi_u.exp()), emission
 
     def compute_rff_loss(
         self,
@@ -546,10 +533,7 @@ class BLHmmLm(nn.Module):
         mask=None, lengths=None,
     ):
         N, T = text.shape
-        normed_log_phi_w, log_phi_u = transition
-
-        normalized_phi_w = normed_log_phi_w.exp()
-        phi_u = log_phi_u.exp()
+        normalized_phi_w, phi_u = transition
 
         # gather emission
         # N x T x C
@@ -573,10 +557,11 @@ class BLHmmLm(nn.Module):
 
             alphas.append(alpha)
             Os.append(Ot)
+            #import pdb; pdb.set_trace()
         O = th.cat(Os, -1)
         evidence = O[mask].sum()
         return Pack(
-            elbo = evidence,
+            elbo = None,
             evidence = evidence,
             loss = evidence,
         ), alpha.log()
