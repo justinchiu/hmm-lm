@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -J b4096f1024
+#SBATCH -p rush
+#SBATCH --nodelist=rush-compute01
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
+#SBATCH --ntasks 1
+#SBATCH --mem 12G
+
+source /home/jtc257/.bashrc
+source /home/jtc257/scripts/env.sh
+
+hmmenv
+cd /home/jtc257/python/hmm-lm
+
+python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_type none     --model blhmm --bsz 256 --num_classes 4096     --emb_dim 256 --hidden_dim 256     --dataset ptb --iterator bucket --parameterization smp     --projection_method static --update_proj 1     --num_features 1024     --anti 0 --l2norm 0 --sm_emit 1     --eff 1 --eval_bsz 256 --num_epochs 15
