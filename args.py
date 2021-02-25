@@ -38,6 +38,7 @@ def get_args():
         "factoredhmm",
         "lhmm",
         "sparsekernelhmm",
+        "blhmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)

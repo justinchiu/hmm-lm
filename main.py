@@ -184,6 +184,44 @@ def cached_eval_loop(
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
+def fast_eval_loop(
+    args, V, iter, model,
+):
+    total_ll = 0
+    total_elbo = 0
+    n = 0
+    with th.no_grad():
+        model.train(False)
+        lpz = None
+        start, transition, emission = model.compute_parameters(model.word2state)
+        word2state = model.word2state
+        for i, batch in enumerate(iter):
+            if hasattr(model, "noise_scale"):
+                model.noise_scale = 0
+
+            text = batch.text
+
+            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            N, T = text.shape
+
+            if lpz is not None and args.iterator == "bptt":
+                #start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+                raise NotImplementedError()
+
+            losses, lpz = model.compute_loss(
+                text, start, transition, emission, word2state, mask=mask, lengths=lengths)
+
+            if word2state is not None:
+                idx = th.arange(N, device=model.device)
+                last_words = text[idx, lengths-1]
+                last_states = model.word2state[last_words]
+
+            total_ll += losses.evidence.detach()
+            if losses.elbo is not None:
+                total_elbo += losses.elbo.detach()
+            n += n_tokens
+    return Pack(evidence = total_ll, elbo = total_elbo), n
+
 def mixed_cached_eval_loop(
     args, V, iter, model,
 ):
@@ -383,6 +421,8 @@ def train_loop(
                         eval_fn = cached_eval_loop
                 elif args.model == "hmm" or args.model == "lhmm" or args.model == "sparsekernelhmm":
                     eval_fn = cached_eval_loop
+                elif args.model == "blhmm":
+                    eval_fn = fast_eval_loop
                 else:
                     eval_fn = eval_loop
                 valid_losses, valid_n  = eval_fn(
@@ -522,6 +562,9 @@ def main():
     elif args.model == "lhmm":
         from models.lhmmlm import LHmmLm
         model = LHmmLm(V, args)
+    elif args.model == "blhmm":
+        from models.blhmmlm import BLHmmLm
+        model = BLHmmLm(V, args)
     elif args.model == "sparsekernelhmm":
         from models.sparse_kernel_hmmlm import SparseKernelHmmLm
         model = SparseKernelHmmLm(V, args)
@@ -593,6 +636,8 @@ def main():
                 eval_fn = cached_eval_loop
         elif args.model == "hmm" or args.model =="lhmm":
             eval_fn = cached_eval_loop
+        elif args.model == "blhmm":
+            eval_fn = fast_eval_loop
         else:
             eval_fn = eval_loop
         #eval_fn = cached_eval_loop if args.model == "mshmm" else eval_loop
@@ -667,6 +712,8 @@ def main():
                 eval_fn = cached_eval_loop
         elif args.model == "hmm" or args.model == "lhmm":
             eval_fn = cached_eval_loop
+        elif args.model == "blhmm":
+            eval_fn = fast_eval_loop
         else:
             eval_fn = eval_loop
         valid_losses, valid_n  = eval_fn(args, V, valid_iter, model)

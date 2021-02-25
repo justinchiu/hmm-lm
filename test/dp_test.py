@@ -218,7 +218,6 @@ p_emit = emission[
     text[:,:,None],
 ]
 alphas = []
-Zs = []
 Os = []
 #alpha = start * p_emit[:,0] # {N} x C
 alpha_un = start + p_emit[:,0]
