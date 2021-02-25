@@ -27,7 +27,7 @@ python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_ty
     --projection_method static --update_proj 1 \
     --num_features {num_features} \
     --anti 0 --l2norm 0 --sm_emit 1 \
-    --eff 1 --eval_bsz 256 --num_epochs 15
+    --eff 1 --eval_bsz 256
 """
     return header
 
