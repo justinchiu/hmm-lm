@@ -27,9 +27,9 @@ N = 3 # batch size
 T = 32 # length of sequence
 V = 128 # vocab size
 
-C = 8 # number of classes
+C = 256 # number of classes
 H = 128 # embedding dimension
-D = 4 # number of samples / projection dim
+D = 64 # number of samples / projection dim
 
 start_emb = torch.randn(H, device=device)
 state_emb = torch.randn(C, H, device=device)
@@ -71,6 +71,7 @@ log_potentials = torch_struct.LinearChain.hmm(
 )
 #evidence = torch_struct.LinearChain().sum(log_potentials, lengths=lengths)
 evidence = torch_struct.LinearChain().sum(log_potentials)
+print(evidence)
 # TODO: check grads
 evidence.sum().backward()
 
@@ -113,6 +114,40 @@ for t in range(T-1):
     #alpha = (alpha @ transition) * p_emit[:,t+1]
     alphas0.append(alpha)
 evidence_slow = alpha.logsumexp(-1)
+print(evidence_slow)
+
+# LOOPBMM
+log_phi_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = next_state_emb @ projection
+
+start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[None]).logsumexp(-1).softmax(-1)
+emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+# gather emission
+# N x T x C
+p_emit = emission[
+    torch.arange(C)[None,None],
+    text[:,:,None],
+]
+alphas_bmm = []
+evidences_bmm = []
+alpha_un = start + p_emit[:,0] # {N} x C
+Ot = alpha_un.logsumexp(-1, keepdim=True)
+alpha = (alpha_un - Ot).exp()
+alphas_bmm.append(alpha)
+evidences_bmm.append(Ot)
+for t in range(T-1):
+    # logbmm
+    #alpha = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
+    alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+    Ot = alpha_un.logsumexp(-1, keepdim=True)
+    alpha = (alpha_un - Ot).exp()
+    alphas_bmm.append(alpha)
+    evidences_bmm.append(Ot)
+O = torch.cat(evidences_bmm, -1)
+evidence_slow_bmm = O.sum(-1)
+print(evidence_slow_bmm)
 
 # LOOP_FAST
 log_phi_start = start_emb @ projection
@@ -157,5 +192,51 @@ for t in range(T-1):
     #alpha = (alpha @ transition) * p_emit[:,t+1]
     alphas.append(alpha)
 evidence_fast = alpha.logsumexp(-1)
+print(evidence_fast)
 
 
+# LOOP_FAST_BMM
+log_phi_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = next_state_emb @ projection
+
+start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
+#transition = (log_phi_w @ log_phi_u.T).softmax(-1)
+emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
+# O(CD)
+log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+# O(CD)
+normed_log_phi_w = log_phi_w - log_denominator[:,None]
+
+normalized_phi_w = normed_log_phi_w.exp()
+phi_u = log_phi_u.exp()
+
+# gather emission
+# N x T x C
+p_emit = emission[
+    torch.arange(C)[None,None],
+    text[:,:,None],
+]
+alphas = []
+Zs = []
+Os = []
+#alpha = start * p_emit[:,0] # {N} x C
+alpha_un = start + p_emit[:,0]
+Ot = alpha_un.logsumexp(-1, keepdim=True)
+alpha = (alpha_un - Ot).exp()
+alphas.append(alpha)
+Os.append(Ot)
+for t in range(T-1):
+    gamma = alpha @ normalized_phi_w
+    alpha_un = p_emit[:,t+1] + (gamma @ phi_u.T).log()
+    Ot = alpha_un.logsumexp(-1, keepdim=True)
+    alpha = (alpha_un - Ot).exp()
+
+    alphas.append(alpha)
+    Os.append(Ot)
+O = torch.cat(Os, -1)
+evidence_fast_bmm = O.sum(-1)
+print(evidence_fast_bmm)
+
+
+import pdb; pdb.set_trace()

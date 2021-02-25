@@ -74,9 +74,9 @@ def get_times(C, H, D):
         log_phi_w = state_emb @ projection
         log_phi_u = next_state_emb @ projection
 
-        start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).softmax(-1)
+        start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
         transition = (log_phi_w @ log_phi_u.T).softmax(-1)
-        emission = (preterminal_emb @ terminal_emb.T).softmax(-1)
+        emission = (preterminal_emb @ terminal_emb.T).log_softmax(-1)
         # gather emission
         # N x T x C
         p_emit = emission[
@@ -85,13 +85,22 @@ def get_times(C, H, D):
         ]
         #log_pots = p_emit[:,1:,None,:] * transition[None,None]
         alphas = []
-        alpha = start * p_emit[:,0] # {N} x C
+        Os = []
+        alpha_un = start + p_emit[:,0] # {N} x C
+        Ot = alpha_un.logsumexp(-1, keepdim=True)
+        alpha = (alpha_un - Ot).exp()
+        alphas.append(alpha)
+        Os.append(Ot)
         for t in range(T-1):
-            # logbmm
-            #alpha = (alpha[:,:,None] + log_pots[:,t]).logsumexp(-2)
-            alpha = (alpha @ transition) * p_emit[:,t+1]
-            #alpha = (alpha[:,None] @ log_pots[:,t])[:,0]
-        evidence_slow = alpha.logsumexp(-1)
+            #alpha = (alpha @ transition) * p_emit[:,t+1]
+            alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            Ot = alpha_un.logsumexp(-1, keepdim=True)
+            alpha = (alpha_un - Ot).exp()
+            alphas.append(alpha)
+            Os.append(Ot)
+        O = torch.cat(Os, -1)
+        evidence_slow_bmm = O.sum(-1)
+        evidence_slow_bmm.sum().backward()
 
 
     def fast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
@@ -117,6 +126,7 @@ def get_times(C, H, D):
         denominator = (phi_w * phi_u.sum(0, keepdim=True)).sum(-1)
         normalized_phi_w = phi_w / denominator[:,None]
 
+        """
         alphas_fast = []
         alpha = start * p_emit[:,0]
         alphas_fast.append(alpha)
@@ -127,7 +137,27 @@ def get_times(C, H, D):
             #alpha =  logp_emit[:,t+1] - log_denominator + (log_phi_u[None] + beta[:,None,]).logsumexp(-1)
             alpha = p_emit[:,t+1] * (beta @ phi_u.T)
             # logbmm
-        evidence_slow = alpha.logsumexp(-1)
+        evidence = alpha.logsumexp(-1)
+        """
+        alphas = []
+        Os = []
+        #alpha = start * p_emit[:,0] # {N} x C
+        alpha_un = start + p_emit[:,0]
+        Ot = alpha_un.logsumexp(-1, keepdim=True)
+        alpha = (alpha_un - Ot).exp()
+        alphas.append(alpha)
+        Os.append(Ot)
+        for t in range(T-1):
+            gamma = alpha @ normalized_phi_w
+            alpha_un = p_emit[:,t+1] + (gamma @ phi_u.T).log()
+            Ot = alpha_un.logsumexp(-1, keepdim=True)
+            alpha = (alpha_un - Ot).exp()
+
+            alphas.append(alpha)
+            Os.append(Ot)
+        O = torch.cat(Os, -1)
+        evidence_fast_bmm = O.sum(-1)
+        evidence_fast_bmm.sum().backward()
 
     """
     fb = get_fb(C)
@@ -156,6 +186,7 @@ def get_times(C, H, D):
             log_m, alphas = fb(log_potentials.detach().clone())
     """
 
+    """
     @torch.jit.script
     def forward_jit(p_emit, start, transition, T):
         # type: (Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor]]
@@ -168,6 +199,27 @@ def get_times(C, H, D):
             #alpha = (alpha[:,None] @ log_pots[:,t])[:,0]
         evidence_slow = alpha.logsumexp(-1)
         return evidence_slow, alphas
+    """
+    @torch.jit.script
+    def forward_jit(p_emit, start, transition, T):
+        # type: (Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor]]
+        alphas = []
+        Os = []
+        alpha_un = start + p_emit[:,0] # {N} x C
+        Ot = alpha_un.logsumexp(-1, keepdim=True)
+        alpha = (alpha_un - Ot).exp()
+        alphas.append(alpha)
+        Os.append(Ot)
+        for t in range(T-1):
+            #alpha = (alpha @ transition) * p_emit[:,t+1]
+            alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            Ot = alpha_un.logsumexp(-1, keepdim=True)
+            alpha = (alpha_un - Ot).exp()
+            alphas.append(alpha)
+            Os.append(Ot)
+        O = torch.cat(Os, -1)
+        evidence = O.sum(-1)
+        return evidence, alphas
 
     def jit(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
         # LOOP VERSION
@@ -185,7 +237,9 @@ def get_times(C, H, D):
             text[:,:,None],
         ]
         evidence_slow, alphas = forward_jit(p_emit, start, transition, T)
+        evidence_slow.sum().backward()
 
+    """
     @torch.jit.script
     def forward_jit2(p_emit, start, normalized_phi_w, phi_u, T):
         # type: (Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor], List[Tensor]]
@@ -204,6 +258,30 @@ def get_times(C, H, D):
             # logbmm
         evidence_slow = alpha.logsumexp(-1)
         return evidence_slow, alphas, gammas
+    """
+    @torch.jit.script
+    def forward_jit2(p_emit, start, normalized_phi_w, phi_u, T):
+        # type: (Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, List[Tensor]]
+        alphas = []
+        Os = []
+        #alpha = start * p_emit[:,0] # {N} x C
+        alpha_un = start + p_emit[:,0]
+        Ot = alpha_un.logsumexp(-1, keepdim=True)
+        alpha = (alpha_un - Ot).exp()
+        alphas.append(alpha)
+        Os.append(Ot)
+        for t in range(T-1):
+            gamma = alpha @ normalized_phi_w
+            alpha_un = p_emit[:,t+1] + (gamma @ phi_u.T).log()
+            Ot = alpha_un.logsumexp(-1, keepdim=True)
+            alpha = (alpha_un - Ot).exp()
+
+            alphas.append(alpha)
+            Os.append(Ot)
+        O = torch.cat(Os, -1)
+        evidence = O.sum(-1)
+        return evidence, alphas
+
 
     def jitfast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
         # EMBEDDED VERSION
@@ -228,7 +306,9 @@ def get_times(C, H, D):
         denominator = (phi_w * phi_u.sum(0, keepdim=True)).sum(-1)
         normalized_phi_w = phi_w / denominator[:,None]
 
-        evidence, alphas, gammas = forward_jit2(p_emit, start, normalized_phi_w, phi_u, T)
+        #evidence, alphas, gammas = forward_jit2(p_emit, start, normalized_phi_w, phi_u, T)
+        evidence, alphas = forward_jit2(p_emit, start, normalized_phi_w, phi_u, T)
+        evidence.sum().backward()
 
     slow_times = []
     for _ in range(15):
@@ -273,4 +353,4 @@ for C in [512, 1024, 2048, 4098, 8000, 16000]: # class size
     #slow_time, fast_time, tvm_time, jit_time, jitfast_time = get_times(C, H, D)
     #print(f"Num classes: {C} | slow: {slow_time:.2f} fast: {fast_time:.2f} tvm: {tvm_time:.2f} jit: {jit_time:.2f} jitfast: {jitfast_time:.2f}")
     slow_time, fast_time, jit_time, jitfast_time = get_times(C, H, D)
-    print(f"Num classes: {C} | slow: {slow_time:.2f} fast: {fast_time:.2f} jit: {jit_time:.2f} jitfast: {jitfast_time:.2f}")
+    print(f"Num classes: {C} | slow: {slow_time:.2f} fast: {fast_time:.2f} | jit: {jit_time:.2f} jitfast: {jitfast_time:.2f}")
