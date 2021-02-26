@@ -35,9 +35,10 @@ def make_filename(num_states, num_features):
     filename = f"hmm-s{num_states}-f{num_features}.sub"
     return filename
 
-grid_num_states = [8192, 4096, 2048, 1024, 512]
+#grid_num_states = [8192, 4096, 2048, 1024, 512]
 #grid_num_features = [1024, 512, 256, 128, 64]
-grid_num_features = [1024, 512, 256, 128, 64]
+grid_num_states = [16384, 8192]
+grid_num_features = [4096, 2048, 1024]
 
 
 for num_states, num_features in product(grid_num_states, grid_num_features):
