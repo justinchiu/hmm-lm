@@ -21,7 +21,7 @@ hmmenv
 cd /home/jtc257/python/hmm-lm
 
 python main.py  --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_type none \
-    --model blhmm --bsz 128 --num_classes {num_states} --emb_dim 256 \
+    --model blhmm --bsz 256 --num_classes {num_states} --emb_dim 256 \
     --hidden_dim 256 --dataset ptb --iterator bucket
 """
     return header
@@ -30,7 +30,8 @@ def make_filename(num_states):
     filename = f"softmaxhmm-s{num_states}.sub"
     return filename
 
-grid_num_states = [8192, 4096, 2048, 1024, 512]
+grid_num_states = [16384, 8192, 4096, 2048, 1024, 512]
+#grid_num_states = [16384]
 
 for num_states in grid_num_states:
     filename = make_filename(num_states)

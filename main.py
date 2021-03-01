@@ -194,6 +194,17 @@ def fast_eval_loop(
         model.train(False)
         lpz = None
         start, transition, emission = model.compute_parameters(model.word2state)
+        if not model.eff:
+            # assert that transition and emission are well-formed
+            bigt = transition.logsumexp(-1).abs().max()
+            assert bigt < 1e-4, f"{bigt}"
+            bige = emission.logsumexp(-1).abs().max()
+            assert bige < 1e-4, f"{bige}"
+            # log entropy of transition and emission
+
+            He = -(emission.exp() * emission).sum()
+            Ht = -(transition.exp() * transition).sum()
+            print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
         word2state = model.word2state
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):

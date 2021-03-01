@@ -14,4 +14,4 @@ source /home/jtc257/scripts/env.sh
 hmmenv
 cd /home/jtc257/python/hmm-lm
 
-python main.py  --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_type none     --model blhmm --bsz 128 --num_classes 1024 --emb_dim 256     --hidden_dim 256 --dataset ptb --iterator bucket
+python main.py  --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_type none     --model blhmm --bsz 256 --num_classes 1024 --emb_dim 256     --hidden_dim 256 --dataset ptb --iterator bucket

@@ -27,7 +27,7 @@ python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 --dropout_ty
     --projection_method static --update_proj 1 \
     --num_features {num_features} \
     --anti 0 --l2norm 0 --sm_emit 1 \
-    --eff 1 --eval_bsz 256
+    --eff 1
 """
     return header
 
@@ -38,7 +38,7 @@ def make_filename(num_states, num_features):
 #grid_num_states = [8192, 4096, 2048, 1024, 512]
 #grid_num_features = [1024, 512, 256, 128, 64]
 grid_num_states = [16384, 8192]
-grid_num_features = [4096, 2048, 1024]
+grid_num_features = [8192]
 
 
 for num_states, num_features in product(grid_num_states, grid_num_features):
