@@ -1,16 +1,6 @@
 import os
 import time as timep
 
-"""
-import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "get_fb",
-    "hmm_runners/hmm.py",
-)
-foo = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(foo)
-"""
-
 import torch as th
 import torch.nn as nn
 
@@ -187,8 +177,8 @@ class BLHmmLm(nn.Module):
 
         if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ fy.T
-            logits = logits.log_softmax(-1)
-            return logits
+            logits = self.log_dropout(logits, mask)
+            return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
@@ -217,10 +207,10 @@ class BLHmmLm(nn.Module):
         if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ self.next_state_emb.T
             #logits = fx @ gy.T
-            logits = logits.log_softmax(-1)
-            #logits = self.log_dropout(logits, mask).log_softmax(-1)
-            #logits = logits.masked_fill(logits != logits, float("-inf"))
-            return logits
+            # DROPOUT
+            logits = self.log_dropout(logits, mask).log_softmax(-1)
+            logits = logits.masked_fill(logits != logits, float("-inf"))
+            return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             # important to renormalize. maybe move this into project_logits
             if self.l2norm:
@@ -396,6 +386,8 @@ class BLHmmLm(nn.Module):
         emission = self.emission()
 
         if lpz is not None:
+            raise NotImplementedError
+            # have to handle masking, but ok for now since not bptt.
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
         else:
             start = self.start(start_mask)
