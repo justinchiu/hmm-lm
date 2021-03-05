@@ -177,7 +177,8 @@ class LogDropoutM(nn.Module):
             while annihilate_mask.dim() < x.dim():
                 annihilate_mask = annihilate_mask.unsqueeze(0)
             annihilate_mask = annihilate_mask.expand(x.shape)
-            return x.masked_fill(annihilate_mask, float("-inf"))
+            #return x.masked_fill(annihilate_mask, float("-inf"))
+            return x.masked_fill(annihilate_mask, -1e5)
         else:
             return x
 

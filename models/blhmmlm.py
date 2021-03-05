@@ -209,8 +209,8 @@ class BLHmmLm(nn.Module):
             #logits = fx @ gy.T
             # DROPOUT
             logits = self.log_dropout(logits, mask).log_softmax(-1)
-            logits = logits.masked_fill(logits != logits, float("-inf"))
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
+            #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             # important to renormalize. maybe move this into project_logits
@@ -282,7 +282,7 @@ class BLHmmLm(nn.Module):
             start = self.start()
 
         emission = self.emission()
-        return start, transition.exp(), emission
+        return start, transition, emission
 
     def compute_loss(                                           
         self,
@@ -299,6 +299,7 @@ class BLHmmLm(nn.Module):
             )
 
         N, T = text.shape
+        transition = transition.exp()
 
         p_emit = emission[
             th.arange(self.C)[None,None],
