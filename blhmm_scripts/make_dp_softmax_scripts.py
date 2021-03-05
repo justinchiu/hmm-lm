@@ -5,7 +5,7 @@ import os
 
 def make_script(num_states, dropout_type, dropout):
     header = f"""#!/bin/bash
-#SBATCH -J b{num_states}f{num_features}
+#SBATCH -J dps{num_states}{dropout_type}{dropout}
 #SBATCH -p rush
 #SBATCH --nodelist=rush-compute01
 #SBATCH --nodes=1
@@ -28,8 +28,8 @@ python main.py --lr 0.001 --column_dropout 0 \
 """
     return header
 
-def make_filename(num_states, num_features):
-    filename = f"hmm-s{num_states}-f{num_features}.sub"
+def make_filename(num_states, dropout_type, dropout):
+    filename = f"sdp-s{num_states}-{dropout_type}{dropout}.sub"
     return filename
 
 #grid_num_states = [8192, 4096, 2048, 1024, 512]
@@ -44,7 +44,7 @@ for num_states, dropout_type, dropout in product(
     grid_dropout_type, grid_dropout,
 ):
     filename = make_filename(num_states, dropout_type, dropout)
-    body = make_script(num_states, num_features)
+    body = make_script(num_states, dropout_type, dropout)
     # write script content
     with open(filename, "w") as f:
         f.write(body)

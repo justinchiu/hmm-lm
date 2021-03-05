@@ -633,7 +633,7 @@ def main():
     #valid_losses, valid_n = mixed_cached_eval_loop(args, V, valid_iter, model)
     #import pdb; pdb.set_trace()
     if args.eval_only:
-        # uncomment this later
+        # make sure this is uncommented
         model.load_state_dict(th.load(args.eval_only)["model"])
         from utils import dump_transition
         dump_transition(model)

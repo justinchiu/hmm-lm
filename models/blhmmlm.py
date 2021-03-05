@@ -210,6 +210,7 @@ class BLHmmLm(nn.Module):
             # DROPOUT
             logits = self.log_dropout(logits, mask).log_softmax(-1)
             logits = logits.masked_fill(logits != logits, float("-inf"))
+            import pdb; pdb.set_trace()
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             # important to renormalize. maybe move this into project_logits
