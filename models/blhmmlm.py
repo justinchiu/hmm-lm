@@ -171,13 +171,13 @@ class BLHmmLm(nn.Module):
         return self._projection_emit
 
     def start(self, mask=None):
+        keep_mask = ~mask if mask is not None else None
         #return self.start_mlp(self.start_emb).log_softmax(-1)
         fx = self.start_mlp(self.start_emb)
         fy = self.next_state_emb if self.tie_start else self.next_start_emb
 
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = fx @ fy.T
-            logits = self.log_dropout(logits, mask)
+            logits = fx @ fy.T if mask is None else fx @ fy[keep_mask].T
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             if self.l2norm:
@@ -201,15 +201,13 @@ class BLHmmLm(nn.Module):
         return self.log_dropout(x, mask).log_softmax(-1)
 
     def transition(self, mask=None):
+        keep_mask = ~mask if mask is not None else None
         fx = self.state_emb
-        #gy = self.trans_mlp2(self.next_state_emb)
-        #fx = self.state_emb
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = fx @ self.next_state_emb.T
-            #logits = fx @ gy.T
-            # DROPOUT
-            logits = self.log_dropout(logits, mask).log_softmax(-1)
-            #import pdb; pdb.set_trace()
+            logits = (fx @ self.next_state_emb.T
+                if mask is None
+                else fx[keep_mask] @ self.next_state_emb[keep_mask].T
+            )
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
@@ -230,8 +228,10 @@ class BLHmmLm(nn.Module):
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
-    def emission(self):
-        fx = self.terminal_mlp(self.preterminal_emb)
+    def emission(self, mask=None):
+        keep_mask = ~mask if mask is not None else None
+        fx = self.terminal_mlp(self.preterminal_emb
+            if mask is None else self.preterminal_emb[keep_mask])
         if self.parameterization == "softmax" or self.sm_emit:
             return (fx @ self.terminal_emb.T).log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_emit:
@@ -339,12 +339,14 @@ class BLHmmLm(nn.Module):
             # no dropout
             pass
         elif self.dropout_type == "transition":
+            raise NotImplementedError
             transition_mask = (th.empty(self.C, self.C, device=self.device)
                 .fill_(self.transition_dropout)
                 .bernoulli_()
                 .bool()
             )
         elif self.dropout_type == "starttransition":
+            raise NotImplementedError
             transition_mask = (th.empty(self.C, self.C, device=self.device)
                 .fill_(self.transition_dropout)
                 .bernoulli_()
@@ -356,12 +358,14 @@ class BLHmmLm(nn.Module):
                 .bool()
             )
         elif self.dropout_type == "column":
+            raise NotImplementedError
             transition_mask = (th.empty(self.C, device=self.device)
                 .fill_(self.transition_dropout)
                 .bernoulli_()
                 .bool()
             )
         elif self.dropout_type == "startcolumn":
+            raise NotImplementedError
             transition_mask = (th.empty(self.C, device=self.device)
                 .fill_(self.transition_dropout)
                 .bernoulli_()
@@ -369,13 +373,12 @@ class BLHmmLm(nn.Module):
             )
             start_mask = (th.empty(self.C, device=self.device)
                 .fill_(self.transition_dropout)
-                .bernoulli_()
+                .bernoulli_(self.transition_dropout)
                 .bool()
             )
         elif self.dropout_type == "state":
             m = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
+                .bernoulli_(self.transition_dropout)
                 .bool()
             )
             start_mask, transition_mask = m, m
@@ -385,7 +388,7 @@ class BLHmmLm(nn.Module):
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
         transition = self.transition(transition_mask).exp()
-        emission = self.emission()
+        emission = self.emission(transition_mask)
 
         if lpz is not None:
             raise NotImplementedError
@@ -396,8 +399,9 @@ class BLHmmLm(nn.Module):
             #start_logits = self.start_logits()
             #start = self.mask_start(start_logits, start_mask)
 
+        num_states = self.C if mask is None else (~transition_mask).sum().item()
         p_emit = emission[
-            th.arange(self.C)[None,None],
+            th.arange(num_states)[None,None],
             text[:,:,None],
         ]
 
