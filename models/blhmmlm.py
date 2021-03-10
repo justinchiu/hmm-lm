@@ -95,6 +95,7 @@ class BLHmmLm(nn.Module):
         )
 
         self.transition_dropout = config.transition_dropout
+        self.feature_dropout = config.feature_dropout
         self.log_dropout = LogDropoutM(config.transition_dropout)
         self.dropout_type = config.dropout_type
 
@@ -170,8 +171,9 @@ class BLHmmLm(nn.Module):
             raise ValueError(f"Invalid projection_method: {self.projection_method}")
         return self._projection_emit
 
-    def start(self, mask=None):
+    def start(self, mask=None, feat_mask=None):
         keep_mask = ~mask if mask is not None else None
+        keep_feat_mask = ~feat_mask if feat_mask is not None else None
         #return self.start_mlp(self.start_emb).log_softmax(-1)
         fx = self.start_mlp(self.start_emb)
         fy = self.next_state_emb if self.tie_start else self.next_start_emb
@@ -180,13 +182,15 @@ class BLHmmLm(nn.Module):
             logits = fx @ fy.T if mask is None else fx @ fy[keep_mask].T
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
+            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
             logits = project_logits(
                 fx[None, None],
                 fy[None],
-                self.projection,
+                projection,
                 rff_method = self.config.rff_method,
             )[0,0].log_softmax(-1)
             return logits
@@ -200,8 +204,9 @@ class BLHmmLm(nn.Module):
     def mask_start(self, x, mask=None):
         return self.log_dropout(x, mask).log_softmax(-1)
 
-    def transition(self, mask=None):
+    def transition(self, mask=None, feat_mask=None):
         keep_mask = ~mask if mask is not None else None
+        keep_feat_mask = ~feat_mask if feat_mask is not None else None
         fx = self.state_emb
         if self.parameterization == "softmax" or self.sm_trans:
             logits = (fx @ self.next_state_emb.T
@@ -211,16 +216,17 @@ class BLHmmLm(nn.Module):
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
+            fx = fx if keep_mask is None else fx[keep_mask]
+            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
-                fy = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
-            else:
-                fy = self.next_state_emb
+                fy = fy / fy.norm(dim=-1, keepdim=True)
             logits = project_logits(
                 fx[None],
                 fy[None],
-                self.projection,
+                projection,
                 rff_method = self.config.rff_method,
             )[0].log_softmax(-1)
             #import pdb; pdb.set_trace()
@@ -334,7 +340,7 @@ class BLHmmLm(nn.Module):
     def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         N, T = text.shape
 
-        start_mask, transition_mask = None, None
+        start_mask, transition_mask, feat_mask = None, None, None
         if not self.training or self.dropout_type == "none" or self.dropout_type is None:
             # no dropout
             pass
@@ -382,12 +388,16 @@ class BLHmmLm(nn.Module):
                 .bool()
             )
             start_mask, transition_mask = m, m
+            feat_mask = (th.empty(self.D, device=self.device)
+                .bernoulli_(self.feature_dropout)
+                .bool()
+            )
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
 
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
-        transition = self.transition(transition_mask).exp()
+        transition = self.transition(transition_mask, feat_mask).exp()
         emission = self.emission(transition_mask)
 
         if lpz is not None:
@@ -399,7 +409,7 @@ class BLHmmLm(nn.Module):
             #start_logits = self.start_logits()
             #start = self.mask_start(start_logits, start_mask)
 
-        num_states = self.C if mask is None else (~transition_mask).sum().item()
+        num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
         p_emit = emission[
             th.arange(num_states)[None,None],
             text[:,:,None],
@@ -434,40 +444,55 @@ class BLHmmLm(nn.Module):
         C = self.C
         D = self.D
 
-        start_mask, transition_mask = None, None
+        start_mask, transition_mask, feat_mask = None, None, None
+        if not self.training or self.dropout_type == "none" or self.dropout_type is None:
+            # no dropout
+            pass
+        elif self.dropout_type == "state":
+            m = (th.empty(self.C, device=self.device)
+                .bernoulli_(self.transition_dropout)
+                .bool()
+            )
+            start_mask, transition_mask = m, m
+            feat_mask = (th.empty(self.D, device=self.device)
+                .bernoulli_(self.feature_dropout)
+                .bool()
+            )
+        else:
+            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
 
         if lpz is not None:
             start = lpz
         else:
-            start = self.start()
-
+            start = self.start(start_mask, feat_mask)
         if self.timing:
             start_ = timep.time()
-        emission = self.emission()
+        emission = self.emission(transition_mask)
         if self.timing:
             print(f"total emit time: {timep.time() - start_}")
             start_ = timep.time()
 
         # gather emission
         # N x T x C
+        num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
         logp_emit = emission[
-            th.arange(self.C)[None,None],
+            th.arange(num_states)[None,None],
             text[:,:,None],
         ]
         if self.timing:
             print(f"total emit index time: {timep.time() - start_}")
             start_ = timep.time()
 
+        state_emb = self.state_emb if transition_mask is None else self.state_emb[~transition_mask]
+        next_state_emb = self.next_state_emb if transition_mask is None else self.next_state_emb[~transition_mask]
         if self.l2norm:
-            state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
-            next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
-        else:
-            state_emb = self.state_emb
-            next_state_emb = self.next_state_emb
+            state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
+            next_state_emb = next_state_emb / next_state_emb.norm(dim=-1, keepdim=True)
 
         # sum vectors and sum matrices
-        log_phi_w = state_emb @ self.projection
-        log_phi_u = next_state_emb @ self.projection
+        projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
 
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
