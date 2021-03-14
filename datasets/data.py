@@ -316,6 +316,7 @@ class BPTTIterator(Iterator):
 
     def __iter__(self):
         text = self.dataset[0].text
+        import pdb; pdb.set_trace()
         TEXT = self.dataset.fields['text']
         TEXT.eos_token = None
         text = text + ([TEXT.pad_token] * int(math.ceil(len(text) / self.batch_size)
