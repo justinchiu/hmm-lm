@@ -16,9 +16,6 @@ from utils import Pack
 
 from .linear_utils import get_2d_array, project_logits
 
-from hmm_runners.hmm import get_fb
-from hmm_runners.logmm2 import get_logmm_fwd, get_logmm_bwd
-
 def trans(s):
     return s.transpose(-2, -1).contiguous()
 
