@@ -22,6 +22,7 @@ class Cat(nn.Module):
         sm=False,
         l2norm=False,
     ):
+        torch.manual_seed(0)
         super(Cat, self).__init__()
         self.sm = sm
         self.l2norm = l2norm
@@ -84,7 +85,7 @@ num_classes_grid = [1024, 2048, 4096, 8192]
 num_classes_grid = [1024, 2048]
 
 device = torch.device("cuda:0")
-num_steps = 2000
+num_steps = 10000
 
 def init_optimizer(model):
     parameters = list(model.parameters())
