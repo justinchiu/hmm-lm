@@ -225,6 +225,7 @@ class BLHmmLm(nn.Module):
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
+                fast = False, # save memory by using genbmm.logbmm
             )[0].log_softmax(-1)
             #import pdb; pdb.set_trace()
             return logits

@@ -34,7 +34,8 @@ def make_filename(num_states, dropout_type, dropout):
 
 #grid_num_states = [8192, 4096, 2048, 1024, 512]
 #grid_num_features = [1024, 512, 256, 128, 64]
-grid_num_states = [16384, 8192]
+#grid_num_states = [16384, 8192]
+grid_num_states = [4096]
 
 grid_dropout_type = ["state"]
 grid_dropout = [0, 0.1, 0.2, 0.3, 0.4, 0.5]

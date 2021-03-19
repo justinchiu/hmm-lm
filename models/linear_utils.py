@@ -190,11 +190,15 @@ def keops_logbmm(x, y):
     result = expand.logsumexp(-1)
     return result
 
-def logbmm(x, y):
+def mylogbmm(x, y):
     expand = x[:,:,None,:] + y[:,None,:,:]
     return expand.logsumexp(-1)
 
-def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", no_shift=False):
+def project_logits(
+    query, key, projection_matrix,
+    eps=0.0001, rff_method="log", no_shift=False,
+    fast=True,
+):
     kernel = nonnegative_softmax_kernel_feature_creator
 
     if rff_method == "exp":
@@ -205,7 +209,7 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         log_key_features = kernel(
             key, projection_matrix, eps=eps,
         )
-        return checkpoint(logbmm, log_query_features, log_key_features)
+        return checkpoint(mylogbmm, log_query_features, log_key_features)
 
     elif rff_method == "log":
         # log space
@@ -220,9 +224,11 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         #import pdb; pdb.set_trace()
         # slow and memory...would like log-bmm
         # bxz x src x tgt x dim
-        #import pdb; pdb.set_trace()
 
-        return checkpoint(logbmm, log_query_features, log_key_features)
+        if fast:
+            return checkpoint(mylogbmm, log_query_features, log_key_features)
+        else:
+            return logbmm(log_query_features, log_key_features.transpose(-1, -2).contiguous())
         # use tvm logbmm
 
     elif rff_method == "relu":
@@ -233,7 +239,7 @@ def project_logits(query, key, projection_matrix, eps=0.0001, rff_method="log", 
         log_key_features = kernel(
             key, projection_matrix, eps=eps,
         )
-        return checkpoint(logbmm, log_query_features, log_key_features)
+        return checkpoint(mylogbmm, log_query_features, log_key_features)
 
     else:
         raise ValueError(f"Invalid rff_method: {rff_method}")

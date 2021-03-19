@@ -21,12 +21,14 @@ class Cat(nn.Module):
         xavier_init=True,
         sm=False,
         l2norm=False,
+        random_feature=False,
     ):
         torch.manual_seed(0)
         super(Cat, self).__init__()
         self.sm = sm
         self.l2norm = l2norm
         self.temp = temp
+        self.random_feature = random_feature
 
         self.start_emb = nn.Parameter(
             torch.randn(num_starts, emb_dim),
