@@ -42,8 +42,16 @@ def make_filename(num_states, num_features):
 grid_num_states = [16384, 8192, 4096, 2048, 1024, 512]
 grid_num_features = [2048, 1024, 512, 256]
 
+configurations = [
+    (16384, 16384),
+    (8192, 512),
+    (4096, 2048),
+    (4096, 4096),
+    (2048, 2048),
+]
 
-for num_states, num_features in product(grid_num_states, grid_num_features):
+#for num_states, num_features in product(grid_num_states, grid_num_features):
+for num_states, num_features in configurations:
     filename = make_filename(num_states, num_features)
     body = make_script(num_states, num_features)
     # write script content
