@@ -44,14 +44,23 @@ class Cat(nn.Module):
                     nn.init.xavier_uniform_(p)
 
         # leave this at orthogonal init
-        self.proj = nn.Parameter(
-            get_2d_array(feature_dim, emb_dim).T
-        )
+        self.proj_shape = (feature_dim, emb_dim)
+        self.proj = nn.Parameter(get_2d_array(*self.proj_shape).T)
+        if self.random_feature:
+            self.proj.requires_grad = False
+            self.counter = 1
+
+    def sample_proj(self):
+        if (self.counter % 100) == 0:
+            self.proj.copy_(get_2d_array(*self.proj_shape).T)
+        self.counter += 1
+        return self.proj
 
     def log_probs(self):
         return self.sm_log_probs() if self.sm else self.k_log_probs()
 
     def k_log_probs(self):
+        proj = self.proj if not self.random_feature else self.sample_proj().to(self.proj.device)
         fx = self.start_emb
         fy = self.output_emb
         if self.l2norm:
@@ -60,7 +69,7 @@ class Cat(nn.Module):
         logits = project_logits(
             fx[None],
             fy[None],
-            self.proj,
+            proj,
             rff_method = "log",
         )[0]
         return logits.log_softmax(-1)
@@ -82,19 +91,22 @@ def H(lp):
 emb_dim = 256
 num_starts = 128
 feature_dim_ratio_grid = [1, 2, 4, 8, 16]
+feature_dim_ratio_grid = [2, 4, 8]
 num_classes_grid = [1024, 2048]
 
 num_classes_grid = [128, 256, 512]
 num_classes_grid = [128]
 
 device = torch.device("cuda:0")
-num_steps = 2000
+#num_steps = 2000
+num_steps = 4000
 
 def init_optimizer(model):
     parameters = list(model.parameters())
     return AdamW(
         parameters,
         lr = 1e-3,
+        #lr = 1e-4,
         betas = (0.9, 0.999),
         weight_decay = 0.,
     )
@@ -112,7 +124,7 @@ def train(true_dist, model, num_steps):
     return kls
 
 
-def run_fit(true_dist_fn):
+def run_fit(true_dist_fn, random_feature=False):
     for num_classes in num_classes_grid:
         true_dist = true_dist_fn(num_classes)
         num_starts = true_dist.shape[0]
@@ -133,7 +145,9 @@ def run_fit(true_dist_fn):
             feature_dim = num_classes // feature_dim_ratio
             model = Cat(
                 num_starts,
-                num_classes, emb_dim, feature_dim)
+                num_classes, emb_dim, feature_dim,
+                random_feature = random_feature,
+            )
             model.to(device)
             losses = train(true_dist, model, num_steps)
             print(num_starts, num_classes, feature_dim, losses[-1])
@@ -149,6 +163,7 @@ def run_fit(true_dist_fn):
             """
 
 for eps in [1e-5, 1e-3, 1e-1]:
+#for eps in [1e-3]:
     print(f"Smoothing eps: {eps}")
     print("Smoothed One-hot True Dist")
     # true dist is one-hot + smoothing
@@ -157,7 +172,10 @@ for eps in [1e-5, 1e-3, 1e-1]:
         true_dist = logits.log_softmax(-1)
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         return true_dist
+    print("Learned features")
     run_fit(true_dist_onehot)
+    #print("Random features")
+    #run_fit(true_dist_onehot, random_feature=True)
     print()
 
     print("Smoothed 2-hot True Dist")
@@ -184,9 +202,6 @@ for eps in [1e-5, 1e-3, 1e-1]:
         return true_dist
     run_fit(true_dist_onehot)
     print()
-
-
-
 
 
 print("Random Softmax True Dist")
