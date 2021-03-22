@@ -14,15 +14,17 @@ from .misc import ResLayer, LogDropoutM
 
 from utils import Pack
 
+from assign import read_lm_clusters, assign_states_brown_cluster
+
 from .linear_utils import get_2d_array, project_logits
 
 def trans(s):
     return s.transpose(-2, -1).contiguous()
 
-# Factored Bmm Linear Hmm Language model
-class FBLHmmLm(nn.Module):
+# Sparse Bmm Linear Hmm Language model
+class SblHmmLm(nn.Module):
     def __init__(self, V, config):
-        super(FBLHmmLm, self).__init__()
+        super(SblHmmLm, self).__init__()
 
         self.config = config
         self.V = V
@@ -43,6 +45,7 @@ class FBLHmmLm(nn.Module):
 
         self.hidden_dim = config.hidden_dim
 
+        # init parameters
 
         # p(z0)
         self.tie_start = config.tie_start
@@ -97,17 +100,6 @@ class FBLHmmLm(nn.Module):
         self.log_dropout = LogDropoutM(config.transition_dropout)
         self.dropout_type = config.dropout_type
 
-        self.keep_counts = config.keep_counts > 0
-        if self.keep_counts:
-            self.register_buffer(
-                "counts",
-                th.zeros(self.C, len(self.V)),
-            )
-            self.register_buffer(
-                "state_counts",
-                th.zeros(self.C, dtype=th.int),
-            )
-
         # init
         for p in self.parameters():
             if p.dim() > 1:
@@ -129,6 +121,48 @@ class FBLHmmLm(nn.Module):
                         self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
+    def init_partitions(self, config):
+        self.num_clusters = config.num_clusters
+
+        self.words_per_state = config.words_per_state
+        self.states_per_word = config.states_per_word
+        self.train_states_per_word = config.train_spw
+        self.states_per_word_d = config.train_spw
+
+
+        path = f"clusters/lm-{self.num_clusters}/paths"
+
+        word2cluster, word_counts, cluster2word = read_lm_clusters(
+            self.V,
+            path=path,
+        )
+        self.word_counts = word_counts
+
+        assert self.states_per_word * self.num_clusters <= self.C
+
+        word2state = None
+        if config.assignment == "brown":
+            (
+                word2state,
+                cluster2state,
+                word2cluster,
+                c2sw_d,
+            ) = assign_states_brown_cluster(
+                self.C,
+                word2cluster,
+                V,
+                self.states_per_word,
+                self.states_per_word_d,
+            )
+        else:
+            raise ValueError(f"No such assignment {config.assignment}")
+
+        # need to save this with model
+        self.register_buffer("word2state", th.from_numpy(word2state))
+        self.register_buffer("cluster2state", th.from_numpy(cluster2state))
+        self.register_buffer("word2cluster", th.from_numpy(word2cluster))
+        self.register_buffer("c2sw_d", c2sw_d)
+        self.register_buffer("word2state_d", self.c2sw_d[self.word2cluster])
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
