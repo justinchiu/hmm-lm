@@ -184,6 +184,68 @@ for t in range(T-1):
     evidences_bmm.append(Ot)
 O = torch.cat(evidences_bmm, -1)
 evidence_slow_bmm = O.sum(-1)
+print("LOOPBMM")
+print(evidence_slow_bmm)
+
+# SPARSELOOPBMM
+log_phi_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = next_state_emb @ projection
+
+start = (log_phi_start[None,None] + log_phi_u[None,:]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[None]).logsumexp(-1).softmax(-1)
+emission_logits = (preterminal_emb @ terminal_emb.T)
+emission_logits.masked_fill_(~mask, -1e7)
+#emission = emission_logits.log_softmax(-1)
+# issues when some states dont emit any words, but doesnt matter for now since computing evidence
+emission_pre = emission_logits.log_softmax(-1)
+emission = emission_pre.masked_fill(~mask, float("-inf"))
+# (emission_pre[:,0].exp() > 1e-2).nonzero()
+# emission[:,0].exp().nonzero()
+ 
+# gather emission
+# N x T x C
+p_emit0 = emission[
+    torch.arange(C)[None,None],
+    text[:,:,None],
+]
+state_t = word2state[text]
+p_emit = emission[
+    state_t,
+    text[:,:,None],
+]
+
+transitions = transition[state_t[:,:-1,:,None], state_t[:,1:,None,:]]
+
+alphas_bmm = []
+evidences_bmm = []
+
+alpha_un0 = start + p_emit0[:,0] 
+Ot0 = alpha_un0.logsumexp(-1, keepdim=True)
+alpha0 = (alpha_un0 - Ot0).exp()
+
+alpha_un = start[0, state_t[:,0]] + p_emit[:,0] # {N} x S
+Ot = alpha_un.logsumexp(-1, keepdim=True)
+alpha = (alpha_un - Ot).exp()
+alphas_bmm.append(alpha)
+evidences_bmm.append(Ot)
+for t in range(T-1):
+    # logbmm
+    #alpha = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
+    alpha_un0 = (alpha0 @ transition).log() + p_emit0[:,t+1]
+    Ot0 = alpha_un0.logsumexp(-1, keepdim=True)
+    alpha0 = (alpha_un0 - Ot0).exp()
+
+    # hm, not sure if this is slow though?
+    alpha_un = (alpha[:,None] @ transitions[:,t])[:,0].log() + p_emit[:,t+1]
+    Ot = alpha_un.logsumexp(-1, keepdim=True)
+    alpha = (alpha_un - Ot).exp()
+
+    alphas_bmm.append(alpha)
+    evidences_bmm.append(Ot)
+O = torch.cat(evidences_bmm, -1)
+evidence_slow_bmm = O.sum(-1)
+print("SPARSELOOPBMM")
 print(evidence_slow_bmm)
 
 # LOOP_FAST
@@ -201,8 +263,6 @@ emission_pre = emission_logits.log_softmax(-1)
 emission = emission_pre.masked_fill(~mask, float("-inf"))
 # (emission_pre[:,0].exp() > 1e-2).nonzero()
 # emission[:,0].exp().nonzero()
-
-
 
 # O(CD)
 log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)

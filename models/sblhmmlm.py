@@ -246,12 +246,6 @@ class SblHmmLm(nn.Module):
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
 
-    def start_logits(self):
-        return self.start_mlp(self.start_emb).squeeze(-1)
-
-    def mask_start(self, x, mask=None):
-        return self.log_dropout(x, mask).log_softmax(-1)
-
     def transition(self, states=None, feat_mask=None):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
         fx = self.state_emb
