@@ -435,7 +435,7 @@ def train_loop(
                         eval_fn = cached_eval_loop
                 elif args.model == "hmm" or args.model == "lhmm" or args.model == "sparsekernelhmm":
                     eval_fn = cached_eval_loop
-                elif args.model == "blhmm":
+                elif args.model == "blhmm" or args.model == "sblhmm":
                     eval_fn = fast_eval_loop
                 else:
                     eval_fn = eval_loop
@@ -579,6 +579,9 @@ def main():
     elif args.model == "blhmm":
         from models.blhmmlm import BLHmmLm
         model = BLHmmLm(V, args)
+    elif args.model == "sblhmm":
+        from models.sblhmmlm import SblHmmLm
+        model = SblHmmLm(V, args)
     elif args.model == "sparsekernelhmm":
         from models.sparse_kernel_hmmlm import SparseKernelHmmLm
         model = SparseKernelHmmLm(V, args)
@@ -650,7 +653,7 @@ def main():
                 eval_fn = cached_eval_loop
         elif args.model == "hmm" or args.model =="lhmm":
             eval_fn = cached_eval_loop
-        elif args.model == "blhmm":
+        elif args.model == "blhmm" or args.model == "sblhmm":
             eval_fn = fast_eval_loop
         else:
             eval_fn = eval_loop
@@ -726,7 +729,7 @@ def main():
                 eval_fn = cached_eval_loop
         elif args.model == "hmm" or args.model == "lhmm":
             eval_fn = cached_eval_loop
-        elif args.model == "blhmm":
+        elif args.model == "blhmm" or args.model == "sblhmm":
             eval_fn = fast_eval_loop
         else:
             eval_fn = eval_loop

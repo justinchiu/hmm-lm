@@ -1,0 +1,207 @@
+Lower entropy is harder to fit
+Temperature 1
+True dist H: 1.04
+SM 128 128 0.03256914019584656
+num singular values > 1e-5: 127
+128 128 64 0.5910396575927734
+num singular values > 1e-5: 56
+128 128 128 0.30160874128341675
+num singular values > 1e-5: 83
+128 128 256 0.21995508670806885
+num singular values > 1e-5: 107
+128 128 512 0.06247726082801819
+num singular values > 1e-5: 123
+
+Temperature 2
+True dist H: 2.33
+SM 128 128 0.0332036130130291
+num singular values > 1e-5: 128
+128 128 64 0.33584219217300415
+num singular values > 1e-5: 64
+128 128 128 0.13147148489952087
+num singular values > 1e-5: 116
+128 128 256 0.06843869388103485
+num singular values > 1e-5: 128
+128 128 512 0.04231538623571396
+num singular values > 1e-5: 128
+
+Temperature 3
+True dist H: 3.33
+SM 128 128 0.011192752048373222
+num singular values > 1e-5: 128
+128 128 64 0.21794608235359192
+num singular values > 1e-5: 64
+128 128 128 0.08316123485565186
+num singular values > 1e-5: 125
+128 128 256 0.04484857618808746
+num singular values > 1e-5: 128
+128 128 512 0.021491536870598793
+num singular values > 1e-5: 128
+
+Temperature 4
+True dist H: 3.91
+SM 128 128 0.0006517902947962284
+num singular values > 1e-5: 128
+128 128 64 0.13347624242305756
+num singular values > 1e-5: 64
+128 128 128 0.05286561697721481
+num singular values > 1e-5: 127
+128 128 256 0.022467592731118202
+num singular values > 1e-5: 128
+128 128 512 0.009501960128545761
+num singular values > 1e-5: 128
+
+Temperature 5
+True dist H: 4.23
+SM 128 128 5.309779226081446e-05
+num singular values > 1e-5: 128
+128 128 64 0.08458054810762405
+num singular values > 1e-5: 64
+128 128 128 0.03421100229024887
+num singular values > 1e-5: 127
+128 128 256 0.013261561281979084
+num singular values > 1e-5: 128
+128 128 512 0.004750067368149757
+num singular values > 1e-5: 128
+
+Higher rank is harder to fit
+True dist H: 0.90
+SM 64 64 0.015628568828105927
+num singular values > 1e-5: 64
+64 64 64 0.23379197716712952
+num singular values > 1e-5: 45
+64 64 128 0.11953829973936081
+num singular values > 1e-5: 54
+64 64 256 0.07245372235774994
+num singular values > 1e-5: 63
+64 64 512 0.041181132197380066
+num singular values > 1e-5: 63
+True dist H: 1.04
+SM 128 128 0.03256914019584656
+num singular values > 1e-5: 127
+128 128 64 0.5910396575927734
+num singular values > 1e-5: 56
+128 128 128 0.30160874128341675
+num singular values > 1e-5: 83
+128 128 256 0.21995508670806885
+num singular values > 1e-5: 107
+128 128 512 0.06247726082801819
+num singular values > 1e-5: 123
+True dist H: 1.21
+SM 256 256 0.06461470574140549
+num singular values > 1e-5: 255
+256 256 64 1.1909197568893433
+num singular values > 1e-5: 60
+256 256 128 0.8528389930725098
+num singular values > 1e-5: 100
+256 256 256 0.4426004886627197
+num singular values > 1e-5: 160
+256 256 512 0.2693963050842285
+num singular values > 1e-5: 208
+
+Higher number of classes is harder to fit
+True dist H: 1.04
+SM 128 128 0.03256914019584656
+num singular values > 1e-5: 127
+128 128 64 0.5910396575927734
+num singular values > 1e-5: 56
+128 128 128 0.30160874128341675
+num singular values > 1e-5: 83
+128 128 256 0.21995508670806885
+num singular values > 1e-5: 107
+128 128 512 0.06247726082801819
+num singular values > 1e-5: 123
+True dist H: 1.13
+SM 128 256 0.039398904889822006
+num singular values > 1e-5: 128
+128 256 64 0.8771052360534668
+num singular values > 1e-5: 51
+128 256 128 0.6664777994155884
+num singular values > 1e-5: 72
+128 256 256 0.430441290140152
+num singular values > 1e-5: 101
+128 256 512 0.14764812588691711
+num singular values > 1e-5: 125
+True dist H: 1.42
+SM 128 512 0.05125164985656738
+num singular values > 1e-5: 128
+128 512 64 1.1354649066925049
+num singular values > 1e-5: 49
+128 512 128 0.7466439604759216
+num singular values > 1e-5: 77
+128 512 256 0.3937196731567383
+num singular values > 1e-5: 106
+128 512 512 0.2763563096523285
+num singular values > 1e-5: 124
+True dist H: 1.62
+SM 128 1024 0.05613091215491295
+num singular values > 1e-5: 128
+128 1024 64 1.3075810670852661
+num singular values > 1e-5: 45
+128 1024 128 0.8573189973831177
+num singular values > 1e-5: 74
+128 1024 256 0.7347115874290466
+num singular values > 1e-5: 88
+128 1024 512 0.2838372588157654
+num singular values > 1e-5: 123
+True dist H: 1.69
+SM 128 2048 0.05369114875793457
+num singular values > 1e-5: 128
+128 2048 64 1.5694012641906738
+num singular values > 1e-5: 37
+128 2048 128 1.0078493356704712
+num singular values > 1e-5: 64
+128 2048 256 0.7628945112228394
+num singular values > 1e-5: 84
+128 2048 512 0.38662189245224
+num singular values > 1e-5: 107
+
+Lower number of starts is easier to fit
+True dist H: 1.56
+SM 32 1024 0.011238801293075085
+num singular values > 1e-5: 32
+32 1024 64 0.395285964012146
+num singular values > 1e-5: 24
+32 1024 128 0.24801144003868103
+num singular values > 1e-5: 28
+32 1024 256 0.219934344291687
+num singular values > 1e-5: 28
+32 1024 512 0.09374913573265076
+num singular values > 1e-5: 30
+
+True dist H: 1.50
+SM 64 1024 0.02416435070335865
+num singular values > 1e-5: 64
+64 1024 64 0.8756957054138184
+num singular values > 1e-5: 30
+64 1024 128 0.5366683006286621
+num singular values > 1e-5: 45
+64 1024 256 0.3818734884262085
+num singular values > 1e-5: 51
+64 1024 512 0.20351538062095642
+num singular values > 1e-5: 59
+
+True dist H: 1.62
+SM 128 1024 0.05613091215491295
+num singular values > 1e-5: 128
+128 1024 64 1.3075810670852661
+num singular values > 1e-5: 45
+128 1024 128 0.8573189973831177
+num singular values > 1e-5: 74
+128 1024 256 0.7347115874290466
+num singular values > 1e-5: 88
+128 1024 512 0.2838372588157654
+num singular values > 1e-5: 123
+
+True dist H: 1.50
+SM 256 1024 0.09726820141077042
+num singular values > 1e-5: 256
+256 1024 64 1.716306209564209
+num singular values > 1e-5: 57
+256 1024 128 1.2743223905563354
+num singular values > 1e-5: 95
+256 1024 256 0.9448729753494263
+num singular values > 1e-5: 143
+256 1024 512 0.6793460845947266
+num singular values > 1e-5: 188
+

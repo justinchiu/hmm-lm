@@ -39,6 +39,7 @@ def get_args():
         "lhmm",
         "sparsekernelhmm",
         "blhmm",
+        "sblhmm",
     ], default="chmm",)
     parser.add_argument("--seed", default=1111, type=int,)
     parser.add_argument("--eval_only", default="",)

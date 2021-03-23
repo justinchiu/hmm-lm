@@ -1,5 +1,6 @@
 
 from tqdm import trange
+from itertools import zip_longest
 
 import torch
 import torch.nn as nn
@@ -123,7 +124,13 @@ def train(true_dist, model, num_steps):
     return kls
 
 
-def run_fit(true_dist_fn, random_feature=False):
+def run_fit(
+    true_dist_fn,
+    num_classes_grid,
+    feature_dim_ratio_grid=[],
+    feature_dim_grid=[],
+    random_feature=False,
+):
     for num_classes in num_classes_grid:
         true_dist = true_dist_fn(num_classes)
         num_starts = true_dist.shape[0]
@@ -143,8 +150,11 @@ def run_fit(true_dist_fn, random_feature=False):
         print(f"num singular values > 1e-5: {num_sv}")
 
         # kernel
-        for feature_dim_ratio in feature_dim_ratio_grid:
-            feature_dim = num_classes // feature_dim_ratio
+        for feature_dim_ratio, feature_dim in zip_longest(
+            feature_dim_ratio_grid, feature_dim_grid
+        ):
+            if feature_dim is None:
+                feature_dim = int(num_classes // feature_dim_ratio)
             model = Cat(
                 num_starts,
                 num_classes, emb_dim, feature_dim,
@@ -166,11 +176,10 @@ def run_fit(true_dist_fn, random_feature=False):
             losses = train(true_dist, model, num_steps)
             print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
             """
-
+"""
+print("Higher entropy is easier to fit")
 print("Rows Cols {Feats} KL")
-
-#for eps in [1e-4, 1e-3, 1e-2]:
-for eps in [1e-3]:
+for eps in [1e-4, 1e-3, 1e-2]:
     print(f"Smoothing eps: {eps}")
     print("Smoothed One-hot True Dist")
     # true dist is one-hot + smoothing
@@ -181,35 +190,29 @@ for eps in [1e-3]:
         return true_dist
     run_fit(true_dist_onehot)
     print()
-
-    rank = num_classes // 2
-    print(f"Lower Rank: {rank}")
-    def true_dist_onehot(num_classes):
-        logits = (torch.eye(num_classes, device=device)[:rank] + eps).log()
-        logits = torch.cat((logits, logits), dim=0)
-        true_dist = logits.log_softmax(-1)
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        return true_dist
-    run_fit(true_dist_onehot)
-    #print("Random features")
-    #run_fit(true_dist_onehot, random_feature=True)
-    print()
-
-    print(f"Lower Rank: {rank}")
-    def true_dist_onehot(num_classes):
-        logits = (torch.eye(num_classes, device=device)[:rank] + eps).log()
-        true_dist = logits.log_softmax(-1)
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        return true_dist
-    run_fit(true_dist_onehot)
-    #print("Random features")
-    #run_fit(true_dist_onehot, random_feature=True)
-    print()
-
-    # lower rank
-
 """
-print("Random Softmax True Dist")
+
+temp_grid = [1, 2, 3, 4, 5]
+print("Lower entropy is harder to fit")
+for temp in temp_grid:
+    print(f"Temperature {temp}")
+    def true_dist_sm(num_classes):
+        true_model = Cat(
+            num_classes,
+            num_classes, emb_dim, 1,
+            temp=temp, xavier_init=False, sm=True)
+        true_model.to(device)
+        true_dist = true_model.log_probs().detach()
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        return true_dist
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [128],
+        feature_dim_grid = [64, 128, 256, 512],
+    )
+    print()
+
+print("Higher rank is harder to fit")
 def true_dist_sm(num_classes):
     true_model = Cat(
         num_classes,
@@ -219,5 +222,45 @@ def true_dist_sm(num_classes):
     true_dist = true_model.log_probs().detach()
     print(f"True dist H: {H(true_dist).mean().item():.2f}")
     return true_dist
-run_fit(true_dist)
-"""
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [64, 128, 256],
+    feature_dim_grid = [64, 128, 256, 512],
+)
+print()
+
+print("Higher number of classes is harder to fit")
+def true_dist_sm(num_classes):
+    true_model = Cat(
+        128,
+        num_classes, emb_dim, 1,
+        temp=1, xavier_init=False, sm=True)
+    true_model.to(device)
+    true_dist = true_model.log_probs().detach()
+    print(f"True dist H: {H(true_dist).mean().item():.2f}")
+    return true_dist
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [128, 256, 512, 1024, 2048],
+    feature_dim_grid = [64, 128, 256, 512],
+)
+print()
+
+num_starts_grid = [32, 64, 128, 256]
+print("Lower number of starts is easier to fit")
+for num_starts in num_starts_grid:
+    def true_dist_sm(num_classes):
+        true_model = Cat(
+            num_starts,
+            num_classes, emb_dim, 1,
+            temp=1, xavier_init=False, sm=True)
+        true_model.to(device)
+        true_dist = true_model.log_probs().detach()
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        return true_dist
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [1024],
+        feature_dim_grid = [64, 128, 256, 512],
+    )
+    print()

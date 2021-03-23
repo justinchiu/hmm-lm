@@ -40,9 +40,6 @@ class SblHmmLm(nn.Module):
         self.C = config.num_classes
         self.D = config.num_features
 
-
-        self.word2state = None
-
         self.hidden_dim = config.hidden_dim
 
         # init parameters
@@ -121,6 +118,8 @@ class SblHmmLm(nn.Module):
                         self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
+        self.init_partitions(config)
+
     def init_partitions(self, config):
         self.num_clusters = config.num_clusters
 
@@ -150,7 +149,7 @@ class SblHmmLm(nn.Module):
             ) = assign_states_brown_cluster(
                 self.C,
                 word2cluster,
-                V,
+                self.V,
                 self.states_per_word,
                 self.states_per_word_d,
             )
@@ -163,6 +162,24 @@ class SblHmmLm(nn.Module):
         self.register_buffer("word2cluster", th.from_numpy(word2cluster))
         self.register_buffer("c2sw_d", c2sw_d)
         self.register_buffer("word2state_d", self.c2sw_d[self.word2cluster])
+
+        self.a = (th.arange(0, len(self.V))[:, None]
+            .expand(len(self.V), self.states_per_word)
+            .contiguous()
+            .view(-1)
+            .to(self.device)
+        )
+        self.v = th.ones((len(self.V)) * self.states_per_word).to(self.device)
+
+
+        self.ad = (th.arange(0, len(self.V))[:, None]
+            .expand(len(self.V), self.states_per_word_d)
+            .contiguous()
+            .view(-1)
+            .to(self.device)
+        )
+        self.vd = th.ones((len(self.V)) * self.states_per_word_d).to(self.device)
+
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
@@ -203,18 +220,17 @@ class SblHmmLm(nn.Module):
             raise ValueError(f"Invalid projection_method: {self.projection_method}")
         return self._projection_emit
 
-    def start(self, mask=None, feat_mask=None):
-        keep_mask = ~mask if mask is not None else None
+    def start(self, states=None, feat_mask=None):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
         #return self.start_mlp(self.start_emb).log_softmax(-1)
         fx = self.start_mlp(self.start_emb)
         fy = self.next_state_emb if self.tie_start else self.next_start_emb
 
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = fx @ fy.T if mask is None else fx @ fy[keep_mask].T
+            logits = fx @ fy.T if states is None else fx @ fy[states].T
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+            fy = self.next_state_emb if states is None else self.next_state_emb[states]
             projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
@@ -236,20 +252,19 @@ class SblHmmLm(nn.Module):
     def mask_start(self, x, mask=None):
         return self.log_dropout(x, mask).log_softmax(-1)
 
-    def transition(self, mask=None, feat_mask=None):
-        keep_mask = ~mask if mask is not None else None
+    def transition(self, states=None, feat_mask=None):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
         fx = self.state_emb
         if self.parameterization == "softmax" or self.sm_trans:
             logits = (fx @ self.next_state_emb.T
                 if mask is None
-                else fx[keep_mask] @ self.next_state_emb[keep_mask].T
+                else fx[states] @ self.next_state_emb[states].T
             )
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            fx = fx if keep_mask is None else fx[keep_mask]
-            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+            fx = fx if states is None else fx[states]
+            fy = self.next_state_emb if states is None else self.next_state_emb[states]
             projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
             if self.l2norm:
@@ -267,12 +282,11 @@ class SblHmmLm(nn.Module):
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
-    def emission(self, mask=None):
-        keep_mask = ~mask if mask is not None else None
+    def emission(self, states=None):
         fx = self.terminal_mlp(self.preterminal_emb
-            if mask is None else self.preterminal_emb[keep_mask])
+            if states is None else self.preterminal_emb[states])
         if self.parameterization == "softmax" or self.sm_emit:
-            return (fx @ self.terminal_emb.T).log_softmax(-1)
+            logits = fx @ self.terminal_emb.T
         elif self.parameterization == "smp" and not self.sm_emit:
             # renormalize, important
             if self.l2norm:
@@ -281,28 +295,29 @@ class SblHmmLm(nn.Module):
             else:
                 fy = self.terminal_emb
 
-            return project_logits(
+            logits = project_logits(
                 fx[None],
                 fy[None],
                 self.projection_emit if self.diffproj else self.projection,
-            )[0].log_softmax(-1)
+            )[0]
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
+
+        a = self.a if states is None else self.ad
+        v = self.v if states is None else self.vd
+        word2state = self.word2state if states is None else self.word2state_d
+
+        i = th.stack([word2state.view(-1), a])
+        C = logits.shape[0]
+        sparse = th.sparse.ByteTensor(i, v, th.Size([C, len(self.V)]))
+        mask = sparse.to_dense().bool().to(logits.device)
+        log_probs = logits.masked_fill_(~mask, float("-inf")).log_softmax(-1)
+        return log_probs
 
     def forward(self, inputs, state=None):
         raise NotImplementedError
         # forall x, p(X = x)
         pass
-
-    def log_potentials(self, text, states=None, lpz=None, last_states=None,):
-        log_potentials = ts.LinearChain.hmm(
-            transition = self.transition().t(),
-            emission = self.emission().t(),
-            init = self.start(),
-            observations = text,
-            semiring = ts.LogSemiring,
-        )
-        return log_potentials
 
     def compute_parameters(self,
         word2state=None,
@@ -373,72 +388,34 @@ class SblHmmLm(nn.Module):
     def score(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         N, T = text.shape
 
-        start_mask, transition_mask, feat_mask = None, None, None
-        if not self.training or self.dropout_type == "none" or self.dropout_type is None:
-            # no dropout
-            pass
-        elif self.dropout_type == "transition":
-            raise NotImplementedError
-            transition_mask = (th.empty(self.C, self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
+        if self.training and self.dropout_type != "none":
+            I = (th.distributions.Gumbel(self.zero, self.one)
+                .sample(self.cluster2state.shape)
+                .squeeze(-1)
+                .topk(self.train_states_per_word, dim=-1)
+                .indices
             )
-        elif self.dropout_type == "starttransition":
-            raise NotImplementedError
-            transition_mask = (th.empty(self.C, self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-            start_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "column":
-            raise NotImplementedError
-            transition_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-        elif self.dropout_type == "startcolumn":
-            raise NotImplementedError
-            transition_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_()
-                .bool()
-            )
-            start_mask = (th.empty(self.C, device=self.device)
-                .fill_(self.transition_dropout)
-                .bernoulli_(self.transition_dropout)
-                .bool()
-            )
-        elif self.dropout_type == "state":
-            m = (th.empty(self.C, device=self.device)
-                .bernoulli_(self.transition_dropout)
-                .bool()
-            )
-            start_mask, transition_mask = m, m
+            states = self.cluster2state.gather(1, I).view(-1)
+
             feat_mask = (th.empty(self.D, device=self.device)
                 .bernoulli_(self.feature_dropout)
                 .bool()
             )
         else:
-            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
+            states = None
+            feat_mask = None
 
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
-        transition = self.transition(transition_mask, feat_mask).exp()
-        emission = self.emission(transition_mask)
+        transition = self.transition(states, feat_mask).exp()
+        emission = self.emission(states)
 
         if lpz is not None:
             raise NotImplementedError
             # have to handle masking, but ok for now since not bptt.
             start = (lpz[:,:,None] + transition[None]).logsumexp(1)
         else:
-            start = self.start(start_mask)
+            start = self.start(states)
             #start_logits = self.start_logits()
             #start = self.mask_start(start_logits, start_mask)
 
@@ -477,47 +454,54 @@ class SblHmmLm(nn.Module):
         C = self.C
         D = self.D
 
-        start_mask, transition_mask, feat_mask = None, None, None
-        if not self.training or self.dropout_type == "none" or self.dropout_type is None:
-            # no dropout
-            pass
-        elif self.dropout_type == "state":
-            m = (th.empty(self.C, device=self.device)
-                .bernoulli_(self.transition_dropout)
-                .bool()
+        if self.training and self.dropout_type != "none":
+            I = (th.distributions.Gumbel(self.zero, self.one)
+                .sample(self.cluster2state.shape)
+                .squeeze(-1)
+                .topk(self.train_states_per_word, dim=-1)
+                .indices
             )
-            start_mask, transition_mask = m, m
+            states = self.cluster2state.gather(1, I).view(-1)
+
             feat_mask = (th.empty(self.D, device=self.device)
                 .bernoulli_(self.feature_dropout)
                 .bool()
             )
+
+            word2state = self.word2state_d
         else:
-            raise ValueError(f"Unsupported dropout type {self.dropout_type}")
+            states = None
+            feat_mask = None
+            word2state = self.word2state
+
 
         if lpz is not None:
             start = lpz
         else:
-            start = self.start(start_mask, feat_mask)
+            start = self.start(states, feat_mask)
         if self.timing:
             start_ = timep.time()
-        emission = self.emission(transition_mask)
+        emission = self.emission(states)
         if self.timing:
             print(f"total emit time: {timep.time() - start_}")
             start_ = timep.time()
 
         # gather emission
         # N x T x C
-        num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
+        #num_states = self.C if states is None else self.train_states_per_word
+        state_t = word2state[text]
+
         logp_emit = emission[
-            th.arange(num_states)[None,None],
+            state_t,
             text[:,:,None],
         ]
+
         if self.timing:
             print(f"total emit index time: {timep.time() - start_}")
             start_ = timep.time()
 
-        state_emb = self.state_emb if transition_mask is None else self.state_emb[~transition_mask]
-        next_state_emb = self.next_state_emb if transition_mask is None else self.next_state_emb[~transition_mask]
+        state_emb = self.state_emb if states is None else self.state_emb[states]
+        next_state_emb = self.next_state_emb if states is None else self.next_state_emb[states]
         if self.l2norm:
             state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = next_state_emb / next_state_emb.norm(dim=-1, keepdim=True)
@@ -534,18 +518,28 @@ class SblHmmLm(nn.Module):
 
         normalized_phi_w = normed_log_phi_w.exp()
         phi_u = log_phi_u.exp()
+        if self.timing:
+            print(f"total proj time: {timep.time() - start_}")
+            start_ = timep.time()
+
+        left_proj = normalized_phi_w[state_t[:,:-1]]
+        right_proj = phi_u[state_t[:,1:]]
+
+        if self.timing:
+            print(f"total index proj time: {timep.time() - start_}")
+            start_ = timep.time()
 
         alphas = []
         Os = []
-        #alpha = start * p_emit[:,0] # {N} x C
-        alpha_un = start + logp_emit[:,0]
+
+        alpha_un = start[state_t[:,0]] + logp_emit[:,0]
         Ot = alpha_un.logsumexp(-1, keepdim=True)
         alpha = (alpha_un - Ot).exp()
         alphas.append(alpha)
         Os.append(Ot)
         for t in range(T-1):
-            gamma = alpha @ normalized_phi_w
-            alpha_un = logp_emit[:,t+1] + (gamma @ phi_u.T).log()
+            gamma = alpha[:,None] @ left_proj[:,t]
+            alpha_un = logp_emit[:,t+1] + (gamma @ right_proj[:,t].transpose(-1,-2))[:,0].log()
             Ot = alpha_un.logsumexp(-1, keepdim=True)
             alpha = (alpha_un - Ot).exp()
 
@@ -553,7 +547,9 @@ class SblHmmLm(nn.Module):
             Os.append(Ot)
         O = th.cat(Os, -1)
         evidence = O[mask].sum()
-        #import pdb; pdb.set_trace()
+        if self.timing:
+            print(f"total inference time: {timep.time() - start_}")
+            start_ = timep.time()
 
         return Pack(
             elbo = None,
@@ -593,29 +589,34 @@ class SblHmmLm(nn.Module):
 
         # gather emission
         # N x T x C
-        p_emit = emission[
-            th.arange(self.C)[None,None],
+        state_t = word2state[text]
+        logp_emit = emission[
+            state_t,
             text[:,:,None],
         ]
+
+        left_proj = normalized_phi_w[state_t[:,:-1]]
+        right_proj = phi_u[state_t[:,1:]]
+
         alphas = []
         Os = []
-        #alpha = start * p_emit[:,0] # {N} x C
-        alpha_un = start + p_emit[:,0]
+
+        alpha_un = start[state_t[:,0]] + logp_emit[:,0]
         Ot = alpha_un.logsumexp(-1, keepdim=True)
         alpha = (alpha_un - Ot).exp()
         alphas.append(alpha)
         Os.append(Ot)
         for t in range(T-1):
-            gamma = alpha @ normalized_phi_w
-            alpha_un = p_emit[:,t+1] + (gamma @ phi_u.T).log()
+            gamma = alpha[:,None] @ left_proj[:,t]
+            alpha_un = logp_emit[:,t+1] + (gamma @ right_proj[:,t].transpose(-1,-2))[:,0].log()
             Ot = alpha_un.logsumexp(-1, keepdim=True)
             alpha = (alpha_un - Ot).exp()
 
             alphas.append(alpha)
             Os.append(Ot)
-            #import pdb; pdb.set_trace()
         O = th.cat(Os, -1)
         evidence = O[mask].sum()
+
         return Pack(
             elbo = None,
             evidence = evidence,
