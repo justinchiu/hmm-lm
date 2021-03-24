@@ -193,6 +193,7 @@ def fast_eval_loop(
         lpz = None
         start, transition, emission = model.compute_parameters(model.word2state)
 
+        """
         # assert that transition and emission are well-formed
         myt = model.transition()
         bigt = myt.logsumexp(-1).abs().max()
@@ -204,6 +205,7 @@ def fast_eval_loop(
         He = -(emission.exp() * emission).sum()
         Ht = -(myt.exp() * myt).sum()
         print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
+        """
 
         word2state = model.word2state
         for i, batch in enumerate(iter):
