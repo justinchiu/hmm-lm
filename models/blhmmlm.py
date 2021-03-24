@@ -491,6 +491,9 @@ class BLHmmLm(nn.Module):
         projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
         log_phi_w = state_emb @ projection
         log_phi_u = next_state_emb @ projection
+        # TODO: performer kernel, abstract away
+        #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
+        #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
@@ -538,6 +541,9 @@ class BLHmmLm(nn.Module):
         # sum vectors and sum matrices
         log_phi_w = state_emb @ self.projection
         log_phi_u = next_state_emb @ self.projection
+        # TODO: performer kernel, abstract away
+        #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
+        #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
         normed_log_phi_w = log_phi_w - log_denominator[:, None]

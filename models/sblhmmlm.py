@@ -76,6 +76,11 @@ class SblHmmLm(nn.Module):
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
+        self.trans_mlp = nn.Sequential(
+            nn.Linear(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
+            ResLayer(config.hidden_dim, config.hidden_dim),
+        )
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -248,10 +253,11 @@ class SblHmmLm(nn.Module):
 
     def transition(self, states=None, feat_mask=None):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
-        fx = self.state_emb
+        #fx = self.state_emb
+        fx = self.trans_mlp(self.state_emb)
         if self.parameterization == "softmax" or self.sm_trans:
             logits = (fx @ self.next_state_emb.T
-                if mask is None
+                if states is None
                 else fx[states] @ self.next_state_emb[states].T
             )
             #logits = logits.masked_fill(logits != logits, float("-inf"))
@@ -349,14 +355,18 @@ class SblHmmLm(nn.Module):
         N, T = text.shape
         transition = transition.exp()
 
+        state_t = word2state[text]
         p_emit = emission[
-            th.arange(self.C)[None,None],
+            state_t,
             text[:,:,None],
         ]
 
+        transitions = transition[state_t[:,:-1,:,None], state_t[:,1:,None,:]]
+
         alphas_bmm = []
         evidences_bmm = []
-        alpha_un = start + p_emit[:,0] # {N} x C
+        #alpha_un = start + p_emit[:,0] # {N} x C
+        alpha_un = start[state_t[:,0]] + p_emit[:,0] # {N} x S
         Ot = alpha_un.logsumexp(-1, keepdim=True)
         alpha = (alpha_un - Ot).exp()
         alphas_bmm.append(alpha)
@@ -364,7 +374,8 @@ class SblHmmLm(nn.Module):
         for t in range(T-1):
             # logbmm
             #alpha = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
-            alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            #alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            alpha_un = (alpha[:,None] @ transitions[:,t])[:,0].log() + p_emit[:,t+1]
             Ot = alpha_un.logsumexp(-1, keepdim=True)
             alpha = (alpha_un - Ot).exp()
             alphas_bmm.append(alpha)
@@ -395,9 +406,12 @@ class SblHmmLm(nn.Module):
                 .bernoulli_(self.feature_dropout)
                 .bool()
             )
+
+            word2state = self.word2state_d
         else:
             states = None
             feat_mask = None
+            word2state = self.word2state
 
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
@@ -413,15 +427,18 @@ class SblHmmLm(nn.Module):
             #start_logits = self.start_logits()
             #start = self.mask_start(start_logits, start_mask)
 
-        num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
+        state_t = word2state[text]
         p_emit = emission[
-            th.arange(num_states)[None,None],
+            state_t,
             text[:,:,None],
         ]
 
+        transitions = transition[state_t[:,:-1,:,None], state_t[:,1:,None,:]]
+
         alphas_bmm = []
         evidences_bmm = []
-        alpha_un = start + p_emit[:,0] # {N} x C
+        #alpha_un = start + p_emit[:,0] # {N} x C
+        alpha_un = start[state_t[:,0]] + p_emit[:,0] # {N} x S
         Ot = alpha_un.logsumexp(-1, keepdim=True)
         alpha = (alpha_un - Ot).exp()
         alphas_bmm.append(alpha)
@@ -429,7 +446,8 @@ class SblHmmLm(nn.Module):
         for t in range(T-1):
             # logbmm
             #alpha = (alpha[:,:,None] + transition[None] + p_emit[:,t+1,None,:]).logsumexp(-2)
-            alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            #alpha_un = (alpha @ transition).log() + p_emit[:,t+1]
+            alpha_un = (alpha[:,None] @ transitions[:,t])[:,0].log() + p_emit[:,t+1]
             Ot = alpha_un.logsumexp(-1, keepdim=True)
             alpha = (alpha_un - Ot).exp()
             alphas_bmm.append(alpha)
@@ -504,6 +522,9 @@ class SblHmmLm(nn.Module):
         projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
         log_phi_w = state_emb @ projection
         log_phi_u = next_state_emb @ projection
+        # Todo: abstract away performer kernel
+        #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
+        #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
@@ -561,8 +582,12 @@ class SblHmmLm(nn.Module):
             next_state_emb = self.next_state_emb
 
         # sum vectors and sum matrices
-        log_phi_w = state_emb @ self.projection
-        log_phi_u = next_state_emb @ self.projection
+        projection = self.projection
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
+        # TODO: abstract away perfomer kernel
+        #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
+        #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
         normed_log_phi_w = log_phi_w - log_denominator[:, None]

@@ -50,6 +50,7 @@ class FactoredHmmLm(nn.Module):
         self.config = config
         self.V = V
         self.device = config.device
+        self.eff = False
 
         self.C = config.num_classes
 

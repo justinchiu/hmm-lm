@@ -229,7 +229,7 @@ run_fit(
 )
 print()
 
-print("Higher number of classes is harder to fit")
+print("Higher number of classes (keys) is harder to fit")
 def true_dist_sm(num_classes):
     true_model = Cat(
         128,
@@ -247,7 +247,7 @@ run_fit(
 print()
 
 num_starts_grid = [32, 64, 128, 256]
-print("Lower number of starts is easier to fit")
+print("Lower number of starts (queries) is easier to fit")
 for num_starts in num_starts_grid:
     def true_dist_sm(num_classes):
         true_model = Cat(

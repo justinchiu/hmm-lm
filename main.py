@@ -168,8 +168,6 @@ def cached_eval_loop(
 
             log_potentials = model.clamp(
                 text, start, transition, emission, word2state,
-                mask=mask,
-                lengths=lengths,
             )
             losses, lpz = model.compute_loss(log_potentials, mask, lengths)
 
