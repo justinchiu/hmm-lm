@@ -578,8 +578,10 @@ def main():
         from models.blhmmlm import BLHmmLm
         model = BLHmmLm(V, args)
     elif args.model == "sblhmm":
-        from models.sblhmmlm import SblHmmLm
-        model = SblHmmLm(V, args)
+        #from models.sblhmmlm import SblHmmLm
+        # single projection doesnt work due to rank issues, try multiple projection
+        from models.msblhmmlm import MsblHmmLm
+        model = MsblHmmLm(V, args)
     elif args.model == "sparsekernelhmm":
         from models.sparse_kernel_hmmlm import SparseKernelHmmLm
         model = SparseKernelHmmLm(V, args)

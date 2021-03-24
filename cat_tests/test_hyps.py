@@ -67,12 +67,19 @@ class Cat(nn.Module):
         if self.l2norm:
             fx = fx / fx.norm(dim=-1, keepdim=True)
             fy = fy / fy.norm(dim=-1, keepdim=True)
+        """
+        # performer map
         logits = project_logits(
             fx[None],
             fy[None],
             proj,
             rff_method = "log",
         )[0]
+        """
+        # exp map
+        L = fx @ proj
+        R = fy @ proj
+        logits = (L[:,None,:] + R[None,:,:]).logsumexp(-1)
         return logits.log_softmax(-1)
 
     def sm_log_probs(self):
