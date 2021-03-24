@@ -265,7 +265,6 @@ class MsblHmmLm(nn.Module):
 
 
     def transition(self, states=None, feat_mask=None):
-        raise NotImplementedError
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
         #fx = self.state_emb
         fx = self.trans_mlp(self.state_emb)
@@ -279,20 +278,22 @@ class MsblHmmLm(nn.Module):
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if states is None else fx[states]
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
+            projections = self.projections if keep_feat_mask is None else self.projections[...,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
+            # edit: not important
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
-            logits = project_logits(
-                fx[None],
-                fy[None],
-                projection,
-                rff_method = self.config.rff_method,
-                fast = False, # save memory by using genbmm.logbmm
-            )[0].log_softmax(-1)
-            #import pdb; pdb.set_trace()
-            return logits
+
+            big_projections = projections[self.state2cluster]
+            log_phi_w = th.einsum("sd,sdf->sf", fx, big_projections)
+            log_phi_u = th.einsum("sd,cdf->csf", fy, projections)
+
+            transition = (
+                log_phi_w[:,None] + log_phi_u[self.state2cluster,:]
+            ).logsumexp(-1).log_softmax(-1)
+
+            return transition
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
@@ -538,6 +539,7 @@ class MsblHmmLm(nn.Module):
         if self.l2norm:
             state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = next_state_emb / next_state_emb.norm(dim=-1, keepdim=True)
+        state_emb = self.trans_mlp(state_emb)
 
         # sum vectors and sum matrices
         projections = self.projections if feat_mask is None else self.projections[...,~feat_mask]
@@ -609,6 +611,7 @@ class MsblHmmLm(nn.Module):
         else:
             state_emb = self.state_emb
             next_state_emb = self.next_state_emb
+        state_emb = self.trans_mlp(state_emb)
 
         big_projections = self.projections[self.state2cluster]
         log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
