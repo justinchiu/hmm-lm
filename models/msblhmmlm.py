@@ -43,9 +43,10 @@ class MsblHmmLm(nn.Module):
         self.hidden_dim = config.hidden_dim
 
         self.learn_temp = config.learn_temp
-        self.log_inv_temp = nn.Parameter(th.FloatTensor([0]))
-        if not config.learn_temp:
-            self.log_inv_temp.requires_grad = False
+        if self.learn_temp == "mul":
+            self.temp = nn.Parameter(th.FloatTensor([1]))
+        elif self.learn_temp == "add":
+            self.temp = nn.Parameter(th.FloatTensor([0]))
 
         # init parameters
 
@@ -259,8 +260,10 @@ class MsblHmmLm(nn.Module):
 
         if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ fy.T if states is None else fx @ fy[states].T
-            if self.learn_temp:
-                logits = logits + self.log_inv_temp
+            if self.learn_temp == "mul":
+                logits = logits * self.temp
+            elif self.learn_temp == "add":
+                logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
@@ -274,8 +277,10 @@ class MsblHmmLm(nn.Module):
                 projection,
                 rff_method = self.config.rff_method,
             )[0,0]
-            if self.learn_temp:
-                logits = logits + self.log_inv_temp
+            if self.learn_temp == "mul":
+                logits = logits * self.temp
+            elif self.learn_temp == "add":
+                logits = logits + self.temp
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -291,8 +296,10 @@ class MsblHmmLm(nn.Module):
                 else fx[states] @ self.next_state_emb[states].T
             )
             #logits = logits.masked_fill(logits != logits, float("-inf"))
-            if self.learn_temp:
-                logits = logits + self.log_inv_temp
+            if self.learn_temp == "mul":
+                logits = logits * self.temp
+            elif self.learn_temp == "add":
+                logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if states is None else fx[states]
@@ -311,8 +318,10 @@ class MsblHmmLm(nn.Module):
             logits = (
                 log_phi_w[:,None] + log_phi_u[self.state2cluster,:]
             ).logsumexp(-1)
-            if self.learn_temp:
-                logits = logits + self.log_inv_temp
+            if self.learn_temp == "mul":
+                logits = logits * self.temp
+            elif self.learn_temp == "add":
+                logits = logits + self.temp
 
             return logits.log_softmax(-1)
         else:
@@ -566,9 +575,13 @@ class MsblHmmLm(nn.Module):
         projections = self.projections if feat_mask is None else self.projections[...,~feat_mask]
         big_projections = projections[state2cluster]
         log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
-        if self.learn_temp:
-            log_phi_w = log_phi_w + self.log_inv_temp
         log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, projections)
+        if self.learn_temp == "mul":
+            log_phi_w = log_phi_w * self.temp
+            log_phi_u = log_phi_u * self.temp
+        elif self.learn_temp == "add":
+            log_phi_w = log_phi_w + self.temp
+            log_phi_u = log_phi_u + self.temp
         # Todo: abstract away performer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
@@ -640,8 +653,12 @@ class MsblHmmLm(nn.Module):
 
         big_projections = self.projections[self.state2cluster]
         log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
-        if self.learn_temp:
-            log_phi_w = log_phi_w + self.log_inv_temp
+        if self.learn_temp == "mul":
+            log_phi_w = log_phi_w * self.temp
+            log_phi_u = log_phi_u * self.temp
+        elif self.learn_temp == "add":
+            log_phi_w = log_phi_w + self.temp
+            log_phi_u = log_phi_u + self.temp
         log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, self.projections)
         # Todo: abstract away performer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2

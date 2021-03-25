@@ -43,10 +43,12 @@ grid_num_states = [16384, 8192, 4096, 2048, 1024, 512]
 grid_num_features = [2048, 1024, 512, 256]
 
 configurations = [
-    (4096, 1024, 1),
-    (4096, 512, 1),
-    (4096, 1024, 0),
-    (4096, 512, 0),
+    (4096, 1024, "mul"),
+    (4096, 512, "mul"),
+    (4096, 1024, "add"),
+    (4096, 512, "add"),
+    #(4096, 1024, "none"),
+    #(4096, 512, "none"),
 ]
 
 #for num_states, num_features in product(grid_num_states, grid_num_features):

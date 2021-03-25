@@ -133,7 +133,9 @@ def add_linear_args(parser):
         choices = ["static", "random"],
         default = "static",
     )
-    parser.add_argument("--learn_temp", default=0, type=int)
+    parser.add_argument("--learn_temp", default="none",
+        choices = ["mul", "add", "none"],
+    )
 
     parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
     parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
