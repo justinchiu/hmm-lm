@@ -96,7 +96,7 @@ num_classes_grid = [128, 256, 512]
 num_classes_grid = [128]
 
 device = torch.device("cuda:0")
-num_steps = 2000
+num_steps = 20000
 #num_steps = 4000
 
 def init_optimizer(model):
@@ -237,6 +237,8 @@ run_fit(
     learn_temp = True,
     plot_losses = True,
 )
+print()
+exit()
 
 temp_grid = [1, 2, 3, 4, 5]
 print("Lower entropy is harder to fit")
