@@ -42,6 +42,10 @@ class SblHmmLm(nn.Module):
 
         self.hidden_dim = config.hidden_dim
 
+        self.learn_temp = config.learn_temp
+        self.log_inv_temp = nn.Parameter(th.FloatTensor([0]))
+        if not config.learn_temp:
+            self.log_inv_temp.requires_grad = False
         # init parameters
 
         # p(z0)
@@ -234,6 +238,8 @@ class SblHmmLm(nn.Module):
 
         if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ fy.T if states is None else fx @ fy[states].T
+            if self.learn_temp:
+                logits = logits + self.log_inv_temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
@@ -246,8 +252,10 @@ class SblHmmLm(nn.Module):
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
-            )[0,0].log_softmax(-1)
-            return logits
+            )[0,0]
+            if self.learn_temp:
+                logits = logits + self.log_inv_temp
+            return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
@@ -262,6 +270,8 @@ class SblHmmLm(nn.Module):
                 else fx[states] @ self.next_state_emb[states].T
             )
             #logits = logits.masked_fill(logits != logits, float("-inf"))
+            if self.learn_temp:
+                logits = logits + self.log_inv_temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if states is None else fx[states]
@@ -277,9 +287,11 @@ class SblHmmLm(nn.Module):
                 projection,
                 rff_method = self.config.rff_method,
                 fast = False, # save memory by using genbmm.logbmm
-            )[0].log_softmax(-1)
+            )[0]
             #import pdb; pdb.set_trace()
-            return logits
+            if self.learn_temp:
+                logits = logits + self.log_inv_temp
+            return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
@@ -522,6 +534,8 @@ class SblHmmLm(nn.Module):
         # sum vectors and sum matrices
         projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
         log_phi_w = state_emb @ projection
+        if self.learn_temp:
+            log_phi_w = log_phi_w + self.log_inv_temp
         log_phi_u = next_state_emb @ projection
         # Todo: abstract away performer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
@@ -585,6 +599,8 @@ class SblHmmLm(nn.Module):
         # sum vectors and sum matrices
         projection = self.projection
         log_phi_w = state_emb @ projection
+        if self.learn_temp:
+            log_phi_w = log_phi_w + self.log_inv_temp
         log_phi_u = next_state_emb @ projection
         # TODO: abstract away perfomer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
