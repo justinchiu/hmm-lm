@@ -143,7 +143,7 @@ def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
 
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
-    g = sns.histplot(x=np.arange(len(svs)), y=svs.cpu().detach().numpy(), ax=ax)
+    g = sns.histplot(x=np.arange(len(svs)), y=svs.cpu().detach().numpy(), ax=ax, discrete=True)
     fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
