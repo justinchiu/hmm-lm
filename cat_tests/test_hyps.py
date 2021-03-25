@@ -87,7 +87,7 @@ class Cat(nn.Module):
 def H(lp):
     return -(lp.exp() * lp).sum(-1)
 
-emb_dim = 32
+emb_dim = 128
 feature_dim_ratio_grid = [1, 2, 4, 8, 16]
 feature_dim_ratio_grid = [0.5, 1, 2, 4, 8]
 num_classes_grid = [1024, 2048]
@@ -98,7 +98,7 @@ num_classes_grid = [128]
 device = torch.device("cuda:0")
 num_steps = 20000
 #num_steps = 4000
-num_steps = 2000
+#num_steps = 2000
 
 def init_optimizer(model):
     parameters = list(model.parameters())
@@ -273,7 +273,6 @@ for num_starts in [32, 64]:
         plot_losses = True,
     )
     print()
-exit()
 
 temp_grid = [1, 2, 3, 4, 5]
 print("Lower entropy is harder to fit")
