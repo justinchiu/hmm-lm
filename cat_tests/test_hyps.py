@@ -246,6 +246,33 @@ run_fit(
     plot_losses = True,
 )
 print()
+
+print("Plotting low queries high keys")
+for num_starts in [32, 64]:
+    def true_dist_sm(num_classes):
+        true_model = Cat(
+            num_starts,
+            num_classes, emb_dim, 1,
+            temp=1, xavier_init=False, sm=True)
+        true_model.to(device)
+        true_dist = true_model.log_probs().detach()
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        return true_dist
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [1024],
+        feature_dim_grid = [64],
+        plot_losses = True,
+    )
+    print("Learn temp")
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [1024],
+        feature_dim_grid = [64],
+        learn_temp = True,
+        plot_losses = True,
+    )
+    print()
 exit()
 
 temp_grid = [1, 2, 3, 4, 5]
