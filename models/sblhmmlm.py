@@ -113,6 +113,7 @@ class SblHmmLm(nn.Module):
         self.anti = config.anti
         self.diffproj = config.diffproj
         if self.parameterization == "smp":
+            self.inv_temp = nn.Parameter(th.ones(1))
             if config.projection_method == "static":
                 self._projection = nn.Parameter(self.init_proj())
                 if not config.update_projection:

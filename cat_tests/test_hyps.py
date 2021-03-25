@@ -134,8 +134,10 @@ def plot(losses, name, num_starts, num_classes, learn_temp=False):
     import matplotlib.pyplot as plt
 
     sns.set(font_scale=1.5)
-    g = sns.lineplot(x=np.arange(len(losses)), y=losses)
-    plt.savefig(f"{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    fig, ax = plt.subplots()
+    g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
+    fig.savefig(f"cat_tests/{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    plt.close(fig)
 
 def run_fit(
     true_dist_fn,
@@ -155,15 +157,16 @@ def run_fit(
             num_starts,
             num_classes, emb_dim, feature_dim=1,
             sm=True,
+            learn_temp = learn_temp,
         )
         model.to(device)
         model.to(device)
         losses = train(true_dist, model, num_steps)
-        print("SM", num_starts, num_classes, f"||| {losses[-1]:.2f} <<<")
+        print("SM", num_starts, num_classes, f"||| KL {losses[-1]:.4} <<<")
         print_stats(model)
 
         if plot_losses:
-            plot(losses, "sm", num_starts, num_classes, False)
+            plot(losses, "sm", num_starts, num_classes, learn_temp)
 
         # kernel
         for feature_dim_ratio, feature_dim in zip_longest(
@@ -179,7 +182,7 @@ def run_fit(
             )
             model.to(device)
             losses = train(true_dist, model, num_steps)
-            print("K", num_starts, num_classes, f"||| {losses[-1]:.2f} <<<")
+            print("K", num_starts, num_classes, f"||| KL: {losses[-1]:.4f} <<<")
             print_stats(model)
 
             if plot_losses:
