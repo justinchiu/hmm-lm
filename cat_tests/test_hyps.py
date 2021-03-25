@@ -162,7 +162,7 @@ def run_fit(
         model.to(device)
         model.to(device)
         losses = train(true_dist, model, num_steps)
-        print("SM", num_starts, num_classes, f"||| KL {losses[-1]:.4} <<<")
+        print(f"SM queries {num_starts} keys {num_classes} ||| KL {losses[-1]:.4} <<<")
         print_stats(model)
 
         if plot_losses:
@@ -182,7 +182,7 @@ def run_fit(
             )
             model.to(device)
             losses = train(true_dist, model, num_steps)
-            print("K", num_starts, num_classes, f"||| KL: {losses[-1]:.4f} <<<")
+            print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} ||| KL: {losses[-1]:.4f} <<<")
             print_stats(model)
 
             if plot_losses:

@@ -89,6 +89,7 @@ def get_name(config):
         f"ts{config.tie_start}",
         f"p{config.parameterization}",
         f"up{config.update_projection}",
+        f"lt{config.learn_temp}",
         f"pm{config.projection_method}",
         f"st{config.sm_trans}",
         f"se{config.sm_emit}",

@@ -133,6 +133,8 @@ def add_linear_args(parser):
         choices = ["static", "random"],
         default = "static",
     )
+    parser.add_argument("--learn_temp", default=0, type=int)
+
     parser.add_argument("--sm_trans", default=0, type=int, help="force sm trans")
     parser.add_argument("--sm_emit", default=0, type=int, help="force sm emit")
     parser.add_argument("--no_layernorm", default=0, type=int, help="remove layernorm")
