@@ -98,6 +98,7 @@ num_classes_grid = [128]
 device = torch.device("cuda:0")
 num_steps = 20000
 #num_steps = 4000
+num_steps = 2000
 
 def init_optimizer(model):
     parameters = list(model.parameters())
@@ -128,8 +129,9 @@ def print_stats(model):
     #num_sv = (s > 1e-5).sum().item()
     num_sv = (s > 1).sum().item()
     print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || temp {model.temp.item():.2f}")
+    return s
 
-def plot(losses, name, num_starts, num_classes, learn_temp=False):
+def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
@@ -137,6 +139,12 @@ def plot(losses, name, num_starts, num_classes, learn_temp=False):
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
     fig.savefig(f"cat_tests/{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    plt.close(fig)
+
+    sns.set(font_scale=1.5)
+    fig, ax = plt.subplots()
+    g = sns.histplot(x=np.arange(len(svs)), y=svs.cpu().detach().numpy(), ax=ax)
+    fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
 def run_fit(
@@ -163,10 +171,10 @@ def run_fit(
         model.to(device)
         losses = train(true_dist, model, num_steps)
         print(f"SM queries {num_starts} keys {num_classes} ||| KL {losses[-1]:.4} <<<")
-        print_stats(model)
+        svs = print_stats(model)
 
         if plot_losses:
-            plot(losses, "sm", num_starts, num_classes, learn_temp)
+            plot(losses, svs, "sm", num_starts, num_classes, learn_temp)
 
         # kernel
         for feature_dim_ratio, feature_dim in zip_longest(
@@ -183,10 +191,10 @@ def run_fit(
             model.to(device)
             losses = train(true_dist, model, num_steps)
             print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} ||| KL: {losses[-1]:.4f} <<<")
-            print_stats(model)
+            svs = print_stats(model)
 
             if plot_losses:
-                plot(losses, "k", num_starts, num_classes, learn_temp)
+                plot(losses, svs, "k", num_starts, num_classes, learn_temp)
 
             """
             # l2norm
