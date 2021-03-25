@@ -2,6 +2,8 @@
 from tqdm import trange
 from itertools import zip_longest
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.nn.utils.clip_grad import clip_grad_norm_
@@ -23,13 +25,17 @@ class Cat(nn.Module):
         sm=False,
         l2norm=False,
         random_feature=False,
+        learn_temp=False,
     ):
         torch.manual_seed(0)
         super(Cat, self).__init__()
         self.sm = sm
         self.l2norm = l2norm
-        self.temp = temp
         self.random_feature = random_feature
+
+        self.temp = nn.Parameter(torch.FloatTensor([temp]))
+        if not learn_temp:
+           self.temp.requires_grad = False
 
         self.start_emb = nn.Parameter(
             torch.randn(num_starts, emb_dim),
@@ -58,37 +64,22 @@ class Cat(nn.Module):
         return self.proj
 
     def log_probs(self):
-        return self.sm_log_probs() if self.sm else self.k_log_probs()
+        return self.logits().log_softmax(-1)
 
-    def k_log_probs(self):
-        proj = self.proj if not self.random_feature else self.sample_proj().to(self.proj.device)
+    def logits(self):
         fx = self.start_emb
         fy = self.output_emb
         if self.l2norm:
             fx = fx / fx.norm(dim=-1, keepdim=True)
             fy = fy / fy.norm(dim=-1, keepdim=True)
-        """
-        # performer map
-        logits = project_logits(
-            fx[None],
-            fy[None],
-            proj,
-            rff_method = "log",
-        )[0]
-        """
-        # exp map
-        L = fx @ proj
-        R = fy @ proj
-        logits = (L[:,None,:] + R[None,:,:]).logsumexp(-1)
-        return logits.log_softmax(-1)
-
-    def sm_log_probs(self):
-        fx = self.start_emb
-        fy = self.output_emb
-        if self.l2norm:
-            fx = fx / fx.norm(dim=-1, keepdim=True)
-            fy = fy / fy.norm(dim=-1, keepdim=True)
-        return ((fx @ fy.T) / self.temp).log_softmax(-1)
+        if self.sm:
+            return (fx @ fy.T) / self.temp
+        else:
+            proj = (self.proj if not self.random_feature
+                else self.sample_proj().to(self.proj.device))
+            L = fx @ proj
+            R = fy @ proj
+            return (L[:,None,:] + R[None,:,:]).logsumexp(-1) / self.temp
 
     def kl(self, true_dist):
         return (true_dist.exp() * (true_dist - self.log_probs())).sum(-1).mean()
@@ -130,6 +121,21 @@ def train(true_dist, model, num_steps):
         optimizer.step()
     return kls
 
+def print_stats(model):
+    logits = model.logits()
+    lp = logits.log_softmax(-1)
+    u,s,v = lp.exp().svd()
+    #num_sv = (s > 1e-5).sum().item()
+    num_sv = (s > 1).sum().item()
+    print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || temp {model.temp.item():.2f}")
+
+def plot(losses, name, num_starts, num_classes, learn_temp=False):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    sns.set(font_scale=1.5)
+    g = sns.lineplot(x=np.arange(len(losses)), y=losses)
+    plt.savefig(f"{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
 
 def run_fit(
     true_dist_fn,
@@ -137,6 +143,8 @@ def run_fit(
     feature_dim_ratio_grid=[],
     feature_dim_grid=[],
     random_feature=False,
+    learn_temp=False,
+    plot_losses = False,
 ):
     for num_classes in num_classes_grid:
         true_dist = true_dist_fn(num_classes)
@@ -151,10 +159,11 @@ def run_fit(
         model.to(device)
         model.to(device)
         losses = train(true_dist, model, num_steps)
-        print("SM", num_starts, num_classes, losses[-1])
-        u,s,v = model.log_probs().exp().svd()
-        num_sv = (s > 1e-5).sum().item()
-        print(f"num singular values > 1e-5: {num_sv}")
+        print("SM", num_starts, num_classes, f"||| {losses[-1]:.2f} <<<")
+        print_stats(model)
+
+        if plot_losses:
+            plot(losses, "sm", num_starts, num_classes, False)
 
         # kernel
         for feature_dim_ratio, feature_dim in zip_longest(
@@ -166,13 +175,15 @@ def run_fit(
                 num_starts,
                 num_classes, emb_dim, feature_dim,
                 random_feature = random_feature,
+                learn_temp = learn_temp,
             )
             model.to(device)
             losses = train(true_dist, model, num_steps)
-            print(num_starts, num_classes, feature_dim, losses[-1])
-            u,s,v = model.log_probs().exp().svd()
-            num_sv = (s > 1e-5).sum().item()
-            print(f"num singular values > 1e-5: {num_sv}")
+            print("K", num_starts, num_classes, f"||| {losses[-1]:.2f} <<<")
+            print_stats(model)
+
+            if plot_losses:
+                plot(losses, "k", num_starts, num_classes, learn_temp)
 
             """
             # l2norm
@@ -199,6 +210,31 @@ for eps in [1e-4, 1e-3, 1e-2]:
     print()
 """
 
+print("Plotting losses")
+def true_dist_sm(num_classes):
+    true_model = Cat(
+        num_classes,
+        num_classes, emb_dim, 1,
+        temp=1, xavier_init=False, sm=True)
+    true_model.to(device)
+    true_dist = true_model.log_probs().detach()
+    print(f"True dist H: {H(true_dist).mean().item():.2f}")
+    return true_dist
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [128],
+    feature_dim_grid = [64],
+    plot_losses = True,
+)
+print("Learn temp")
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [128],
+    feature_dim_grid = [64],
+    learn_temp = True,
+    plot_losses = True,
+)
+
 temp_grid = [1, 2, 3, 4, 5]
 print("Lower entropy is harder to fit")
 for temp in temp_grid:
@@ -217,6 +253,13 @@ for temp in temp_grid:
         num_classes_grid = [128],
         feature_dim_grid = [64, 128, 256, 512],
     )
+    print("Learn temp")
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [128],
+        feature_dim_grid = [64, 128, 256, 512],
+        learn_temp = True,
+    )
     print()
 
 print("Higher rank is harder to fit")
@@ -234,6 +277,13 @@ run_fit(
     num_classes_grid = [64, 128, 256],
     feature_dim_grid = [64, 128, 256, 512],
 )
+print("Learn temp")
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [64, 128, 256],
+    feature_dim_grid = [64, 128, 256, 512],
+    learn_temp = True,
+)
 print()
 
 print("Higher number of classes (keys) is harder to fit")
@@ -250,6 +300,13 @@ run_fit(
     true_dist_sm,
     num_classes_grid = [128, 256, 512, 1024, 2048],
     feature_dim_grid = [64, 128, 256, 512],
+)
+print("Learn temp")
+run_fit(
+    true_dist_sm,
+    num_classes_grid = [128, 256, 512, 1024, 2048],
+    feature_dim_grid = [64, 128, 256, 512],
+    learn_temp = True,
 )
 print()
 
@@ -269,5 +326,12 @@ for num_starts in num_starts_grid:
         true_dist_sm,
         num_classes_grid = [1024],
         feature_dim_grid = [64, 128, 256, 512],
+    )
+    print("Learn temp")
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [1024],
+        feature_dim_grid = [64, 128, 256, 512],
+        learn_temp = True,
     )
     print()

@@ -116,10 +116,15 @@ class MsblHmmLm(nn.Module):
             # always learn, multiple projections, one for each cluster.
             self.start_projection = nn.Parameter(get_2d_array(
                 self.config.num_features, self.config.hidden_dim).t())
-            self.projections = nn.Parameter(th.stack([
-                get_2d_array(self.config.num_features, self.config.hidden_dim).t()
-                for _ in range(config.num_clusters)
-            ], dim=0))
+
+            self.projections = nn.Parameter(
+                get_2d_array(self.config.num_features, self.config.hidden_dim)
+                    .T
+                    .repeat(config.num_clusters, 1, 1)
+            )
+            # can we regularize projections to stay close together?
+            # hopefully same initialization is enough
+            # maybe some theory would be nice
             """
             if config.projection_method == "static":
                 self._projection = nn.Parameter(self.init_proj())
@@ -197,6 +202,9 @@ class MsblHmmLm(nn.Module):
             .to(self.device)
         )
         self.vd = th.ones((len(self.V)) * self.states_per_word_d).to(self.device)
+
+        self.register_buffer("zero", th.zeros(1))
+        self.register_buffer("one", th.ones(1))
 
 
     def init_state(self, bsz):
@@ -550,9 +558,11 @@ class MsblHmmLm(nn.Module):
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
+        this_D = D if feat_mask is None else (~feat_mask).sum().item()
+
         # O(CD)
         log_denominator = (
-            log_phi_w.view(num_clusters, states_per_word, D)
+            log_phi_w.view(num_clusters, states_per_word, this_D)
             + log_phi_u.logsumexp(1, keepdim=True)
         ).logsumexp(-1).view(C)
         # O(CD)

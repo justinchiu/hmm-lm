@@ -41,15 +41,29 @@ def make_filename(num_states, num_features, dropout, feat_dropout):
 #grid_num_features = [1024, 512, 256, 128, 64]
 #grid_num_states = [16384, 8192]
 #grid_num_features = [16384, 8192, 4096]
-#grid_num_states = [8192]
-#grid_num_features = [4096, 2048, 1024]
+
 grid_num_states = [4096]
 grid_num_features = [2048, 1024, 512]
+# ^ DONE
+grid_num_states = [8192]
+grid_num_features = [4096, 2048, 1024]
+# ^ RUNNING
+grid_num_states = [16384]
+grid_num_features = [4096, 2048]
+# ^ RUNNING
+
+#grid_num_states = [1024]
+#grid_num_features = [512, 256, 128]
+#
+
+#grid_num_states = [2048]
+#grid_num_features = [1024, 512, 256]
+# ^ RUNNING 
+
 
 grid_dropout_type = ["state"]
-#grid_dropout = [0, 0.3]
-grid_dropout = [0, 0.1, 0.2]
-grid_feat_dropout = [0, 0.1, 0.2]
+grid_dropout = [0.1]
+grid_feat_dropout = [0.1]
 
 for num_states, num_features, dropout, feat_dropout in product(
     grid_num_states,
