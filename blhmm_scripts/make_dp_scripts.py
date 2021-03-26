@@ -47,9 +47,10 @@ grid_num_features = [2048, 1024, 512]
 # ^ DONE
 grid_num_states = [8192]
 grid_num_features = [4096, 2048, 1024]
-# ^ RUNNING
+# ^ DONE
 grid_num_states = [16384]
-grid_num_features = [4096, 2048]
+#grid_num_features = [4096, 2048]
+grid_num_features = [8192]
 # ^ RUNNING
 
 #grid_num_states = [1024]

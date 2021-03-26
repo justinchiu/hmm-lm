@@ -79,6 +79,8 @@ class Cat(nn.Module):
                 else self.sample_proj().to(self.proj.device))
             L = fx @ proj
             R = fy @ proj
+            #L = fx @ proj - fx.square().sum(-1, keepdim=True) / 2
+            #R = fy @ proj - fy.square().sum(-1, keepdim=True) / 2
             return (L[:,None,:] + R[None,:,:]).logsumexp(-1) / self.temp
 
     def kl(self, true_dist):
@@ -128,7 +130,17 @@ def print_stats(model):
     u,s,v = lp.exp().svd()
     #num_sv = (s > 1e-5).sum().item()
     num_sv = (s > 1).sum().item()
-    print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || temp {model.temp.item():.2f}")
+    minproj = f"{model.proj.min().item() if not model.sm else 0:.2f}"
+    maxproj = f"{model.proj.max().item() if not model.sm else 0:.2f}"
+
+    minsemb = f"{model.start_emb.min().item():.2f}"
+    maxsemb = f"{model.start_emb.max().item():.2f}"
+    minoemb = f"{model.output_emb.min().item():.2f}"
+    maxoemb = f"{model.output_emb.max().item():.2f}"
+    minemb = min(minsemb,minoemb)
+    maxemb = max(maxsemb,maxoemb)
+
+    print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     return s
 
 def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
@@ -220,7 +232,7 @@ for eps in [1e-4, 1e-3, 1e-2]:
     run_fit(true_dist_onehot)
     print()
 """
-
+"""
 print("Plotting losses")
 def true_dist_sm(num_classes):
     true_model = Cat(
@@ -273,7 +285,7 @@ for num_starts in [32, 64]:
         plot_losses = True,
     )
     print()
-
+"""
 temp_grid = [1, 2, 3, 4, 5]
 print("Lower entropy is harder to fit")
 for temp in temp_grid:

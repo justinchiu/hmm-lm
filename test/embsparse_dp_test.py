@@ -31,7 +31,7 @@ V = 128 # vocab size
 
 C = 64 # number of classes
 H = 32 # embedding dimension
-D = 16 # number of samples / projection dim
+D = 24 # number of samples / projection dim
 
 temp = 1
 states_per_word = 4
@@ -40,20 +40,19 @@ num_clusters = V // words_per_cluster
 
 start_emb = torch.randn(H, device=device) / temp
 state_emb = torch.randn(C, H, device=device) / temp
-next_state_emb = torch.randn(C, H, device=device) / temp
+next_state_emb = torch.randn(num_clusters, C, H, device=device) / temp
 preterminal_emb = torch.randn(C, H, device=device) / temp
 terminal_emb = torch.randn(V, H, device=device) / temp
-#projection = torch.randn(H, D, device=device) / temp
-projections = torch.randn(num_clusters, H, D, device=device) / temp
-start_projection = torch.randn(H, D, device=device) / temp
+projection = torch.randn(H, D, device=device) / temp
+#projections = torch.randn(num_clusters, H, D, device=device) / temp
+#start_projection = torch.randn(H, D, device=device) / temp
 
 start_emb.requires_grad = True
 state_emb.requires_grad = True
 next_state_emb.requires_grad = True
 preterminal_emb.requires_grad = True
 terminal_emb.requires_grad = True
-projections.requires_grad = True
-start_projection.requires_grad = True
+projection.requires_grad = True
 
 # from_numpy api seems bad
 text = torch.from_numpy(np.random.choice(V, size=(N, T))).to(device)
@@ -87,17 +86,12 @@ mask = sparse.to_dense().bool().to(device)
 
 state2cluster = torch.arange(num_clusters).repeat_interleave(states_per_word)
 
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-#log_phi_w0 = (state_emb[:,None] @ big_projections)[:,0]
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-#log_phi_u0 = next_state_emb[:,None] @ big_projections
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
-import pdb; pdb.set_trace()
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
-transition = (log_phi_w[:,None] + log_phi_u[state2cluster,:]).logsumexp(-1).log_softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[state2cluster]).logsumexp(-1).log_softmax(-1)
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)
 #emission = emission_logits.log_softmax(-1)
@@ -126,25 +120,22 @@ state_emb_grad = state_emb.grad.detach().clone()
 next_state_emb_grad = next_state_emb.grad.detach().clone()
 preterminal_emb_grad = preterminal_emb.grad.detach().clone()
 terminal_emb_grad = terminal_emb.grad.detach().clone()
-projection_grad = projections.grad.detach().clone()
+projection_grad = projection.grad.detach().clone()
 
 start_emb.grad.zero_()
 state_emb.grad.zero_()
 next_state_emb.grad.zero_()
 preterminal_emb.grad.zero_()
 terminal_emb.grad.zero_()
-projections.grad.zero_()
-start_projection.grad.zero_()
+projection.grad.zero_()
 
 # LOOP
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
-transition = (log_phi_w[:,None] + log_phi_u[state2cluster,:]).logsumexp(-1).log_softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[state2cluster]).logsumexp(-1).log_softmax(-1)
 
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)
@@ -174,14 +165,12 @@ evidence_slow = alpha.logsumexp(-1)
 print(evidence_slow)
 
 # LOOPBMM
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
-transition = (log_phi_w[:,None] + log_phi_u[state2cluster,:]).logsumexp(-1).softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[state2cluster]).logsumexp(-1).softmax(-1)
 
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)
@@ -219,14 +208,12 @@ print("LOOPBMM")
 print(evidence_slow_bmm)
 
 # SPARSELOOPBMM
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
-transition = (log_phi_w[:,None] + log_phi_u[state2cluster,:]).logsumexp(-1).softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
+transition = (log_phi_w[:,None] + log_phi_u[state2cluster]).logsumexp(-1).softmax(-1)
 
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)
@@ -283,13 +270,11 @@ print("SPARSELOOPBMM")
 print(evidence_slow_bmm)
 
 # LOOP_FAST_BMM
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
 #transition = (log_phi_w @ log_phi_u.T).softmax(-1)
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)
@@ -342,13 +327,11 @@ print("FASTBMM")
 print(evidence_fast_bmm)
 
 # SPARSE_LOOP_FAST_BMM
-big_projections = projections[state2cluster]
-log_phi_w_start = start_emb @ start_projection
-log_phi_u_start = next_state_emb @ start_projection
-log_phi_w = torch.einsum("sd,sdf->sf", state_emb, big_projections)
-log_phi_u = torch.einsum("sd,cdf->csf", next_state_emb, projections)
+log_phi_w_start = start_emb @ projection
+log_phi_w = state_emb @ projection
+log_phi_u = torch.einsum("csd,df->csf", next_state_emb, projection)
 
-start = (log_phi_w_start + log_phi_u_start).logsumexp(-1).log_softmax(-1)
+start = (log_phi_w_start + log_phi_u[0]).logsumexp(-1).log_softmax(-1)
 #transition = (log_phi_w @ log_phi_u.T).softmax(-1)
 emission_logits = (preterminal_emb @ terminal_emb.T)
 emission_logits.masked_fill_(~mask, -1e7)

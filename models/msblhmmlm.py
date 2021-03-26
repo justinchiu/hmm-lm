@@ -88,7 +88,8 @@ class MsblHmmLm(nn.Module):
             ResLayer(config.hidden_dim, config.hidden_dim),
         )
         self.next_state_emb = nn.Parameter(
-            th.randn(self.C, config.hidden_dim),
+            #th.randn(self.C, config.hidden_dim),
+            th.randn(config.num_clusters, self.C, config.hidden_dim),
         )
 
         # p(xt | zt)
@@ -126,7 +127,7 @@ class MsblHmmLm(nn.Module):
             self.projections = nn.Parameter(
                 get_2d_array(self.config.num_features, self.config.hidden_dim)
                     .T
-                    .repeat(config.num_clusters, 1, 1)
+                    #.repeat(config.num_clusters, 1, 1)
             )
             # can we regularize projections to stay close together?
             # hopefully same initialization is enough
@@ -271,12 +272,14 @@ class MsblHmmLm(nn.Module):
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
+            """
             logits = project_logits(
                 fx[None, None],
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
             )[0,0]
+            """
             if self.learn_temp == "mul":
                 logits = logits * self.temp
             elif self.learn_temp == "add":
@@ -653,13 +656,13 @@ class MsblHmmLm(nn.Module):
 
         big_projections = self.projections[self.state2cluster]
         log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
+        log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, self.projections)
         if self.learn_temp == "mul":
             log_phi_w = log_phi_w * self.temp
             log_phi_u = log_phi_u * self.temp
         elif self.learn_temp == "add":
             log_phi_w = log_phi_w + self.temp
             log_phi_u = log_phi_u + self.temp
-        log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, self.projections)
         # Todo: abstract away performer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
