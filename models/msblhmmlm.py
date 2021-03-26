@@ -121,10 +121,11 @@ class MsblHmmLm(nn.Module):
         self.diffproj = config.diffproj
         if self.parameterization == "smp":
             # always learn, multiple projections, one for each cluster.
-            self.start_projection = nn.Parameter(get_2d_array(
-                self.config.num_features, self.config.hidden_dim).t())
+            #self.start_projection = nn.Parameter(get_2d_array(
+                #self.config.num_features, self.config.hidden_dim).t())
 
-            self.projections = nn.Parameter(
+            #self.projections = nn.Parameter(
+            self.projection = nn.Parameter(
                 get_2d_array(self.config.num_features, self.config.hidden_dim)
                     .T
                     #.repeat(config.num_clusters, 1, 1)
@@ -257,7 +258,8 @@ class MsblHmmLm(nn.Module):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
         #return self.start_mlp(self.start_emb).log_softmax(-1)
         fx = self.start_mlp(self.start_emb)
-        fy = self.next_state_emb if self.tie_start else self.next_start_emb
+        fy = self.next_state_emb[0] if self.tie_start else self.next_start_emb
+        # assign to first cluster
 
         if self.parameterization == "softmax" or self.sm_trans:
             logits = fx @ fy.T if states is None else fx @ fy[states].T
@@ -267,19 +269,19 @@ class MsblHmmLm(nn.Module):
                 logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            projection = self.start_projection if keep_feat_mask is None else self.start_projection[:,keep_feat_mask]
+            fy = self.next_state_emb[0] if states is None else self.next_state_emb[0,states]
+            #projection = self.start_projection if keep_feat_mask is None else self.start_projection[:,keep_feat_mask]
+            projection = self.projection if keep_feat_mask is None else self.projection[...,keep_feat_mask]
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
-            """
+            # maybe dont use project logits...
             logits = project_logits(
                 fx[None, None],
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
             )[0,0]
-            """
             if self.learn_temp == "mul":
                 logits = logits * self.temp
             elif self.learn_temp == "add":
@@ -307,16 +309,15 @@ class MsblHmmLm(nn.Module):
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if states is None else fx[states]
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            projections = self.projections if keep_feat_mask is None else self.projections[...,keep_feat_mask]
+            projection = self.projection if keep_feat_mask is None else self.projection[...,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
             # edit: not important
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
 
-            big_projections = projections[self.state2cluster]
-            log_phi_w = th.einsum("sd,sdf->sf", fx, big_projections)
-            log_phi_u = th.einsum("sd,cdf->csf", fy, projections)
+            log_phi_w = state_emb @ projection
+            log_phi_u = th.einsum("csd,df->csf", next_state_emb, projection)
 
             logits = (
                 log_phi_w[:,None] + log_phi_u[self.state2cluster,:]
@@ -575,10 +576,9 @@ class MsblHmmLm(nn.Module):
         state_emb = self.trans_mlp(state_emb)
 
         # sum vectors and sum matrices
-        projections = self.projections if feat_mask is None else self.projections[...,~feat_mask]
-        big_projections = projections[state2cluster]
-        log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
-        log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, projections)
+        projection = self.projection if feat_mask is None else self.projection[...,~feat_mask]
+        log_phi_w = state_emb @ projection
+        log_phi_u = th.einsum("csd,df->csf", next_state_emb, projection)
         if self.learn_temp == "mul":
             log_phi_w = log_phi_w * self.temp
             log_phi_u = log_phi_u * self.temp
@@ -654,9 +654,9 @@ class MsblHmmLm(nn.Module):
             next_state_emb = self.next_state_emb
         state_emb = self.trans_mlp(state_emb)
 
-        big_projections = self.projections[self.state2cluster]
-        log_phi_w = th.einsum("sd,sdf->sf", state_emb, big_projections)
-        log_phi_u = th.einsum("sd,cdf->csf", next_state_emb, self.projections)
+        projection = self.projection
+        log_phi_w = state_emb @ projection
+        log_phi_u = th.einsum("csd,df->csf", next_state_emb, projection)
         if self.learn_temp == "mul":
             log_phi_w = log_phi_w * self.temp
             log_phi_u = log_phi_u * self.temp
