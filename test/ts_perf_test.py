@@ -86,6 +86,7 @@ def get_times(C, H, D):
         )
         evidence = torch_struct.LinearChain(torch_struct.FastLogSemiring).sum(log_potentials)
         evidence.sum().backward()
+        #torch_struct.LinearChainCRF(log_potentials).partition.sum(torch_struct.FastLogSemiring()).backward()
 
     def fast(start_emb, state_emb, next_state_emb, preterminal_emb, terminal_emb, projection):
         # EMBEDDED VERSION

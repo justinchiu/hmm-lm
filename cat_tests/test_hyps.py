@@ -1,4 +1,6 @@
 
+import sys
+
 from tqdm import trange
 from itertools import zip_longest
 
@@ -112,9 +114,10 @@ def init_optimizer(model):
         weight_decay = 0.,
     )
 
-def train(true_dist, model, num_steps):
+def train(true_dist, model, num_steps, check_svs=0):
     optimizer = init_optimizer(model)
     kls = []
+    svs = []
     #for i in trange(num_steps):
     for i in range(num_steps):
         optimizer.zero_grad()
@@ -122,7 +125,15 @@ def train(true_dist, model, num_steps):
         kls.append(kl.item())
         kl.backward()
         optimizer.step()
-    return kls
+        if check_svs:
+            do_check = (i + 1) % (num_steps // check_svs) == 0
+            if do_check:
+                logits = model.logits()
+                lp = logits.log_softmax(-1)
+                u,s,v = lp.exp().svd()
+                svs.append(s)
+    #return kls if check_svs == 0 else (kls, svs)
+    return kls, svs
 
 def print_stats(model):
     logits = model.logits()
@@ -159,6 +170,18 @@ def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
     fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
+def plot_svs(svs_list, name, num_starts, num_classes, learn_temp=False):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    sns.set(font_scale=1.5)
+
+    fig, axes = plt.subplots(ncols=len(svs_list), sharey=True)
+    for ax, svs in zip(axes, svs_list):
+        g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
+    fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    plt.close(fig)
+
 def run_fit(
     true_dist_fn,
     num_classes_grid,
@@ -167,6 +190,7 @@ def run_fit(
     random_feature=False,
     learn_temp=False,
     plot_losses = False,
+    check_svs = 0,
 ):
     for num_classes in num_classes_grid:
         true_dist = true_dist_fn(num_classes)
@@ -180,13 +204,14 @@ def run_fit(
             learn_temp = learn_temp,
         )
         model.to(device)
-        model.to(device)
-        losses = train(true_dist, model, num_steps)
+        losses, svs_train = train(true_dist, model, num_steps, check_svs)
         print(f"SM queries {num_starts} keys {num_classes} ||| KL {losses[-1]:.4} <<<")
         svs = print_stats(model)
 
         if plot_losses:
             plot(losses, svs, "sm", num_starts, num_classes, learn_temp)
+        if check_svs != 0:
+            plot_svs(svs_train, "sm", num_starts, num_classes, learn_temp)
 
         # kernel
         for feature_dim_ratio, feature_dim in zip_longest(
@@ -201,12 +226,14 @@ def run_fit(
                 learn_temp = learn_temp,
             )
             model.to(device)
-            losses = train(true_dist, model, num_steps)
+            losses, svs_train = train(true_dist, model, num_steps, check_svs)
             print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} ||| KL: {losses[-1]:.4f} <<<")
             svs = print_stats(model)
 
             if plot_losses:
                 plot(losses, svs, "k", num_starts, num_classes, learn_temp)
+            if check_svs != 0:
+                plot_svs(svs_train, "k", num_starts, num_classes, learn_temp)
 
             """
             # l2norm
@@ -217,22 +244,7 @@ def run_fit(
             losses = train(true_dist, model, num_steps)
             print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
             """
-"""
-print("Higher entropy is easier to fit")
-print("Rows Cols {Feats} KL")
-for eps in [1e-4, 1e-3, 1e-2]:
-    print(f"Smoothing eps: {eps}")
-    print("Smoothed One-hot True Dist")
-    # true dist is one-hot + smoothing
-    def true_dist_onehot(num_classes):
-        logits = (torch.eye(num_classes, device=device) + eps).log()
-        true_dist = logits.log_softmax(-1)
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        return true_dist
-    run_fit(true_dist_onehot)
-    print()
-"""
-"""
+#"""
 print("Plotting losses")
 def true_dist_sm(num_classes):
     true_model = Cat(
@@ -248,6 +260,7 @@ run_fit(
     num_classes_grid = [128],
     feature_dim_grid = [64],
     plot_losses = True,
+    check_svs = 4,
 )
 print("Learn temp")
 run_fit(
@@ -256,6 +269,7 @@ run_fit(
     feature_dim_grid = [64],
     learn_temp = True,
     plot_losses = True,
+    check_svs = 4,
 )
 print()
 
@@ -275,6 +289,7 @@ for num_starts in [32, 64]:
         num_classes_grid = [1024],
         feature_dim_grid = [64],
         plot_losses = True,
+        check_svs = 4,
     )
     print("Learn temp")
     run_fit(
@@ -283,9 +298,12 @@ for num_starts in [32, 64]:
         feature_dim_grid = [64],
         learn_temp = True,
         plot_losses = True,
+        check_svs = 4,
     )
     print()
-"""
+#"""
+sys.exit()
+
 temp_grid = [1, 2, 3, 4, 5]
 print("Lower entropy is harder to fit")
 for temp in temp_grid:
@@ -386,3 +404,19 @@ for num_starts in num_starts_grid:
         learn_temp = True,
     )
     print()
+
+"""
+print("Higher entropy is easier to fit")
+print("Rows Cols {Feats} KL")
+for eps in [1e-4, 1e-3, 1e-2]:
+    print(f"Smoothing eps: {eps}")
+    print("Smoothed One-hot True Dist")
+    # true dist is one-hot + smoothing
+    def true_dist_onehot(num_classes):
+        logits = (torch.eye(num_classes, device=device) + eps).log()
+        true_dist = logits.log_softmax(-1)
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        return true_dist
+    run_fit(true_dist_onehot)
+    print()
+"""
