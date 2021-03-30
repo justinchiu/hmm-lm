@@ -154,7 +154,7 @@ def print_stats(model):
     print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     return s
 
-def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
+def plot(losses, svs, name, num_starts, num_classes, num_features=0, learn_temp=False):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
@@ -167,10 +167,13 @@ def plot(losses, svs, name, num_starts, num_classes, learn_temp=False):
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
-    fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    if num_features > 0:
+        fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+    else:
+        fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
-def plot_svs(svs_list, name, num_starts, num_classes, learn_temp=False):
+def plot_svs(svs_list, name, num_starts, num_classes, num_features=0, learn_temp=False):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
@@ -179,7 +182,10 @@ def plot_svs(svs_list, name, num_starts, num_classes, learn_temp=False):
     fig, axes = plt.subplots(ncols=len(svs_list), sharey=True)
     for ax, svs in zip(axes, svs_list):
         g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
-    fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    if num_features > 0:
+        fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+    else:
+        fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
 def run_fit(
