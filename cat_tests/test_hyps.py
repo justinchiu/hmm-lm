@@ -154,26 +154,28 @@ def print_stats(model):
     print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     return s
 
-def plot(losses, svs, name, num_starts, num_classes, num_features=0, learn_temp=False):
+def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
-    fig.savefig(f"cat_tests/plots/{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    fig.savefig(f"cat_tests/plots/{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
-        fig.savefig(f"cat_tests/plots/svs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(
+            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
     else:
-        fig.savefig(f"cat_tests/plots/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(
+            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
-def plot_svs(svs_list, name, num_starts, num_classes, num_features=0, learn_temp=False):
+def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
@@ -186,9 +188,9 @@ def plot_svs(svs_list, name, num_starts, num_classes, num_features=0, learn_temp
     for ax, svs in zip(axes, svs_list):
         g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
-        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
     else:
-        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
 def run_fit(
@@ -201,6 +203,7 @@ def run_fit(
     learn_temp=False,
     plot_losses = False,
     check_svs = 0,
+    prefix=None,
 ):
     true_dist = true_dist_fn(num_classes)
     num_starts = true_dist.shape[0]
@@ -219,9 +222,10 @@ def run_fit(
     sm_losses = losses
 
     if plot_losses:
-        plot(losses, svs, "sm", num_starts, num_classes, learn_temp=learn_temp)
+        plot(losses, svs, prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
     if check_svs != 0:
-        plot_svs(svs_train, "sm", num_starts, num_classes, learn_temp=learn_temp)
+        # only plot last one now.
+        plot_svs([svs_train[-1]], prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
 
     # kernel
     if feature_dim is None:
@@ -239,9 +243,9 @@ def run_fit(
     k_losses = losses
 
     if plot_losses:
-        plot(losses, svs, "k", num_starts, num_classes, feature_dim, learn_temp)
+        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
     if check_svs != 0:
-        plot_svs(svs_train, "k", num_starts, num_classes, feature_dim, learn_temp)
+        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
 
     return sm_losses, k_losses
 
@@ -268,16 +272,17 @@ if PLOT:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 128,
         feature_dim = 64,
         emb_dim = 128,
         plot_losses = True,
         check_svs = 4,
+        prefix="smallsq",
     )
     print("Learn temp")
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 128,
         feature_dim = 64,
@@ -285,6 +290,7 @@ if PLOT:
         learn_temp = True,
         plot_losses = True,
         check_svs = 4,
+        prefix="smallsq",
     )
     print()
 
@@ -308,6 +314,7 @@ if PLOT:
             emb_dim = 128,
             plot_losses = True,
             check_svs = 4,
+            prefix = "lqhk",
         )
         print("Learn temp")
         run_fit(
@@ -318,30 +325,32 @@ if PLOT:
             learn_temp = True,
             plot_losses = True,
             check_svs = 4,
+            prefix = "lqhk",
         )
         print()
     """
     
     print("Smoothed One-hot True Dist")
-    eps = 1e-4
+    eps = 1e-3
     # true dist is one-hot + smoothing
     def true_dist_onehot(num_classes):
         logits = (torch.eye(num_classes, device=device) + eps).log()
         true_dist = logits.log_softmax(-1)
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         u,s,v = true_dist.exp().svd()
-        plot_svs([s], "trueeye", num_classes, num_classes)
+        plot_svs([s], "smoh", "trueeye", num_classes, num_classes)
         return true_dist
-    run_fit(
+    sm, k = run_fit(
         true_dist_onehot,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
         plot_losses = True,
         check_svs = 4,
+        prefix = "smoh",
     )
     print("Learn temp")
-    run_fit(
+    sm, k = run_fit(
         true_dist_onehot,
         num_classes = 256,
         feature_dim = 64,
@@ -349,12 +358,15 @@ if PLOT:
         learn_temp = True,
         plot_losses = True,
         check_svs = 4,
+        prefix = "smoh",
     )
     print()
 
+# type x temp
+results = np.zeros((3,3))
 temp_grid = [1, 2, 3]
 print("Higher entropy is easier to fit")
-for temp in temp_grid:
+for i, temp in enumerate(temp_grid):
     print(f"Temperature {temp}")
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -366,24 +378,40 @@ for temp in temp_grid:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
+        prefix = "temp",
     )
+    results[0,i] = sm
+    results[1,i] = k
     print("Learn temp")
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
         learn_temp = True,
+        prefix = "temp",
     )
+    results[2,i] = k
     print()
+df = pd.DataFrame(
+    results,
+    columns=np.arange(1,4),
+    index = ["sm", "k", "klt"],
+)
+g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+g.set_axis_labels("True distribution temperature", "KL")
+g.tight_layout()
+g.savefig("cat_tests/kl_plots/temp.png")
 
 print("Higher rank is harder to fit")
-for emb_dim in [32, 64, 128, 256, 512]:
+# type x embdimb
+results = np.zeros((3,5))
+for i, emb_dim in enumerate([32, 64, 128, 256, 512]):
     print(f"True model emb_dim: {emb_dim}")
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -395,21 +423,36 @@ for emb_dim in [32, 64, 128, 256, 512]:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
+        prefix = "rank",
     )
+    results[0,i] = sm
+    results[1,i] = k
     print("Learn temp")
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
         learn_temp = True,
+        prefix = "rank",
     )
+    results[2,i] = k
 print()
+df = pd.DataFrame(
+    results,
+    columns=[32, 64, 128, 256, 512],
+    index = ["sm", "k", "klt"],
+)
+g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+g.set_axis_labels("True distribution emb dim", "KL")
+g.tight_layout()
+g.savefig("cat_tests/kl_plots/rank.png")
+
 
 print("Higher number of classes (keys) is harder to fit")
 def true_dist_sm(num_classes):
@@ -423,26 +466,45 @@ def true_dist_sm(num_classes):
     print_stats(true_model)
     return true_dist
 num_classes_grid = [64, 128, 256, 512, 1024]
-for num_classes in num_classes_grid:
-    run_fit(
+# type x num_keys
+results = np.zeros((3,5))
+for i, num_classes in enumerate(num_classes_grid):
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = num_classes,
         feature_dim = 64,
         emb_dim = 128,
+        prefix = "keys",
     )
+    results[0,i] = sm
+    results[1,i] = k
 print("Learn temp")
-for num_classes in num_classes_grid:
-    run_fit(
+for i, num_classes in enumerate(num_classes_grid):
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = num_classes,
         feature_dim = 64,
         emb_dim = 128,
         learn_temp = True,
+        prefix = "keys",
     )
+    results[2,i] = k
 print()
+df = pd.DataFrame(
+    results,
+    columns=num_classes_grid,
+    index = ["sm", "k", "klt"],
+)
+g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+g.set_axis_labels("Number of keys", "KL")
+g.tight_layout()
+g.savefig("cat_tests/kl_plots/keys.png")
 
-num_starts_grid = [64, 128, 256, 512, 1024]
+
 print("Higher number of starts (queries) is harder to fit")
+num_starts_grid = [64, 128, 256, 512, 1024]
+# type x num_keys
+results = np.zeros((3,5))
 for num_starts in num_starts_grid:
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -454,22 +516,36 @@ for num_starts in num_starts_grid:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
+        prefix = "queries",
     )
+    results[0,i] = sm
+    results[1,i] = k
     print("Learn temp")
-    run_fit(
+    sm, k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
         learn_temp = True,
+        prefix = "queries",
     )
+    results[2,i] = k
     print()
 
+df = pd.DataFrame(
+    results,
+    columns=num_classes_grid,
+    index = ["sm", "k", "klt"],
+)
+g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+g.set_axis_labels("Number of queries", "KL")
+g.tight_layout()
+g.savefig("cat_tests/kl_plots/queries.png")
 """
 print("Higher entropy is easier to fit")
 print("Rows Cols {Feats} KL")
