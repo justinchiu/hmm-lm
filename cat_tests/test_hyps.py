@@ -254,6 +254,7 @@ def run_fit(
                 """
 #"""
 PLOT = False
+PLOT = True
 if PLOT:
     print("Plotting losses")
     def true_dist_sm(num_classes):
@@ -319,6 +320,36 @@ if PLOT:
         print()
     #"""
     #sys.exit()
+    
+    print("Smoothed One-hot True Dist")
+    eps = 1e-4
+    # true dist is one-hot + smoothing
+    def true_dist_onehot(num_classes):
+        logits = (torch.eye(num_classes, device=device) + eps).log()
+        true_dist = logits.log_softmax(-1)
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        u,s,v = true_dist.exp().svd()
+        plot_svs([s], "trueeye", num_classes, num_classes)
+        return true_dist
+    run_fit(
+        true_dist_onehot,
+        num_classes_grid = [128],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
+        plot_losses = True,
+        check_svs = 4,
+    )
+    print("Learn temp")
+    run_fit(
+        true_dist_onehot,
+        num_classes_grid = [128],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
+        learn_temp = True,
+        plot_losses = True,
+        check_svs = 4,
+    )
+    print()
 
 temp_grid = [1, 2, 3]
 print("Higher entropy is easier to fit")
@@ -440,14 +471,5 @@ print("Higher entropy is easier to fit")
 print("Rows Cols {Feats} KL")
 for eps in [1e-4, 1e-3, 1e-2]:
     print(f"Smoothing eps: {eps}")
-    print("Smoothed One-hot True Dist")
-    # true dist is one-hot + smoothing
-    def true_dist_onehot(num_classes):
-        logits = (torch.eye(num_classes, device=device) + eps).log()
-        true_dist = logits.log_softmax(-1)
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        print_stats(true_model)
-        return true_dist
-    run_fit(true_dist_onehot)
     print()
 """
