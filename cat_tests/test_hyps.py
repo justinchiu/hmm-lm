@@ -161,16 +161,16 @@ def plot(losses, svs, name, num_starts, num_classes, num_features=0, learn_temp=
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
-    fig.savefig(f"cat_tests/{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    fig.savefig(f"cat_tests/plots/{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
     sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
-        fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/plots/svs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
     else:
-        fig.savefig(f"cat_tests/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/plots/svs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
 def plot_svs(svs_list, name, num_starts, num_classes, num_features=0, learn_temp=False):
@@ -183,9 +183,9 @@ def plot_svs(svs_list, name, num_starts, num_classes, num_features=0, learn_temp
     for ax, svs in zip(axes, svs_list):
         g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
-        fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
     else:
-        fig.savefig(f"cat_tests/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
 def run_fit(
@@ -193,220 +193,244 @@ def run_fit(
     num_classes_grid,
     feature_dim_ratio_grid=[],
     feature_dim_grid=[],
+    emb_dim_grid=[],
     random_feature=False,
     learn_temp=False,
     plot_losses = False,
     check_svs = 0,
 ):
     for num_classes in num_classes_grid:
-        true_dist = true_dist_fn(num_classes)
-        num_starts = true_dist.shape[0]
+        for emb_dim in emb_dim_grid:
+            true_dist = true_dist_fn(num_classes)
+            num_starts = true_dist.shape[0]
 
-        # softmax
-        model = Cat(
-            num_starts,
-            num_classes, emb_dim, feature_dim=1,
-            sm=True,
-            learn_temp = learn_temp,
-        )
-        model.to(device)
-        losses, svs_train = train(true_dist, model, num_steps, check_svs)
-        print(f"SM queries {num_starts} keys {num_classes} ||| KL {losses[-1]:.4} <<<")
-        svs = print_stats(model)
-
-        if plot_losses:
-            plot(losses, svs, "sm", num_starts, num_classes, learn_temp)
-        if check_svs != 0:
-            plot_svs(svs_train, "sm", num_starts, num_classes, learn_temp)
-
-        # kernel
-        for feature_dim_ratio, feature_dim in zip_longest(
-            feature_dim_ratio_grid, feature_dim_grid
-        ):
-            if feature_dim is None:
-                feature_dim = int(num_classes // feature_dim_ratio)
+            # softmax
             model = Cat(
                 num_starts,
-                num_classes, emb_dim, feature_dim,
-                random_feature = random_feature,
+                num_classes, emb_dim, feature_dim=1,
+                sm=True,
                 learn_temp = learn_temp,
             )
             model.to(device)
             losses, svs_train = train(true_dist, model, num_steps, check_svs)
-            print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} ||| KL: {losses[-1]:.4f} <<<")
+            print(f"SM queries {num_starts} keys {num_classes} edim {emb_dim} ||| KL {losses[-1]:.4} <<<")
             svs = print_stats(model)
 
             if plot_losses:
-                plot(losses, svs, "k", num_starts, num_classes, learn_temp)
+                plot(losses, svs, "sm", num_starts, num_classes, learn_temp)
             if check_svs != 0:
-                plot_svs(svs_train, "k", num_starts, num_classes, learn_temp)
+                plot_svs(svs_train, "sm", num_starts, num_classes, learn_temp)
 
-            """
-            # l2norm
-            model = Cat(
-                num_starts,
-                num_classes, emb_dim, feature_dim, l2norm=True)
-            model.to(device)
-            losses = train(true_dist, model, num_steps)
-            print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
-            """
+            # kernel
+            for feature_dim_ratio, feature_dim in zip_longest(
+                feature_dim_ratio_grid, feature_dim_grid
+            ):
+                if feature_dim is None:
+                    feature_dim = int(num_classes // feature_dim_ratio)
+                model = Cat(
+                    num_starts,
+                    num_classes, emb_dim, feature_dim,
+                    random_feature = random_feature,
+                    learn_temp = learn_temp,
+                )
+                model.to(device)
+                losses, svs_train = train(true_dist, model, num_steps, check_svs)
+                print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
+                svs = print_stats(model)
+
+                if plot_losses:
+                    plot(losses, svs, "k", num_starts, num_classes, learn_temp)
+                if check_svs != 0:
+                    plot_svs(svs_train, "k", num_starts, num_classes, learn_temp)
+
+                """
+                # l2norm
+                model = Cat(
+                    num_starts,
+                    num_classes, emb_dim, feature_dim, l2norm=True)
+                model.to(device)
+                losses = train(true_dist, model, num_steps)
+                print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
+                """
 #"""
-print("Plotting losses")
-def true_dist_sm(num_classes):
-    true_model = Cat(
-        num_classes,
-        num_classes, emb_dim, 1,
-        temp=1, xavier_init=False, sm=True)
-    true_model.to(device)
-    true_dist = true_model.log_probs().detach()
-    print(f"True dist H: {H(true_dist).mean().item():.2f}")
-    return true_dist
-run_fit(
-    true_dist_sm,
-    num_classes_grid = [128],
-    feature_dim_grid = [64],
-    plot_losses = True,
-    check_svs = 4,
-)
-print("Learn temp")
-run_fit(
-    true_dist_sm,
-    num_classes_grid = [128],
-    feature_dim_grid = [64],
-    learn_temp = True,
-    plot_losses = True,
-    check_svs = 4,
-)
-print()
-
-print("Plotting low queries high keys")
-for num_starts in [32, 64]:
+PLOT = False
+if PLOT:
+    print("Plotting losses")
     def true_dist_sm(num_classes):
         true_model = Cat(
-            num_starts,
-            num_classes, emb_dim, 1,
+            num_classes,
+            num_classes, 128, 1,
             temp=1, xavier_init=False, sm=True)
         true_model.to(device)
         true_dist = true_model.log_probs().detach()
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        print_stats(true_model)
         return true_dist
     run_fit(
         true_dist_sm,
-        num_classes_grid = [1024],
+        num_classes_grid = [128],
         feature_dim_grid = [64],
+        emb_dim_grid = [128],
         plot_losses = True,
         check_svs = 4,
     )
     print("Learn temp")
     run_fit(
         true_dist_sm,
-        num_classes_grid = [1024],
+        num_classes_grid = [128],
         feature_dim_grid = [64],
+        emb_dim_grid = [128],
         learn_temp = True,
         plot_losses = True,
         check_svs = 4,
     )
     print()
-#"""
-sys.exit()
 
-temp_grid = [1, 2, 3, 4, 5]
-print("Lower entropy is harder to fit")
+    print("Plotting low queries high keys")
+    for num_starts in [32, 64]:
+        def true_dist_sm(num_classes):
+            true_model = Cat(
+                num_starts,
+                num_classes, 128, 1,
+                temp=1, xavier_init=False, sm=True)
+            true_model.to(device)
+            true_dist = true_model.log_probs().detach()
+            print(f"True dist H: {H(true_dist).mean().item():.2f}")
+            print_stats(true_model)
+            return true_dist
+        run_fit(
+            true_dist_sm,
+            num_classes_grid = [1024],
+            feature_dim_grid = [64],
+            emb_dim_grid = [128],
+            plot_losses = True,
+            check_svs = 4,
+        )
+        print("Learn temp")
+        run_fit(
+            true_dist_sm,
+            num_classes_grid = [1024],
+            feature_dim_grid = [64],
+            emb_dim_grid = [128],
+            learn_temp = True,
+            plot_losses = True,
+            check_svs = 4,
+        )
+        print()
+    #"""
+    #sys.exit()
+
+temp_grid = [1, 2, 3]
+print("Higher entropy is easier to fit")
 for temp in temp_grid:
     print(f"Temperature {temp}")
     def true_dist_sm(num_classes):
         true_model = Cat(
             num_classes,
-            num_classes, emb_dim, 1,
+            num_classes, 128, 1,
             temp=temp, xavier_init=False, sm=True)
         true_model.to(device)
         true_dist = true_model.log_probs().detach()
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        print_stats(true_model)
         return true_dist
     run_fit(
         true_dist_sm,
-        num_classes_grid = [128],
-        feature_dim_grid = [64, 128, 256, 512],
+        num_classes_grid = [256],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
     )
     print("Learn temp")
     run_fit(
         true_dist_sm,
-        num_classes_grid = [128],
-        feature_dim_grid = [64, 128, 256, 512],
+        num_classes_grid = [256],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
         learn_temp = True,
     )
     print()
 
 print("Higher rank is harder to fit")
-def true_dist_sm(num_classes):
-    true_model = Cat(
-        num_classes,
-        num_classes, emb_dim, 1,
-        temp=1, xavier_init=False, sm=True)
-    true_model.to(device)
-    true_dist = true_model.log_probs().detach()
-    print(f"True dist H: {H(true_dist).mean().item():.2f}")
-    return true_dist
-run_fit(
-    true_dist_sm,
-    num_classes_grid = [64, 128, 256],
-    feature_dim_grid = [64, 128, 256, 512],
-)
-print("Learn temp")
-run_fit(
-    true_dist_sm,
-    num_classes_grid = [64, 128, 256],
-    feature_dim_grid = [64, 128, 256, 512],
-    learn_temp = True,
-)
+for emb_dim in [32, 64, 128, 256, 512]:
+    print(f"True model emb_dim: {emb_dim}")
+    def true_dist_sm(num_classes):
+        true_model = Cat(
+            num_classes,
+            num_classes, emb_dim, 1,
+            temp=1, xavier_init=False, sm=True)
+        true_model.to(device)
+        true_dist = true_model.log_probs().detach()
+        print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        print_stats(true_model)
+        return true_dist
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [256],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
+    )
+    print("Learn temp")
+    run_fit(
+        true_dist_sm,
+        num_classes_grid = [256],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
+        learn_temp = True,
+    )
 print()
 
 print("Higher number of classes (keys) is harder to fit")
 def true_dist_sm(num_classes):
     true_model = Cat(
         128,
-        num_classes, emb_dim, 1,
+        num_classes, 128, 1,
         temp=1, xavier_init=False, sm=True)
     true_model.to(device)
     true_dist = true_model.log_probs().detach()
     print(f"True dist H: {H(true_dist).mean().item():.2f}")
+    print_stats(true_model)
     return true_dist
 run_fit(
     true_dist_sm,
-    num_classes_grid = [128, 256, 512, 1024, 2048],
-    feature_dim_grid = [64, 128, 256, 512],
+    num_classes_grid = [64, 128, 256, 512, 1024],
+    feature_dim_grid = [64],
+    emb_dim_grid=[128],
 )
 print("Learn temp")
 run_fit(
     true_dist_sm,
-    num_classes_grid = [128, 256, 512, 1024, 2048],
-    feature_dim_grid = [64, 128, 256, 512],
+    num_classes_grid = [64, 128, 256, 512, 1024],
+    feature_dim_grid = [64],
+    emb_dim_grid=[128],
     learn_temp = True,
 )
 print()
 
-num_starts_grid = [32, 64, 128, 256]
-print("Lower number of starts (queries) is easier to fit")
+num_starts_grid = [64, 128, 256, 512, 1024]
+print("Higher number of starts (queries) is harder to fit")
 for num_starts in num_starts_grid:
     def true_dist_sm(num_classes):
         true_model = Cat(
             num_starts,
-            num_classes, emb_dim, 1,
+            num_classes, 128, 1,
             temp=1, xavier_init=False, sm=True)
         true_model.to(device)
         true_dist = true_model.log_probs().detach()
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        print_stats(true_model)
         return true_dist
     run_fit(
         true_dist_sm,
-        num_classes_grid = [1024],
-        feature_dim_grid = [64, 128, 256, 512],
+        num_classes_grid = [128],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
     )
     print("Learn temp")
     run_fit(
         true_dist_sm,
-        num_classes_grid = [1024],
-        feature_dim_grid = [64, 128, 256, 512],
+        num_classes_grid = [128],
+        feature_dim_grid = [64],
+        emb_dim_grid = [128],
         learn_temp = True,
     )
     print()
@@ -422,6 +446,7 @@ for eps in [1e-4, 1e-3, 1e-2]:
         logits = (torch.eye(num_classes, device=device) + eps).log()
         true_dist = logits.log_softmax(-1)
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
+        print_stats(true_model)
         return true_dist
     run_fit(true_dist_onehot)
     print()
