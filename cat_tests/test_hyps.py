@@ -422,7 +422,7 @@ def true_dist_sm(num_classes):
     print(f"True dist H: {H(true_dist).mean().item():.2f}")
     print_stats(true_model)
     return true_dist
-num_classes_grid = [64, 128, 256, 512, 1024],
+num_classes_grid = [64, 128, 256, 512, 1024]
 for num_classes in num_classes_grid:
     run_fit(
         true_dist_sm,
@@ -436,7 +436,7 @@ for num_classes in num_classes_grid:
         true_dist_sm,
         num_classes = num_classes,
         feature_dim = 64,
-        emb_dim_grid = 128,
+        emb_dim = 128,
         learn_temp = True,
     )
 print()
