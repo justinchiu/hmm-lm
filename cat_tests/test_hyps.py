@@ -219,7 +219,7 @@ def run_fit(
     losses, svs_train = train(true_dist, model, num_steps, check_svs)
     print(f"SM queries {num_starts} keys {num_classes} edim {emb_dim} ||| KL {losses[-1]:.4} <<<")
     svs = print_stats(model)
-    sm_losses = losses
+    sm_loss = losses[-1]
 
     if plot_losses:
         plot(losses, svs, prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
@@ -240,14 +240,14 @@ def run_fit(
     losses, svs_train = train(true_dist, model, num_steps, check_svs)
     print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
     svs = print_stats(model)
-    k_losses = losses
+    k_loss = losses[-1]
 
     if plot_losses:
         plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
     if check_svs != 0:
         plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
 
-    return sm_losses, k_losses
+    return sm_loss, k_loss
 
     """
     # l2norm
