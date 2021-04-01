@@ -5,6 +5,7 @@ from tqdm import trange
 from itertools import zip_longest
 
 import numpy as np
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -13,7 +14,12 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 from models.linear_utils import get_2d_array, project_logits
+
+sns.set(font_scale=1.5)
 
 class Cat(nn.Module):
     def __init__(
@@ -155,16 +161,11 @@ def print_stats(model):
     return s
 
 def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-
-    sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
     fig.savefig(f"cat_tests/plots/{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
     plt.close(fig)
 
-    sns.set(font_scale=1.5)
     fig, ax = plt.subplots()
     g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
@@ -176,11 +177,6 @@ def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, lea
     plt.close(fig)
 
 def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-
-    sns.set(font_scale=1.5)
-
     fig, axes = plt.subplots(ncols=len(svs_list), sharey=True)
     if len(svs_list) == 1:
         # wrap singleton list?
@@ -259,7 +255,7 @@ def run_fit(
     print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
     """
 PLOT = False
-PLOT = True
+#PLOT = True
 if PLOT:
     print("Plotting losses")
     def true_dist_sm(num_classes):
@@ -399,9 +395,9 @@ for i, temp in enumerate(temp_grid):
     results[2,i] = k
     print()
 df = pd.DataFrame(
-    results,
-    columns=np.arange(1,4),
-    index = ["sm", "k", "klt"],
+    results.T,
+    index = np.arange(1,4),
+    columns = ["sm", "k", "klt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution temperature", "KL")
@@ -409,9 +405,10 @@ g.tight_layout()
 g.savefig("cat_tests/kl_plots/temp.png")
 
 print("Higher rank is harder to fit")
+emb_dim_grid = [32, 64, 128, 256]
 # type x embdimb
-results = np.zeros((3,5))
-for i, emb_dim in enumerate([32, 64, 128, 256, 512]):
+results = np.zeros((3,len(emb_dim_grid)))
+for i, emb_dim in enumerate(emb_dim_grid):
     print(f"True model emb_dim: {emb_dim}")
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -444,9 +441,9 @@ for i, emb_dim in enumerate([32, 64, 128, 256, 512]):
     results[2,i] = k
 print()
 df = pd.DataFrame(
-    results,
-    columns=[32, 64, 128, 256, 512],
-    index = ["sm", "k", "klt"],
+    results.T,
+    index = emb_dim_grid,
+    columns = ["sm", "k", "klt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution emb dim", "KL")
@@ -491,9 +488,9 @@ for i, num_classes in enumerate(num_classes_grid):
     results[2,i] = k
 print()
 df = pd.DataFrame(
-    results,
-    columns=num_classes_grid,
-    index = ["sm", "k", "klt"],
+    results.T,
+    index = num_classes_grid,
+    columns = ["sm", "k", "klt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of keys", "KL")
@@ -504,7 +501,7 @@ g.savefig("cat_tests/kl_plots/keys.png")
 print("Higher number of starts (queries) is harder to fit")
 num_starts_grid = [64, 128, 256, 512, 1024]
 # type x num_keys
-results = np.zeros((3,5))
+results = np.zeros((3,len(num_starts_grid)))
 for num_starts in num_starts_grid:
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -538,9 +535,9 @@ for num_starts in num_starts_grid:
     print()
 
 df = pd.DataFrame(
-    results,
-    columns=num_classes_grid,
-    index = ["sm", "k", "klt"],
+    results.T,
+    index = num_starts_grid,
+    columns = ["sm", "k", "klt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of queries", "KL")
