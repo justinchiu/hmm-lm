@@ -255,7 +255,7 @@ def run_fit(
     print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
     """
 PLOT = False
-#PLOT = True
+PLOT = True
 if PLOT:
     print("Plotting losses")
     def true_dist_sm(num_classes):
