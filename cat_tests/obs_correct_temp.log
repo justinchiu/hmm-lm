@@ -1,0 +1,238 @@
+Higher entropy is easier to fit
+Temperature 1
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 9.473e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -22.02/22.56 || proj: 0.00/0.00 || emb: -2.50/2.86 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0563 <<<
+num sv > 1: 38 || H: 1.58 || min/max logit: 9.37/56.35 || proj: -4.47/4.39 || emb: -1.24/1.38 || temp 1.00
+Learn temp
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 8.523e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -24.26/24.09 || proj: 0.00/0.00 || emb: -1.77/2.19 || temp 0.44
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0788 <<<
+num sv > 1: 38 || H: 1.60 || min/max logit: 9.90/78.82 || proj: -4.37/4.27 || emb: -1.06/1.89 || temp 0.73
+
+Temperature 2
+True dist H: 1.19
+num sv > 1: 49 || H: 1.19 || min/max logit: -24.59/22.92 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 2.00
+SM queries 256 keys 256 edim 128 ||| KL 3.273e-05 <<<
+num sv > 1: 49 || H: 1.19 || min/max logit: -20.01/18.86 || proj: 0.00/0.00 || emb: -2.43/2.94 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.9484 <<<
+num sv > 1: 26 || H: 2.14 || min/max logit: 9.15/38.77 || proj: -4.36/4.53 || emb: -1.39/1.22 || temp 1.00
+Learn temp
+True dist H: 1.19
+num sv > 1: 49 || H: 1.19 || min/max logit: -24.59/22.92 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 2.00
+SM queries 256 keys 256 edim 128 ||| KL 3.482e-05 <<<
+num sv > 1: 49 || H: 1.19 || min/max logit: -23.28/19.23 || proj: 0.00/0.00 || emb: -1.52/1.75 || temp 0.39
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.9556 <<<
+num sv > 1: 27 || H: 2.15 || min/max logit: 9.17/40.36 || proj: -4.29/4.32 || emb: -1.12/1.29 || temp 0.65
+
+Temperature 3
+True dist H: 2.00
+num sv > 1: 19 || H: 2.00 || min/max logit: -16.39/15.28 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 3.00
+SM queries 256 keys 256 edim 128 ||| KL 2.872e-05 <<<
+num sv > 1: 19 || H: 2.00 || min/max logit: -15.50/14.80 || proj: 0.00/0.00 || emb: -1.94/2.53 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.8837 <<<
+num sv > 1: 7 || H: 2.89 || min/max logit: 7.39/28.23 || proj: -4.48/4.64 || emb: -1.05/1.27 || temp 1.00
+Learn temp
+True dist H: 2.00
+num sv > 1: 19 || H: 2.00 || min/max logit: -16.39/15.28 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 3.00
+SM queries 256 keys 256 edim 128 ||| KL 3.42e-05 <<<
+num sv > 1: 19 || H: 1.99 || min/max logit: -15.80/14.88 || proj: 0.00/0.00 || emb: -1.25/1.62 || temp 0.41
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.8923 <<<
+num sv > 1: 8 || H: 2.90 || min/max logit: 7.73/29.57 || proj: -4.32/4.37 || emb: -0.85/1.03 || temp 0.58
+
+Higher rank is harder to fit
+True model emb_dim: 32
+True dist H: 1.21
+num sv > 1: 48 || H: 1.21 || min/max logit: -30.00/24.52 || proj: 0.00/0.00 || emb: -4.09/4.10 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 7.655e-06 <<<
+num sv > 1: 48 || H: 1.21 || min/max logit: -18.13/19.57 || proj: 0.00/0.00 || emb: -2.02/2.20 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.7518 <<<
+num sv > 1: 33 || H: 1.97 || min/max logit: 9.12/35.31 || proj: -4.72/4.26 || emb: -1.09/1.35 || temp 1.00
+Learn temp
+True dist H: 1.21
+num sv > 1: 48 || H: 1.21 || min/max logit: -30.00/24.52 || proj: 0.00/0.00 || emb: -4.09/4.10 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 9.791e-06 <<<
+num sv > 1: 48 || H: 1.21 || min/max logit: -18.40/20.22 || proj: 0.00/0.00 || emb: -1.34/1.44 || temp 0.46
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.7461 <<<
+num sv > 1: 33 || H: 1.96 || min/max logit: 9.31/36.50 || proj: -4.46/4.14 || emb: -0.84/1.10 || temp 0.67
+True model emb_dim: 64
+True dist H: 0.76
+num sv > 1: 66 || H: 0.76 || min/max logit: -35.75/46.89 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 1.372e-05 <<<
+num sv > 1: 66 || H: 0.76 || min/max logit: -18.79/22.76 || proj: 0.00/0.00 || emb: -2.63/2.77 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.9543 <<<
+num sv > 1: 35 || H: 1.71 || min/max logit: 9.00/41.45 || proj: -4.50/4.45 || emb: -1.36/1.13 || temp 1.00
+Learn temp
+True dist H: 0.76
+num sv > 1: 66 || H: 0.76 || min/max logit: -35.75/46.89 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 1.309e-05 <<<
+num sv > 1: 66 || H: 0.76 || min/max logit: -20.33/24.86 || proj: 0.00/0.00 || emb: -1.48/1.95 || temp 0.42
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 0.9471 <<<
+num sv > 1: 35 || H: 1.70 || min/max logit: 8.97/49.08 || proj: -4.36/4.25 || emb: -1.00/1.33 || temp 0.71
+True model emb_dim: 128
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 9.473e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -22.02/22.56 || proj: 0.00/0.00 || emb: -2.50/2.86 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0563 <<<
+num sv > 1: 38 || H: 1.58 || min/max logit: 9.37/56.35 || proj: -4.47/4.39 || emb: -1.24/1.38 || temp 1.00
+Learn temp
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 8.523e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -24.26/24.09 || proj: 0.00/0.00 || emb: -1.77/2.19 || temp 0.44
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0788 <<<
+num sv > 1: 38 || H: 1.60 || min/max logit: 9.90/78.82 || proj: -4.37/4.27 || emb: -1.06/1.89 || temp 0.73
+True model emb_dim: 256
+True dist H: 0.30
+num sv > 1: 87 || H: 0.30 || min/max logit: -68.49/73.76 || proj: 0.00/0.00 || emb: -4.26/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 3.957e-06 <<<
+num sv > 1: 87 || H: 0.30 || min/max logit: -16.35/23.83 || proj: 0.00/0.00 || emb: -2.68/2.77 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0360 <<<
+num sv > 1: 43 || H: 1.33 || min/max logit: 10.80/58.24 || proj: -4.40/4.33 || emb: -1.12/2.28 || temp 1.00
+Learn temp
+True dist H: 0.30
+num sv > 1: 87 || H: 0.30 || min/max logit: -68.49/73.76 || proj: 0.00/0.00 || emb: -4.26/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 3.434e-06 <<<
+num sv > 1: 86 || H: 0.30 || min/max logit: -18.63/25.30 || proj: 0.00/0.00 || emb: -1.91/2.23 || temp 0.47
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0447 <<<
+num sv > 1: 43 || H: 1.34 || min/max logit: 10.83/71.50 || proj: -4.31/4.23 || emb: -1.13/2.33 || temp 0.74
+
+Higher number of classes (keys) is harder to fit
+True dist H: 0.39
+num sv > 1: 41 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 128 keys 64 edim 128 ||| KL 3.05e-06 <<<
+num sv > 1: 41 || H: 0.39 || min/max logit: -14.52/21.19 || proj: 0.00/0.00 || emb: -2.09/3.12 || temp 1.00
+K queries 128 keys 64 feats 64 edim 128 ||| KL: 0.3622 <<<
+num sv > 1: 31 || H: 0.75 || min/max logit: 11.07/47.65 || proj: -3.84/4.22 || emb: -1.30/1.33 || temp 1.00
+True dist H: 0.39
+num sv > 1: 38 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 128 keys 128 edim 128 ||| KL 3.594e-06 <<<
+num sv > 1: 38 || H: 0.39 || min/max logit: -14.67/21.74 || proj: 0.00/0.00 || emb: -2.34/2.57 || temp 1.00
+K queries 128 keys 128 feats 64 edim 128 ||| KL: 0.5529 <<<
+num sv > 1: 27 || H: 0.94 || min/max logit: 9.53/48.46 || proj: -4.55/4.76 || emb: -1.46/1.35 || temp 1.00
+True dist H: 0.44
+num sv > 1: 34 || H: 0.44 || min/max logit: -49.17/44.48 || proj: 0.00/0.00 || emb: -3.88/4.56 || temp 1.00
+SM queries 128 keys 256 edim 128 ||| KL 5.501e-06 <<<
+num sv > 1: 34 || H: 0.44 || min/max logit: -13.49/22.70 || proj: 0.00/0.00 || emb: -2.97/2.59 || temp 1.00
+K queries 128 keys 256 feats 64 edim 128 ||| KL: 0.7230 <<<
+num sv > 1: 19 || H: 1.17 || min/max logit: 8.96/43.98 || proj: -4.02/3.43 || emb: -1.11/1.29 || temp 1.00
+True dist H: 0.51
+num sv > 1: 27 || H: 0.51 || min/max logit: -49.17/45.15 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 128 keys 512 edim 128 ||| KL 5.602e-06 <<<
+num sv > 1: 27 || H: 0.51 || min/max logit: -12.30/22.41 || proj: 0.00/0.00 || emb: -2.10/2.68 || temp 1.00
+K queries 128 keys 512 feats 64 edim 128 ||| KL: 0.8967 <<<
+num sv > 1: 12 || H: 1.41 || min/max logit: 9.71/45.63 || proj: -4.73/3.94 || emb: -1.09/1.22 || temp 1.00
+True dist H: 0.54
+num sv > 1: 14 || H: 0.54 || min/max logit: -49.17/52.64 || proj: 0.00/0.00 || emb: -4.26/4.56 || temp 1.00
+SM queries 128 keys 1024 edim 128 ||| KL 5.665e-06 <<<
+num sv > 1: 13 || H: 0.54 || min/max logit: -13.22/23.21 || proj: 0.00/0.00 || emb: -1.82/2.54 || temp 1.00
+K queries 128 keys 1024 feats 64 edim 128 ||| KL: 0.9782 <<<
+num sv > 1: 8 || H: 1.51 || min/max logit: 10.39/52.14 || proj: -3.91/3.97 || emb: -1.18/1.47 || temp 1.00
+Learn temp
+True dist H: 0.39
+num sv > 1: 41 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 128 keys 64 edim 128 ||| KL 3.897e-06 <<<
+num sv > 1: 41 || H: 0.39 || min/max logit: -15.77/23.56 || proj: 0.00/0.00 || emb: -1.61/2.09 || temp 0.47
+K queries 128 keys 64 feats 64 edim 128 ||| KL: 0.3144 <<<
+num sv > 1: 31 || H: 0.70 || min/max logit: 11.17/55.75 || proj: -3.71/4.10 || emb: -0.89/1.00 || temp 0.75
+True dist H: 0.39
+num sv > 1: 38 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 128 keys 128 edim 128 ||| KL 4.565e-06 <<<
+num sv > 1: 38 || H: 0.39 || min/max logit: -16.24/23.65 || proj: 0.00/0.00 || emb: -1.54/1.83 || temp 0.48
+K queries 128 keys 128 feats 64 edim 128 ||| KL: 0.5903 <<<
+num sv > 1: 26 || H: 0.98 || min/max logit: 9.22/57.93 || proj: -4.08/4.58 || emb: -0.93/1.11 || temp 0.77
+True dist H: 0.44
+num sv > 1: 34 || H: 0.44 || min/max logit: -49.17/44.48 || proj: 0.00/0.00 || emb: -3.88/4.56 || temp 1.00
+SM queries 128 keys 256 edim 128 ||| KL 5.154e-06 <<<
+num sv > 1: 34 || H: 0.44 || min/max logit: -15.35/23.71 || proj: 0.00/0.00 || emb: -1.92/1.76 || temp 0.49
+K queries 128 keys 256 feats 64 edim 128 ||| KL: 0.7279 <<<
+num sv > 1: 19 || H: 1.17 || min/max logit: 9.41/48.36 || proj: -3.79/3.34 || emb: -1.05/1.31 || temp 0.75
+True dist H: 0.51
+num sv > 1: 27 || H: 0.51 || min/max logit: -49.17/45.15 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 128 keys 512 edim 128 ||| KL 5.219e-06 <<<
+num sv > 1: 27 || H: 0.51 || min/max logit: -15.08/23.12 || proj: 0.00/0.00 || emb: -1.57/2.22 || temp 0.50
+K queries 128 keys 512 feats 64 edim 128 ||| KL: 0.9162 <<<
+num sv > 1: 11 || H: 1.43 || min/max logit: 9.80/52.72 || proj: -4.63/3.87 || emb: -1.02/1.35 || temp 0.72
+True dist H: 0.54
+num sv > 1: 14 || H: 0.54 || min/max logit: -49.17/52.64 || proj: 0.00/0.00 || emb: -4.26/4.56 || temp 1.00
+SM queries 128 keys 1024 edim 128 ||| KL 4.379e-06 <<<
+num sv > 1: 13 || H: 0.54 || min/max logit: -13.35/23.37 || proj: 0.00/0.00 || emb: -1.60/1.82 || temp 0.52
+K queries 128 keys 1024 feats 64 edim 128 ||| KL: 1.0010 <<<
+num sv > 1: 7 || H: 1.54 || min/max logit: 11.09/61.70 || proj: -3.89/3.89 || emb: -1.02/1.45 || temp 0.74
+
+Higher number of starts (queries) is harder to fit
+True dist H: 0.48
+num sv > 1: 11 || H: 0.48 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -4.09/4.56 || temp 1.00
+SM queries 64 keys 256 edim 128 ||| KL 2.816e-06 <<<
+num sv > 1: 11 || H: 0.48 || min/max logit: -10.41/21.54 || proj: 0.00/0.00 || emb: -2.24/2.97 || temp 1.00
+K queries 64 keys 256 feats 64 edim 128 ||| KL: 0.5438 <<<
+num sv > 1: 8 || H: 1.02 || min/max logit: 10.16/47.67 || proj: -4.28/3.86 || emb: -1.07/1.16 || temp 1.00
+Learn temp
+True dist H: 0.48
+num sv > 1: 11 || H: 0.48 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -4.09/4.56 || temp 1.00
+SM queries 64 keys 256 edim 128 ||| KL 2.531e-06 <<<
+num sv > 1: 11 || H: 0.48 || min/max logit: -11.44/22.26 || proj: 0.00/0.00 || emb: -1.33/2.41 || temp 0.53
+K queries 64 keys 256 feats 64 edim 128 ||| KL: 0.5499 <<<
+num sv > 1: 8 || H: 1.03 || min/max logit: 9.53/62.09 || proj: -3.91/3.75 || emb: -0.91/1.24 || temp 0.73
+
+True dist H: 0.44
+num sv > 1: 34 || H: 0.44 || min/max logit: -49.17/44.48 || proj: 0.00/0.00 || emb: -3.88/4.56 || temp 1.00
+SM queries 128 keys 256 edim 128 ||| KL 5.501e-06 <<<
+num sv > 1: 34 || H: 0.44 || min/max logit: -13.49/22.70 || proj: 0.00/0.00 || emb: -2.97/2.59 || temp 1.00
+K queries 128 keys 256 feats 64 edim 128 ||| KL: 0.7230 <<<
+num sv > 1: 19 || H: 1.17 || min/max logit: 8.96/43.98 || proj: -4.02/3.43 || emb: -1.11/1.29 || temp 1.00
+Learn temp
+True dist H: 0.44
+num sv > 1: 34 || H: 0.44 || min/max logit: -49.17/44.48 || proj: 0.00/0.00 || emb: -3.88/4.56 || temp 1.00
+SM queries 128 keys 256 edim 128 ||| KL 5.154e-06 <<<
+num sv > 1: 34 || H: 0.44 || min/max logit: -15.35/23.71 || proj: 0.00/0.00 || emb: -1.92/1.76 || temp 0.49
+K queries 128 keys 256 feats 64 edim 128 ||| KL: 0.7279 <<<
+num sv > 1: 19 || H: 1.17 || min/max logit: 9.41/48.36 || proj: -3.79/3.34 || emb: -1.05/1.31 || temp 0.75
+
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 9.473e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -22.02/22.56 || proj: 0.00/0.00 || emb: -2.50/2.86 || temp 1.00
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0563 <<<
+num sv > 1: 38 || H: 1.58 || min/max logit: 9.37/56.35 || proj: -4.47/4.39 || emb: -1.24/1.38 || temp 1.00
+Learn temp
+True dist H: 0.52
+num sv > 1: 75 || H: 0.52 || min/max logit: -49.17/45.84 || proj: 0.00/0.00 || emb: -4.07/4.56 || temp 1.00
+SM queries 256 keys 256 edim 128 ||| KL 8.523e-06 <<<
+num sv > 1: 75 || H: 0.52 || min/max logit: -24.26/24.09 || proj: 0.00/0.00 || emb: -1.77/2.19 || temp 0.44
+K queries 256 keys 256 feats 64 edim 128 ||| KL: 1.0788 <<<
+num sv > 1: 38 || H: 1.60 || min/max logit: 9.90/78.82 || proj: -4.37/4.27 || emb: -1.06/1.89 || temp 0.73
+
+True dist H: 0.46
+num sv > 1: 153 || H: 0.46 || min/max logit: -50.79/51.98 || proj: 0.00/0.00 || emb: -4.13/4.56 || temp 1.00
+SM queries 512 keys 256 edim 128 ||| KL 1.188e-05 <<<
+num sv > 1: 153 || H: 0.46 || min/max logit: -19.53/23.52 || proj: 0.00/0.00 || emb: -2.54/3.41 || temp 1.00
+K queries 512 keys 256 feats 64 edim 128 ||| KL: 1.2675 <<<
+num sv > 1: 59 || H: 1.73 || min/max logit: 10.00/47.43 || proj: -3.97/4.48 || emb: -1.11/1.44 || temp 1.00
+Learn temp
+True dist H: 0.46
+num sv > 1: 153 || H: 0.46 || min/max logit: -50.79/51.98 || proj: 0.00/0.00 || emb: -4.13/4.56 || temp 1.00
+SM queries 512 keys 256 edim 128 ||| KL 1.297e-05 <<<
+num sv > 1: 153 || H: 0.46 || min/max logit: -22.78/26.44 || proj: 0.00/0.00 || emb: -1.68/2.30 || temp 0.41
+K queries 512 keys 256 feats 64 edim 128 ||| KL: 1.2618 <<<
+num sv > 1: 58 || H: 1.72 || min/max logit: 10.35/81.86 || proj: -3.86/4.42 || emb: -1.08/1.26 || temp 0.73
+
+True dist H: 0.52
+num sv > 1: 208 || H: 0.52 || min/max logit: -60.99/55.46 || proj: 0.00/0.00 || emb: -4.14/4.56 || temp 1.00
+SM queries 1024 keys 256 edim 128 ||| KL 1.762e-05 <<<
+num sv > 1: 208 || H: 0.52 || min/max logit: -18.68/23.94 || proj: 0.00/0.00 || emb: -2.31/2.47 || temp 1.00
+K queries 1024 keys 256 feats 64 edim 128 ||| KL: 1.3367 <<<
+num sv > 1: 63 || H: 1.85 || min/max logit: 10.97/48.12 || proj: -4.36/4.33 || emb: -1.14/1.37 || temp 1.00
+Learn temp
+True dist H: 0.52
+num sv > 1: 208 || H: 0.52 || min/max logit: -60.99/55.46 || proj: 0.00/0.00 || emb: -4.14/4.56 || temp 1.00
+SM queries 1024 keys 256 edim 128 ||| KL 1.74e-05 <<<
+num sv > 1: 208 || H: 0.52 || min/max logit: -21.86/28.61 || proj: 0.00/0.00 || emb: -1.56/1.64 || temp 0.37
+K queries 1024 keys 256 feats 64 edim 128 ||| KL: 1.3527 <<<
+num sv > 1: 63 || H: 1.87 || min/max logit: 11.23/46.24 || proj: -4.26/4.21 || emb: -0.87/1.04 || temp 0.69
+
