@@ -84,12 +84,12 @@ class Cat(nn.Module):
             return (fx @ fy.T) / self.temp
         else:
             proj = (self.proj if not self.random_feature
-                else self.sample_proj().to(self.proj.device))
+                else self.sample_proj().to(self.proj.device)) / self.temp
             L = fx @ proj
             R = fy @ proj
             #L = fx @ proj - fx.square().sum(-1, keepdim=True) / 2
             #R = fy @ proj - fy.square().sum(-1, keepdim=True) / 2
-            return (L[:,None,:] + R[None,:,:]).logsumexp(-1) / self.temp
+            return (L[:,None,:] + R[None,:,:]).logsumexp(-1)
 
     def kl(self, true_dist):
         return (true_dist.exp() * (true_dist - self.log_probs())).sum(-1).mean()

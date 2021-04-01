@@ -491,7 +491,6 @@ def main():
     global WANDB_STEP
     #args = get_args(argstrings.lm_args)
     args = get_args()
-    print(args)
 
     set_seed(args.seed)
 
@@ -569,6 +568,9 @@ def main():
     import tempfile
     wandb.init(project="linear-hmm", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
+
+    print(" ".join(sys.argv))
+    print(args)
 
     model = None
     if args.model == "lstm":

@@ -45,8 +45,6 @@ class SblHmmLm(nn.Module):
         self.learn_temp = config.learn_temp
         if self.learn_temp == "mul":
             self.temp = nn.Parameter(th.FloatTensor([1]))
-        elif self.learn_temp == "add":
-            self.temp = nn.Parameter(th.FloatTensor([0]))
 
         # init parameters
 
@@ -241,25 +239,23 @@ class SblHmmLm(nn.Module):
             logits = fx @ fy.T if states is None else fx @ fy[states].T
             if self.learn_temp == "mul":
                 logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
+
+            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
+            if self.learn_temp == "mul":
+                projection = projection * self.temp
+
             logits = project_logits(
                 fx[None, None],
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
             )[0,0]
-            if self.learn_temp == "mul":
-                logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -277,17 +273,19 @@ class SblHmmLm(nn.Module):
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             if self.learn_temp == "mul":
                 logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if states is None else fx[states]
             fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
+
+            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
+            if self.learn_temp == "mul":
+                projection = projection * self.temp
+
             logits = project_logits(
                 fx[None],
                 fy[None],
@@ -296,10 +294,6 @@ class SblHmmLm(nn.Module):
                 fast = False, # save memory by using genbmm.logbmm
             )[0]
             #import pdb; pdb.set_trace()
-            if self.learn_temp == "mul":
-                logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -542,15 +536,11 @@ class SblHmmLm(nn.Module):
 
         # sum vectors and sum matrices
         projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
+        if self.learn_temp == "mul":
+            projection = projection * self.temp
+
         log_phi_w = state_emb @ projection
         log_phi_u = next_state_emb @ projection
-
-        if self.learn_temp == "mul":
-            log_phi_w = log_phi_w * self.temp
-            log_phi_u = log_phi_u * self.temp
-        elif self.learn_temp == "add":
-            log_phi_w = log_phi_w + self.temp
-            log_phi_u = log_phi_u + self.temp
 
         # Todo: abstract away performer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
@@ -613,15 +603,11 @@ class SblHmmLm(nn.Module):
 
         # sum vectors and sum matrices
         projection = self.projection
+        if self.learn_temp == "mul":
+            projection = projection * self.temp
         log_phi_w = state_emb @ projection
         log_phi_u = next_state_emb @ projection
 
-        if self.learn_temp == "mul":
-            log_phi_w = log_phi_w * self.temp
-            log_phi_u = log_phi_u * self.temp
-        elif self.learn_temp == "add":
-            log_phi_w = log_phi_w + self.temp
-            log_phi_u = log_phi_u + self.temp
         # TODO: abstract away perfomer kernel
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2

@@ -219,7 +219,6 @@ def print_gpu_mem():
 
 def dump_transition(hmm):
     transition = hmm.transition()
-    np.save(f"{hmm.parameterization}-transition.npy", transition.detach().cpu().numpy())
-    import sys
-    sys.exit()
+    name = get_name(hmm.config)
+    np.save(f"transitions/{name}-transition.npy", transition.detach().cpu().numpy())
 

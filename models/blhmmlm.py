@@ -183,25 +183,21 @@ class BLHmmLm(nn.Module):
             logits = fx @ fy.T if mask is None else fx @ fy[keep_mask].T
             if self.learn_temp == "mul":
                 logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
-            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
+            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
+            if self.learn_temp == "mul":
+                projection = projection * self.temp
             logits = project_logits(
                 fx[None, None],
                 fy[None],
                 projection,
                 rff_method = self.config.rff_method,
             )[0,0]
-            if self.learn_temp == "mul":
-                logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -218,8 +214,6 @@ class BLHmmLm(nn.Module):
             )
             if self.learn_temp == "mul":
                 logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
@@ -230,6 +224,8 @@ class BLHmmLm(nn.Module):
             if self.l2norm:
                 fx = fx / fx.norm(dim=-1, keepdim=True)
                 fy = fy / fy.norm(dim=-1, keepdim=True)
+            if self.learn_temp == "mul":
+                projection = projection * self.temp
             logits = project_logits(
                 fx[None],
                 fy[None],
@@ -237,10 +233,6 @@ class BLHmmLm(nn.Module):
                 rff_method = self.config.rff_method,
                 fast = False, # save memory by using genbmm.logbmm
             )[0]
-            if self.learn_temp == "mul":
-                logits = logits * self.temp
-            elif self.learn_temp == "add":
-                logits = logits + self.temp
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -500,14 +492,10 @@ class BLHmmLm(nn.Module):
 
         # sum vectors and sum matrices
         projection = self.projection if feat_mask is None else self.projection[:,~feat_mask]
+        if self.learn_temp == "mul":
+            projection = projection * self.temp
         log_phi_w = (state_emb @ projection)
         log_phi_u = next_state_emb @ projection
-        if self.learn_temp == "mul":
-            log_phi_w = log_phi_w * self.temp
-            log_phi_u = log_phi_u * self.temp
-        elif self.learn_temp == "add":
-            log_phi_w = log_phi_w + self.temp
-            log_phi_u = log_phi_u + self.temp
         # TODO: performer kernel, abstract away
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
@@ -556,14 +544,12 @@ class BLHmmLm(nn.Module):
             next_state_emb = self.next_state_emb
 
         # sum vectors and sum matrices
-        log_phi_w = state_emb @ self.projection
-        log_phi_u = next_state_emb @ self.projection
+        projection = self.projection
         if self.learn_temp == "mul":
-            log_phi_w = log_phi_w * self.temp
-            log_phi_u = log_phi_u * self.temp
-        elif self.learn_temp == "add":
-            log_phi_w = log_phi_w + self.temp
-            log_phi_u = log_phi_u + self.temp
+            projection = projection * self.temp
+        log_phi_w = state_emb @ projection
+        log_phi_u = next_state_emb @ projection
+
         # TODO: performer kernel, abstract away
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
