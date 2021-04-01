@@ -15,7 +15,7 @@ def plot_svs(transition, filename):
     plt.close(fig)
 
 transition_dir = Path("transitions")
-for filename in transition_dir.iterdir():
+for filename in transition_dir.glob("*.npy"):
     # log
     transition = np.load(filename)
     print(filename)

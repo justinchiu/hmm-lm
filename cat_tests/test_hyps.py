@@ -34,6 +34,7 @@ class Cat(nn.Module):
         l2norm=False,
         random_feature=False,
         learn_temp=False,
+        diff_temps=False,
     ):
         torch.manual_seed(0)
         super(Cat, self).__init__()
@@ -41,7 +42,9 @@ class Cat(nn.Module):
         self.l2norm = l2norm
         self.random_feature = random_feature
 
-        self.temp = nn.Parameter(torch.FloatTensor([temp]))
+        self.temp = nn.Parameter(
+            torch.FloatTensor([temp])
+        )
         if not learn_temp:
            self.temp.requires_grad = False
 
