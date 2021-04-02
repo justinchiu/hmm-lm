@@ -175,7 +175,7 @@ def print_stats(model):
     if not model.diff_temps:
         print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     else:
-        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item()} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
+        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item():.2f} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
     return s
 
 def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False):
@@ -405,7 +405,7 @@ if PLOT:
     print()
 
 # type x temp
-results = np.zeros((3,3))
+results = np.zeros((4,3))
 temp_grid = [1, 2, 3]
 print("Higher entropy is easier to fit")
 for i, temp in enumerate(temp_grid):
@@ -439,11 +439,22 @@ for i, temp in enumerate(temp_grid):
         prefix = "temp",
     )
     results[2,i] = k
+    print("Diff temp")
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
+        prefix = "temp",
+    )
+    results[3,i] = k
     print()
 df = pd.DataFrame(
     results.T,
     index = np.arange(1,4),
-    columns = ["sm", "k", "klt"],
+    columns = ["sm", "k", "klt", "dlt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution temperature", "KL")
@@ -453,7 +464,7 @@ g.savefig("cat_tests/kl_plots/temp.png")
 print("Higher rank is harder to fit")
 emb_dim_grid = [32, 64, 128, 256]
 # type x embdimb
-results = np.zeros((3,len(emb_dim_grid)))
+results = np.zeros((4,len(emb_dim_grid)))
 for i, emb_dim in enumerate(emb_dim_grid):
     print(f"True model emb_dim: {emb_dim}")
     def true_dist_sm(num_classes):
@@ -485,11 +496,22 @@ for i, emb_dim in enumerate(emb_dim_grid):
         prefix = "rank",
     )
     results[2,i] = k
+    print("Diff temps")
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
+        prefix = "rank",
+    )
+    results[3,i] = k
 print()
 df = pd.DataFrame(
     results.T,
     index = emb_dim_grid,
-    columns = ["sm", "k", "klt"],
+    columns = ["sm", "k", "klt", "dlt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution emb dim", "KL")
@@ -510,7 +532,7 @@ def true_dist_sm(num_classes):
     return true_dist
 num_classes_grid = [64, 128, 256, 512, 1024]
 # type x num_keys
-results = np.zeros((3,5))
+results = np.zeros((4,5))
 for i, num_classes in enumerate(num_classes_grid):
     sm, k = run_fit(
         true_dist_sm,
@@ -532,11 +554,23 @@ for i, num_classes in enumerate(num_classes_grid):
         prefix = "keys",
     )
     results[2,i] = k
+print("Diff temps")
+for i, num_classes in enumerate(num_classes_grid):
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = num_classes,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
+        prefix = "keys",
+    )
+    results[3,i] = k
 print()
 df = pd.DataFrame(
     results.T,
     index = num_classes_grid,
-    columns = ["sm", "k", "klt"],
+    columns = ["sm", "k", "klt", "dlt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of keys", "KL")
@@ -547,7 +581,7 @@ g.savefig("cat_tests/kl_plots/keys.png")
 print("Higher number of starts (queries) is harder to fit")
 num_starts_grid = [64, 128, 256, 512, 1024]
 # type x num_keys
-results = np.zeros((3,len(num_starts_grid)))
+results = np.zeros((4,len(num_starts_grid)))
 for num_starts in num_starts_grid:
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -578,12 +612,23 @@ for num_starts in num_starts_grid:
         prefix = "queries",
     )
     results[2,i] = k
+    print("Diff temps")
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
+        prefix = "queries",
+    )
+    results[3,i] = k
     print()
 
 df = pd.DataFrame(
     results.T,
     index = num_starts_grid,
-    columns = ["sm", "k", "klt"],
+    columns = ["sm", "k", "klt", "dlt"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of queries", "KL")
