@@ -166,8 +166,8 @@ def print_stats(model):
     logits = model.logits()
     lp = logits.log_softmax(-1)
     u,s,v = lp.exp().svd()
-    #num_sv = (s > 1e-5).sum().item()
-    num_sv = (s > 1).sum().item()
+    num_sv = (s > 1e-5).sum().item()
+    #num_sv = (s > 1).sum().item()
     minproj = f"{model.proj.min().item() if not model.sm else 0:.2f}"
     maxproj = f"{model.proj.max().item() if not model.sm else 0:.2f}"
 
@@ -237,6 +237,7 @@ def run_fit(
     feature_dim = None,
     emb_dim = 128,
     random_feature=False,
+    sm = False,
     nmf = False,
     learn_temp=False,
     diff_temps = False,
@@ -247,26 +248,27 @@ def run_fit(
     true_dist = true_dist_fn(num_classes)
     num_starts = true_dist.shape[0]
 
-    # softmax
-    model = Cat(
-        num_starts,
-        num_classes, emb_dim, feature_dim=1,
-        sm=True,
-        learn_temp = learn_temp,
-    )
-    model.to(device)
-    losses, svs_train = train(true_dist, model, num_steps, check_svs)
-    print(f"SM queries {num_starts} keys {num_classes} edim {emb_dim} ||| KL {losses[-1]:.4} <<<")
-    svs = print_stats(model)
-    sm_loss = losses[-1]
+    if sm:
+        # softmax
+        model = Cat(
+            num_starts,
+            num_classes, emb_dim, feature_dim=1,
+            sm=True,
+            learn_temp = learn_temp,
+        )
+        model.to(device)
+        losses, svs_train = train(true_dist, model, num_steps, check_svs)
+        print(f"SM queries {num_starts} keys {num_classes} edim {emb_dim} ||| KL {losses[-1]:.4} <<<")
+        svs = print_stats(model)
 
-    if plot_losses:
-        plot(losses, svs, prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
-    if check_svs != 0:
-        # only plot last one now.
-        plot_svs([svs_train[-1]], prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
+        if plot_losses:
+            plot(losses, svs, prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
+        if check_svs != 0:
+            # only plot last one now.
+            plot_svs([svs_train[-1]], prefix, "sm", num_starts, num_classes, learn_temp=learn_temp)
+        return losses[-1]
 
-    # kernel
+    # otherwise kernel
     if feature_dim is None:
         feature_dim = int(num_classes // feature_dim_ratio)
     model = Cat(
@@ -279,16 +281,18 @@ def run_fit(
     )
     model.to(device)
     losses, svs_train = train(true_dist, model, num_steps, check_svs)
-    print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
+    if nmf:
+        print(f"NMF queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
+    else: 
+        print(f"K queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
     svs = print_stats(model)
-    k_loss = losses[-1]
 
     if plot_losses:
-        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
+        plot(losses, svs, prefix, "nmf" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
     if check_svs != 0:
-        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
+        plot_svs([svs_train[-1]], prefix, "nmf" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
 
-    return sm_loss, k_loss
+    return losses[-1]
 
     """
     # l2norm
@@ -314,7 +318,18 @@ if PLOT:
         print_stats(true_model)
         return true_dist
 
-    sm, k = run_fit(
+    sm = run_fit(
+        true_dist_sm,
+        num_classes = 128,
+        feature_dim = 64,
+        emb_dim = 128,
+        sm = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="smallsq",
+    )
+    print("Kernel")
+    k = run_fit(
         true_dist_sm,
         num_classes = 128,
         feature_dim = 64,
@@ -323,8 +338,20 @@ if PLOT:
         check_svs = 4,
         prefix="smallsq",
     )
-    print("Low Rank")
-    sm, k = run_fit(
+    print("Diff temp")
+    k = run_fit(
+        true_dist_sm,
+        num_classes = 128,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="smallsq",
+    )
+    print("NMF 64")
+    k = run_fit(
         true_dist_sm,
         num_classes = 128,
         feature_dim = 64,
@@ -334,27 +361,15 @@ if PLOT:
         nmf = True,
         prefix="smallsq",
     )
-    print("Learn temp")
-    sm, k = run_fit(
+    print("NMF 32")
+    k = run_fit(
         true_dist_sm,
         num_classes = 128,
-        feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
+        feature_dim = 32,
+        emb_dim = 32,
         plot_losses = True,
         check_svs = 4,
-        prefix="smallsq",
-    )
-    print("Diff temp")
-    sm, k = run_fit(
-        true_dist_sm,
-        num_classes = 128,
-        feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
-        diff_temps = True,
-        plot_losses = True,
-        check_svs = 4,
+        nmf = True,
         prefix="smallsq",
     )
     print()
@@ -405,7 +420,18 @@ if PLOT:
         u,s,v = true_dist.exp().svd()
         plot_svs([s], "smoh", "trueeye", num_classes, num_classes)
         return true_dist
-    sm, k = run_fit(
+    sm = run_fit(
+        true_dist_onehot,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 128,
+        sm = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix = "smoh",
+    )
+    print("Kernel")
+    k = run_fit(
         true_dist_onehot,
         num_classes = 256,
         feature_dim = 64,
@@ -414,13 +440,24 @@ if PLOT:
         check_svs = 4,
         prefix = "smoh",
     )
-    print("Learn temp")
-    sm, k = run_fit(
+    print("NMF64")
+    k = run_fit(
         true_dist_onehot,
         num_classes = 256,
         feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
+        emb_dim = 64,
+        nmf = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix = "smoh",
+    )
+    print("NMF32")
+    k = run_fit(
+        true_dist_onehot,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 32,
+        nmf = True,
         plot_losses = True,
         check_svs = 4,
         prefix = "smoh",
@@ -443,33 +480,41 @@ for i, temp in enumerate(temp_grid):
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    sm, k = run_fit(
+    sm = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 64,
+        emb_dim = 128,
+        prefix = "temp",
+        sm = True,
+    )
+    results[0,i] = sm
+    print("Kernel")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
         prefix = "temp",
     )
-    results[0,i] = sm
     results[1,i] = k
-    print("Learn temp")
-    sm, k = run_fit(
+    print("NMF64")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
+        emb_dim = 64,
+        nmf = True,
         prefix = "temp",
     )
     results[2,i] = k
-    print("Diff temp")
-    sm, k = run_fit(
+    print("NMF32")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
-        diff_temps = True,
+        emb_dim = 32,
+        nmf = True,
         prefix = "temp",
     )
     results[3,i] = k
@@ -477,7 +522,7 @@ for i, temp in enumerate(temp_grid):
 df = pd.DataFrame(
     results.T,
     index = np.arange(1,4),
-    columns = ["sm", "k", "klt", "dlt"],
+    columns = ["sm", "k", "nmf64", "nmf32"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution temperature", "KL")
@@ -500,33 +545,41 @@ for i, emb_dim in enumerate(emb_dim_grid):
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    sm, k = run_fit(
+    sm = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
+        sm = True,
         prefix = "rank",
     )
     results[0,i] = sm
-    results[1,i] = k
-    print("Learn temp")
-    sm, k = run_fit(
+    print("Kernel")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
-        learn_temp = True,
+        prefix = "rank",
+    )
+    results[1,i] = k
+    print("NMF64")
+    k = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 1,
+        emb_dim = 64,
+        nmf = True,
         prefix = "rank",
     )
     results[2,i] = k
-    print("Diff temps")
-    sm, k = run_fit(
+    print("NMF32")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
-        diff_temps = True,
+        feature_dim = 1,
+        emb_dim = 32,
+        nmf = True,
         prefix = "rank",
     )
     results[3,i] = k
@@ -534,7 +587,7 @@ print()
 df = pd.DataFrame(
     results.T,
     index = emb_dim_grid,
-    columns = ["sm", "k", "klt", "dlt"],
+    columns = ["sm", "k", "nmf64", "nmf32"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("True distribution emb dim", "KL")
@@ -557,35 +610,44 @@ num_classes_grid = [64, 128, 256, 512, 1024]
 # type x num_keys
 results = np.zeros((4,5))
 for i, num_classes in enumerate(num_classes_grid):
-    sm, k = run_fit(
+    sm = run_fit(
         true_dist_sm,
         num_classes = num_classes,
         feature_dim = 64,
         emb_dim = 128,
+        sm = True,
         prefix = "keys",
     )
     results[0,i] = sm
-    results[1,i] = k
-print("Learn temp")
+print("Kernel")
 for i, num_classes in enumerate(num_classes_grid):
-    sm, k = run_fit(
+    k = run_fit(
         true_dist_sm,
         num_classes = num_classes,
         feature_dim = 64,
         emb_dim = 128,
-        learn_temp = True,
+        prefix = "keys",
+    )
+    results[1,i] = k
+print("NMF64")
+for i, num_classes in enumerate(num_classes_grid):
+    k = run_fit(
+        true_dist_sm,
+        num_classes = num_classes,
+        feature_dim = 1,
+        emb_dim = 64,
+        nmf = True,
         prefix = "keys",
     )
     results[2,i] = k
-print("Diff temps")
+print("NMF32")
 for i, num_classes in enumerate(num_classes_grid):
-    sm, k = run_fit(
+    k = run_fit(
         true_dist_sm,
         num_classes = num_classes,
-        feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
-        diff_temps = True,
+        feature_dim = 1,
+        emb_dim = 32,
+        nmf = True,
         prefix = "keys",
     )
     results[3,i] = k
@@ -593,7 +655,7 @@ print()
 df = pd.DataFrame(
     results.T,
     index = num_classes_grid,
-    columns = ["sm", "k", "klt", "dlt"],
+    columns = ["sm", "k", "nmf64", "nmf32"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of keys", "KL")
@@ -616,33 +678,41 @@ for num_starts in num_starts_grid:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    sm, k = run_fit(
+    sm = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
+        sm = True,
         prefix = "queries",
     )
     results[0,i] = sm
-    results[1,i] = k
-    print("Learn temp")
-    sm, k = run_fit(
+    print("Kernel")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
         feature_dim = 64,
         emb_dim = 128,
-        learn_temp = True,
+        prefix = "queries",
+    )
+    results[1,i] = k
+    print("NMF64")
+    k = run_fit(
+        true_dist_sm,
+        num_classes = 256,
+        feature_dim = 1,
+        emb_dim = 64,
+        nmf = True,
         prefix = "queries",
     )
     results[2,i] = k
-    print("Diff temps")
-    sm, k = run_fit(
+    print("NMF32")
+    k = run_fit(
         true_dist_sm,
         num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        learn_temp = True,
-        diff_temps = True,
+        feature_dim = 1,
+        emb_dim = 32,
+        nmf = True,
         prefix = "queries",
     )
     results[3,i] = k
@@ -651,7 +721,7 @@ for num_starts in num_starts_grid:
 df = pd.DataFrame(
     results.T,
     index = num_starts_grid,
-    columns = ["sm", "k", "klt", "dlt"],
+    columns = ["sm", "k", "nmf64", "nmf32"],
 )
 g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
 g.set_axis_labels("Number of queries", "KL")
