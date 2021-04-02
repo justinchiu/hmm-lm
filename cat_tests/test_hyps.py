@@ -35,12 +35,14 @@ class Cat(nn.Module):
         random_feature=False,
         learn_temp=False,
         diff_temps=False,
+        nmf = False, # direct NMF
     ):
         torch.manual_seed(0)
         super(Cat, self).__init__()
         self.sm = sm
         self.l2norm = l2norm
         self.random_feature = random_feature
+        self.nmf = nmf
 
 
         self.start_emb = nn.Parameter(
@@ -100,8 +102,12 @@ class Cat(nn.Module):
                 fy = fy / self.class_temp
             else:
                 proj = proj / self.temp
-            L = fx @ proj
-            R = fy @ proj
+            if not self.nmf:
+                L = fx @ proj
+                R = fy @ proj
+            else:
+                L = fx
+                R = fy
             #L = fx @ proj - fx.square().sum(-1, keepdim=True) / 2
             #R = fy @ proj - fy.square().sum(-1, keepdim=True) / 2
             return (L[:,None,:] + R[None,:,:]).logsumexp(-1)
@@ -178,13 +184,15 @@ def print_stats(model):
         print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item():.2f} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
     return s
 
-def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False):
+def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False, nmf=False):
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
     if learn_temp and diff_temps:
         temp_string = "dt"
     elif learn_temp and not diff_temps:
         temp_string = "lt"
+    elif nmf:
+        temp_string = "nmf"
     else:
         temp_string = "nol"
     fig.savefig(f"cat_tests/plots/{prefix}-{name}-{num_starts}-{num_classes}-{temp_string}.png")
@@ -200,11 +208,13 @@ def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, lea
             f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{temp_string}.png")
     plt.close(fig)
 
-def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False):
+def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False, nmf=False):
     if learn_temp and diff_temps:
         temp_string = "dt"
     elif learn_temp and not diff_temps:
         temp_string = "lt"
+    elif nmf:
+        temp_string = "nmf"
     else:
         temp_string = "nol"
 
@@ -227,6 +237,7 @@ def run_fit(
     feature_dim = None,
     emb_dim = 128,
     random_feature=False,
+    nmf = False,
     learn_temp=False,
     diff_temps = False,
     plot_losses = False,
@@ -263,6 +274,7 @@ def run_fit(
         num_classes, emb_dim, feature_dim,
         random_feature = random_feature,
         learn_temp = learn_temp,
+        nmf = nmf,
         diff_temps = diff_temps,
     )
     model.to(device)
@@ -272,9 +284,9 @@ def run_fit(
     k_loss = losses[-1]
 
     if plot_losses:
-        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps)
+        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
     if check_svs != 0:
-        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps)
+        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
 
     return sm_loss, k_loss
 
@@ -309,6 +321,17 @@ if PLOT:
         emb_dim = 128,
         plot_losses = True,
         check_svs = 4,
+        prefix="smallsq",
+    )
+    print("Low Rank")
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = 128,
+        feature_dim = 64,
+        emb_dim = 64,
+        plot_losses = True,
+        check_svs = 4,
+        nmf = True,
         prefix="smallsq",
     )
     print("Learn temp")
