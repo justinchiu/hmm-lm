@@ -1,0 +1,10 @@
+Plotting losses
+True dist H: 0.39
+num sv > 1: 38 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00
+SM queries 128 keys 128 edim 128 ||| KL 3.594e-06 <<<
+num sv > 1: 38 || H: 0.39 || min/max logit: -14.67/21.74 || proj: 0.00/0.00 || emb: -2.34/2.57 || temp 1.00
+K queries 128 keys 128 feats 64 edim 128 ||| KL: 0.5529 <<<
+num sv > 1: 27 || H: 0.94 || min/max logit: 9.53/48.46 || proj: -4.55/4.76 || emb: -1.46/1.35 || temp 1.00
+Learn temp
+True dist H: 0.39
+num sv > 1: 38 || H: 0.39 || min/max logit: -46.01/44.42 || proj: 0.00/0.00 || emb: -3.88/4.10 || temp 1.00

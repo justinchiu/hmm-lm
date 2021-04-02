@@ -42,11 +42,6 @@ class Cat(nn.Module):
         self.l2norm = l2norm
         self.random_feature = random_feature
 
-        self.temp = nn.Parameter(
-            torch.FloatTensor([temp])
-        )
-        if not learn_temp:
-           self.temp.requires_grad = False
 
         self.start_emb = nn.Parameter(
             torch.randn(num_starts, emb_dim),
@@ -68,6 +63,16 @@ class Cat(nn.Module):
             self.proj.requires_grad = False
             self.counter = 1
 
+        self.learn_temp = learn_temp
+        self.diff_temps = diff_temps
+        if not self.diff_temps:
+            self.temp = nn.Parameter(torch.FloatTensor([temp]))
+        else:
+            self.start_temp = nn.Parameter(torch.ones(num_starts, 1) * temp)
+            self.class_temp = nn.Parameter(torch.ones(num_classes, 1) * temp)
+        if not learn_temp:
+           self.temp.requires_grad = False
+
     def sample_proj(self):
         if (self.counter % 100) == 0:
             self.proj.copy_(get_2d_array(*self.proj_shape).T)
@@ -87,7 +92,14 @@ class Cat(nn.Module):
             return (fx @ fy.T) / self.temp
         else:
             proj = (self.proj if not self.random_feature
-                else self.sample_proj().to(self.proj.device)) / self.temp
+                else self.sample_proj().to(self.proj.device))
+            if self.diff_temps:
+                #fx = fx / self.start_temp.clamp(1e-5)
+                #fy = fy / self.class_temp.clamp(1e-5)
+                fx = fx / self.start_temp
+                fy = fy / self.class_temp
+            else:
+                proj = proj / self.temp
             L = fx @ proj
             R = fy @ proj
             #L = fx @ proj - fx.square().sum(-1, keepdim=True) / 2
@@ -160,26 +172,42 @@ def print_stats(model):
     minemb = min(minsemb,minoemb)
     maxemb = max(maxsemb,maxoemb)
 
-    print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
+    if not model.diff_temps:
+        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
+    else:
+        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item()} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
     return s
 
-def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
+def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False):
     fig, ax = plt.subplots()
     g = sns.lineplot(x=np.arange(len(losses)), y=losses, ax=ax)
-    fig.savefig(f"cat_tests/plots/{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+    if learn_temp and diff_temps:
+        temp_string = "dt"
+    elif learn_temp and not diff_temps:
+        temp_string = "lt"
+    else:
+        temp_string = "nol"
+    fig.savefig(f"cat_tests/plots/{prefix}-{name}-{num_starts}-{num_classes}-{temp_string}.png")
     plt.close(fig)
 
     fig, ax = plt.subplots()
     g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
         fig.savefig(
-            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{temp_string}.png")
     else:
         fig.savefig(
-            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+            f"cat_tests/plots/svs-{prefix}-{name}-{num_starts}-{num_classes}-{temp_string}.png")
     plt.close(fig)
 
-def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False):
+def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False):
+    if learn_temp and diff_temps:
+        temp_string = "dt"
+    elif learn_temp and not diff_temps:
+        temp_string = "lt"
+    else:
+        temp_string = "nol"
+
     fig, axes = plt.subplots(ncols=len(svs_list), sharey=True)
     if len(svs_list) == 1:
         # wrap singleton list?
@@ -187,9 +215,9 @@ def plot_svs(svs_list, prefix, name, num_starts, num_classes, num_features=0, le
     for ax, svs in zip(axes, svs_list):
         g = sns.scatterplot(x=np.arange(len(svs)),y=svs.cpu().detach().numpy(), ax=ax)
     if num_features > 0:
-        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{num_features}-{temp_string}.png")
     else:
-        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{'lt' if learn_temp else 'nol'}.png")
+        fig.savefig(f"cat_tests/trainsv_plots/trainsvs-{prefix}-{name}-{num_starts}-{num_classes}-{temp_string}.png")
     plt.close(fig)
 
 def run_fit(
@@ -200,6 +228,7 @@ def run_fit(
     emb_dim = 128,
     random_feature=False,
     learn_temp=False,
+    diff_temps = False,
     plot_losses = False,
     check_svs = 0,
     prefix=None,
@@ -234,6 +263,7 @@ def run_fit(
         num_classes, emb_dim, feature_dim,
         random_feature = random_feature,
         learn_temp = learn_temp,
+        diff_temps = diff_temps,
     )
     model.to(device)
     losses, svs_train = train(true_dist, model, num_steps, check_svs)
@@ -242,9 +272,9 @@ def run_fit(
     k_loss = losses[-1]
 
     if plot_losses:
-        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
+        plot(losses, svs, prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps)
     if check_svs != 0:
-        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp)
+        plot_svs([svs_train[-1]], prefix, "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps)
 
     return sm_loss, k_loss
 
@@ -271,6 +301,7 @@ if PLOT:
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
+
     sm, k = run_fit(
         true_dist_sm,
         num_classes = 128,
@@ -287,6 +318,18 @@ if PLOT:
         feature_dim = 64,
         emb_dim = 128,
         learn_temp = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="smallsq",
+    )
+    print("Diff temp")
+    sm, k = run_fit(
+        true_dist_sm,
+        num_classes = 128,
+        feature_dim = 64,
+        emb_dim = 128,
+        learn_temp = True,
+        diff_temps = True,
         plot_losses = True,
         check_svs = 4,
         prefix="smallsq",
