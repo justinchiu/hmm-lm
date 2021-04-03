@@ -288,9 +288,9 @@ def run_fit(
     svs = print_stats(model)
 
     if plot_losses:
-        plot(losses, svs, prefix, "nmf" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
+        plot(losses, svs, prefix, f"nmf{emb_dim}" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
     if check_svs != 0:
-        plot_svs([svs_train[-1]], prefix, "nmf" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
+        plot_svs([svs_train[-1]], prefix, f"nmf{emb_dim}" if nmf else "k", num_starts, num_classes, feature_dim, learn_temp, diff_temps, nmf=nmf)
 
     return losses[-1]
 
