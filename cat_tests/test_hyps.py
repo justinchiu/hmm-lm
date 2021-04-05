@@ -598,7 +598,7 @@ g.savefig("cat_tests/kl_plots/rank.png")
 print("Higher number of classes (keys) is harder to fit")
 def true_dist_sm(num_classes):
     true_model = Cat(
-        128,
+        256,
         num_classes, 128, 1,
         temp=1, xavier_init=False, sm=True)
     true_model.to(device)
