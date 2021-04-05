@@ -178,10 +178,13 @@ def print_stats(model):
     minemb = min(minsemb,minoemb)
     maxemb = max(maxsemb,maxoemb)
 
+    _,ps,_ = model.proj.svd()
+    projrank = (ps > 1e-5).sum().item()
+
     if not model.diff_temps:
-        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
+        print(f"num sv: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || projrank: {projrank} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     else:
-        print(f"num sv > 1: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item():.2f} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
+        print(f"num sv: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || projrank: {projrank} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item():.2f} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
     return s
 
 def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False, nmf=False):
@@ -530,7 +533,7 @@ g.tight_layout()
 g.savefig("cat_tests/kl_plots/temp.png")
 
 print("Higher rank is harder to fit")
-emb_dim_grid = [32, 64, 128, 256]
+emb_dim_grid = [4, 8, 16, 32, 64, 128, 256]
 # type x embdimb
 results = np.zeros((4,len(emb_dim_grid)))
 for i, emb_dim in enumerate(emb_dim_grid):
