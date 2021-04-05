@@ -667,7 +667,7 @@ print("Higher number of starts (queries) is harder to fit")
 num_starts_grid = [64, 128, 256, 512, 1024]
 # type x num_keys
 results = np.zeros((4,len(num_starts_grid)))
-for num_starts in num_starts_grid:
+for i, num_starts in enumerate(num_starts_grid):
     def true_dist_sm(num_classes):
         true_model = Cat(
             num_starts,
