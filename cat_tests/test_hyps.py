@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 
 from models.linear_utils import get_2d_array, project_logits
 
+from genbmm import logbmm
+
 sns.set(font_scale=1.5)
 
 class Cat(nn.Module):
@@ -110,7 +112,11 @@ class Cat(nn.Module):
                 R = fy
             #L = fx @ proj - fx.square().sum(-1, keepdim=True) / 2
             #R = fy @ proj - fy.square().sum(-1, keepdim=True) / 2
-            return (L[:,None,:] + R[None,:,:]).logsumexp(-1)
+            #return (L[:,None,:] + R[None,:,:]).logsumexp(-1)
+            #def f(L, R):
+                #return (L[:,None,:] + R[None,:,:]).logsumexp(-1)
+            #return torch.utils.checkpoint.checkpoint(f, L, R)
+            return logbmm(L[None], R.T[None].contiguous())
 
     def kl(self, true_dist):
         return (true_dist.exp() * (true_dist - self.log_probs())).sum(-1).mean()
@@ -127,8 +133,8 @@ num_classes_grid = [128, 256, 512]
 num_classes_grid = [128]
 
 device = torch.device("cuda:0")
-num_steps = 20000
-#num_steps = 4000
+#num_steps = 20000
+num_steps = 4000 # first try for hmm
 #num_steps = 2000
 
 def init_optimizer(model):
@@ -141,12 +147,12 @@ def init_optimizer(model):
         weight_decay = 0.,
     )
 
-def train(true_dist, model, num_steps, check_svs=0):
+def train(true_dist, model, num_steps, check_svs=0, use_trange=False):
     optimizer = init_optimizer(model)
     kls = []
     svs = []
-    #for i in trange(num_steps):
-    for i in range(num_steps):
+    thisrange = trange if use_trange else range
+    for i in thisrange(num_steps):
         optimizer.zero_grad()
         kl = model.kl(true_dist)
         kls.append(kl.item())
@@ -247,6 +253,7 @@ def run_fit(
     plot_losses = False,
     check_svs = 0,
     prefix=None,
+    use_trange=False,
 ):
     true_dist = true_dist_fn(num_classes)
     num_starts = true_dist.shape[0]
@@ -283,7 +290,7 @@ def run_fit(
         diff_temps = diff_temps,
     )
     model.to(device)
-    losses, svs_train = train(true_dist, model, num_steps, check_svs)
+    losses, svs_train = train(true_dist, model, num_steps, check_svs, use_trange=use_trange)
     if nmf:
         print(f"NMF queries {num_starts} keys {num_classes} feats {feature_dim} edim {emb_dim} ||| KL: {losses[-1]:.4f} <<<")
     else: 
@@ -306,9 +313,7 @@ def run_fit(
     losses = train(true_dist, model, num_steps)
     print(num_starts, num_classes, feature_dim, "l2norm", losses[-1])
     """
-PLOT = False
-PLOT = True
-if PLOT:
+def run_plot_losses():
     print("Plotting losses")
     def true_dist_sm(num_classes):
         true_model = Cat(
@@ -467,213 +472,143 @@ if PLOT:
     )
     print()
 
-# type x temp
-results = np.zeros((4,3))
-temp_grid = [1, 2, 3]
-print("Higher entropy is easier to fit")
-for i, temp in enumerate(temp_grid):
-    print(f"Temperature {temp}")
-    def true_dist_sm(num_classes):
-        true_model = Cat(
-            num_classes,
-            num_classes, 128, 1,
-            temp=temp, xavier_init=False, sm=True)
-        true_model.to(device)
-        true_dist = true_model.log_probs().detach()
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        print_stats(true_model)
-        return true_dist
-    sm = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        prefix = "temp",
-        sm = True,
+def run_temp():
+    # type x temp
+    results = np.zeros((4,3))
+    temp_grid = [1, 2, 3]
+    print("Higher entropy is easier to fit")
+    for i, temp in enumerate(temp_grid):
+        print(f"Temperature {temp}")
+        def true_dist_sm(num_classes):
+            true_model = Cat(
+                num_classes,
+                num_classes, 128, 1,
+                temp=temp, xavier_init=False, sm=True)
+            true_model.to(device)
+            true_dist = true_model.log_probs().detach()
+            print(f"True dist H: {H(true_dist).mean().item():.2f}")
+            print_stats(true_model)
+            return true_dist
+        sm = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            prefix = "temp",
+            sm = True,
+        )
+        results[0,i] = sm
+        print("Kernel")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            prefix = "temp",
+        )
+        results[1,i] = k
+        print("NMF64")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 64,
+            nmf = True,
+            prefix = "temp",
+        )
+        results[2,i] = k
+        print("NMF32")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 32,
+            nmf = True,
+            prefix = "temp",
+        )
+        results[3,i] = k
+        print()
+    df = pd.DataFrame(
+        results.T,
+        index = np.arange(1,4),
+        columns = ["sm", "k", "nmf64", "nmf32"],
     )
-    results[0,i] = sm
-    print("Kernel")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        prefix = "temp",
-    )
-    results[1,i] = k
-    print("NMF64")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 64,
-        nmf = True,
-        prefix = "temp",
-    )
-    results[2,i] = k
-    print("NMF32")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 32,
-        nmf = True,
-        prefix = "temp",
-    )
-    results[3,i] = k
+    g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+    g.set_axis_labels("True distribution temperature", "KL")
+    g.tight_layout()
+    g.savefig("cat_tests/kl_plots/temp.png")
+
+def run_rank():
+    print("Higher rank is harder to fit")
+    emb_dim_grid = [4, 8, 16, 32, 64, 128, 256]
+    # type x embdimb
+    results = np.zeros((4,len(emb_dim_grid)))
+    for i, emb_dim in enumerate(emb_dim_grid):
+        print(f"True model emb_dim: {emb_dim}")
+        def true_dist_sm(num_classes):
+            true_model = Cat(
+                num_classes,
+                num_classes, emb_dim, 1,
+                temp=1, xavier_init=False, sm=True)
+            true_model.to(device)
+            true_dist = true_model.log_probs().detach()
+            print(f"True dist H: {H(true_dist).mean().item():.2f}")
+            print_stats(true_model)
+            return true_dist
+        sm = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            sm = True,
+            prefix = "rank",
+        )
+        results[0,i] = sm
+        print("Kernel")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            prefix = "rank",
+        )
+        results[1,i] = k
+        print("NMF64")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 1,
+            emb_dim = 64,
+            nmf = True,
+            prefix = "rank",
+        )
+        results[2,i] = k
+        print("NMF32")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 1,
+            emb_dim = 32,
+            nmf = True,
+            prefix = "rank",
+        )
+        results[3,i] = k
     print()
-df = pd.DataFrame(
-    results.T,
-    index = np.arange(1,4),
-    columns = ["sm", "k", "nmf64", "nmf32"],
-)
-g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
-g.set_axis_labels("True distribution temperature", "KL")
-g.tight_layout()
-g.savefig("cat_tests/kl_plots/temp.png")
+    df = pd.DataFrame(
+        results.T,
+        index = emb_dim_grid,
+        columns = ["sm", "k", "nmf64", "nmf32"],
+    )
+    g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+    g.set_axis_labels("True distribution emb dim", "KL")
+    g.tight_layout()
+    g.savefig("cat_tests/kl_plots/rank.png")
 
-print("Higher rank is harder to fit")
-emb_dim_grid = [4, 8, 16, 32, 64, 128, 256]
-# type x embdimb
-results = np.zeros((4,len(emb_dim_grid)))
-for i, emb_dim in enumerate(emb_dim_grid):
-    print(f"True model emb_dim: {emb_dim}")
+def run_keys():
+    print("Higher number of classes (keys) is harder to fit")
     def true_dist_sm(num_classes):
         true_model = Cat(
-            num_classes,
-            num_classes, emb_dim, 1,
-            temp=1, xavier_init=False, sm=True)
-        true_model.to(device)
-        true_dist = true_model.log_probs().detach()
-        print(f"True dist H: {H(true_dist).mean().item():.2f}")
-        print_stats(true_model)
-        return true_dist
-    sm = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        sm = True,
-        prefix = "rank",
-    )
-    results[0,i] = sm
-    print("Kernel")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        prefix = "rank",
-    )
-    results[1,i] = k
-    print("NMF64")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 1,
-        emb_dim = 64,
-        nmf = True,
-        prefix = "rank",
-    )
-    results[2,i] = k
-    print("NMF32")
-    k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 1,
-        emb_dim = 32,
-        nmf = True,
-        prefix = "rank",
-    )
-    results[3,i] = k
-print()
-df = pd.DataFrame(
-    results.T,
-    index = emb_dim_grid,
-    columns = ["sm", "k", "nmf64", "nmf32"],
-)
-g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
-g.set_axis_labels("True distribution emb dim", "KL")
-g.tight_layout()
-g.savefig("cat_tests/kl_plots/rank.png")
-
-
-print("Higher number of classes (keys) is harder to fit")
-def true_dist_sm(num_classes):
-    true_model = Cat(
-        256,
-        num_classes, 128, 1,
-        temp=1, xavier_init=False, sm=True)
-    true_model.to(device)
-    true_dist = true_model.log_probs().detach()
-    print(f"True dist H: {H(true_dist).mean().item():.2f}")
-    print_stats(true_model)
-    return true_dist
-num_classes_grid = [64, 128, 256, 512, 1024]
-# type x num_keys
-results = np.zeros((4,5))
-for i, num_classes in enumerate(num_classes_grid):
-    sm = run_fit(
-        true_dist_sm,
-        num_classes = num_classes,
-        feature_dim = 64,
-        emb_dim = 128,
-        sm = True,
-        prefix = "keys",
-    )
-    results[0,i] = sm
-print("Kernel")
-for i, num_classes in enumerate(num_classes_grid):
-    k = run_fit(
-        true_dist_sm,
-        num_classes = num_classes,
-        feature_dim = 64,
-        emb_dim = 128,
-        prefix = "keys",
-    )
-    results[1,i] = k
-print("NMF64")
-for i, num_classes in enumerate(num_classes_grid):
-    k = run_fit(
-        true_dist_sm,
-        num_classes = num_classes,
-        feature_dim = 1,
-        emb_dim = 64,
-        nmf = True,
-        prefix = "keys",
-    )
-    results[2,i] = k
-print("NMF32")
-for i, num_classes in enumerate(num_classes_grid):
-    k = run_fit(
-        true_dist_sm,
-        num_classes = num_classes,
-        feature_dim = 1,
-        emb_dim = 32,
-        nmf = True,
-        prefix = "keys",
-    )
-    results[3,i] = k
-print()
-df = pd.DataFrame(
-    results.T,
-    index = num_classes_grid,
-    columns = ["sm", "k", "nmf64", "nmf32"],
-)
-g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
-g.set_axis_labels("Number of keys", "KL")
-g.tight_layout()
-g.savefig("cat_tests/kl_plots/keys.png")
-
-
-print("Higher number of starts (queries) is harder to fit")
-num_starts_grid = [64, 128, 256, 512, 1024]
-# type x num_keys
-results = np.zeros((4,len(num_starts_grid)))
-for i, num_starts in enumerate(num_starts_grid):
-    def true_dist_sm(num_classes):
-        true_model = Cat(
-            num_starts,
+            256,
             num_classes, 128, 1,
             temp=1, xavier_init=False, sm=True)
         true_model.to(device)
@@ -681,59 +616,202 @@ for i, num_starts in enumerate(num_starts_grid):
         print(f"True dist H: {H(true_dist).mean().item():.2f}")
         print_stats(true_model)
         return true_dist
-    sm = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        sm = True,
-        prefix = "queries",
+    num_classes_grid = [64, 128, 256, 512, 1024]
+    # type x num_keys
+    results = np.zeros((4,5))
+    for i, num_classes in enumerate(num_classes_grid):
+        sm = run_fit(
+            true_dist_sm,
+            num_classes = num_classes,
+            feature_dim = 64,
+            emb_dim = 128,
+            sm = True,
+            prefix = "keys",
+        )
+        results[0,i] = sm
+    print("Kernel")
+    for i, num_classes in enumerate(num_classes_grid):
+        k = run_fit(
+            true_dist_sm,
+            num_classes = num_classes,
+            feature_dim = 64,
+            emb_dim = 128,
+            prefix = "keys",
+        )
+        results[1,i] = k
+    print("NMF64")
+    for i, num_classes in enumerate(num_classes_grid):
+        k = run_fit(
+            true_dist_sm,
+            num_classes = num_classes,
+            feature_dim = 1,
+            emb_dim = 64,
+            nmf = True,
+            prefix = "keys",
+        )
+        results[2,i] = k
+    print("NMF32")
+    for i, num_classes in enumerate(num_classes_grid):
+        k = run_fit(
+            true_dist_sm,
+            num_classes = num_classes,
+            feature_dim = 1,
+            emb_dim = 32,
+            nmf = True,
+            prefix = "keys",
+        )
+        results[3,i] = k
+    print()
+    df = pd.DataFrame(
+        results.T,
+        index = num_classes_grid,
+        columns = ["sm", "k", "nmf64", "nmf32"],
     )
-    results[0,i] = sm
+    g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+    g.set_axis_labels("Number of keys", "KL")
+    g.tight_layout()
+    g.savefig("cat_tests/kl_plots/keys.png")
+
+
+def run_queries():
+    print("Higher number of starts (queries) is harder to fit")
+    num_starts_grid = [64, 128, 256, 512, 1024]
+    # type x num_keys
+    results = np.zeros((4,len(num_starts_grid)))
+    for i, num_starts in enumerate(num_starts_grid):
+        def true_dist_sm(num_classes):
+            true_model = Cat(
+                num_starts,
+                num_classes, 128, 1,
+                temp=1, xavier_init=False, sm=True)
+            true_model.to(device)
+            true_dist = true_model.log_probs().detach()
+            print(f"True dist H: {H(true_dist).mean().item():.2f}")
+            print_stats(true_model)
+            return true_dist
+        sm = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            sm = True,
+            prefix = "queries",
+        )
+        results[0,i] = sm
+        print("Kernel")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 64,
+            emb_dim = 128,
+            prefix = "queries",
+        )
+        results[1,i] = k
+        print("NMF64")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 1,
+            emb_dim = 64,
+            nmf = True,
+            prefix = "queries",
+        )
+        results[2,i] = k
+        print("NMF32")
+        k = run_fit(
+            true_dist_sm,
+            num_classes = 256,
+            feature_dim = 1,
+            emb_dim = 32,
+            nmf = True,
+            prefix = "queries",
+        )
+        results[3,i] = k
+        print()
+
+    df = pd.DataFrame(
+        results.T,
+        index = num_starts_grid,
+        columns = ["sm", "k", "nmf64", "nmf32"],
+    )
+    g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
+    g.set_axis_labels("Number of queries", "KL")
+    g.tight_layout()
+    g.savefig("cat_tests/kl_plots/queries.png")
+
+def run_hmm():
+    # fit HMM
+    print("Fit HMM")
+    transition = np.load("transitions/ptb_bucket_blhmm_k4096_ed256_d256_tdp0.0_fdp0_dtnone_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_nl0_rmlog_nf512_ns0_a1_l21_dfp0_eff0-transition.npy")
+    C = transition.shape[0]
+    emb_dim = 256
+    def true_dist_hmm(num_classes):
+        true_dist = torch.tensor(transition, device=device)
+        u,s,v = true_dist.exp().svd()
+        num_sv = (s > 1e-5).sum().item()
+        print(f"True dist H: {H(true_dist).mean().item():.2f} ||num sv: {num_sv}")
+        return true_dist
     print("Kernel")
     k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 64,
-        emb_dim = 128,
-        prefix = "queries",
+        true_dist_hmm,
+        num_classes = C,
+        feature_dim = C // 4,
+        emb_dim = emb_dim,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="hmm",
+        use_trange=True,
     )
-    results[1,i] = k
-    print("NMF64")
+    print("Diff temp")
     k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
-        feature_dim = 1,
-        emb_dim = 64,
-        nmf = True,
-        prefix = "queries",
+        true_dist_hmm,
+        num_classes = C,
+        feature_dim = C // 4,
+        emb_dim = emb_dim,
+        learn_temp = True,
+        diff_temps = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="hmm",
     )
-    results[2,i] = k
-    print("NMF32")
+    print("NMF 4:1")
     k = run_fit(
-        true_dist_sm,
-        num_classes = 256,
+        true_dist_hmm,
+        num_classes = C,
         feature_dim = 1,
-        emb_dim = 32,
+        emb_dim = C // 4,
+        plot_losses = True,
+        check_svs = 4,
         nmf = True,
-        prefix = "queries",
+        prefix="hmm",
     )
-    results[3,i] = k
-    print()
+    print("NMF 8:1")
+    k = run_fit(
+        true_dist_hmm,
+        num_classes = C,
+        feature_dim = 1,
+        emb_dim = C // 8,
+        plot_losses = True,
+        check_svs = 4,
+        nmf = True,
+        prefix="hmm",
+    )
+    print("softmax")
+    sm = run_fit(
+        true_dist_hmm,
+        num_classes = C,
+        feature_dim = 1,
+        emb_dim = emb_dim,
+        sm = True,
+        plot_losses = True,
+        check_svs = 4,
+        prefix="hmm",
+    )
 
-df = pd.DataFrame(
-    results.T,
-    index = num_starts_grid,
-    columns = ["sm", "k", "nmf64", "nmf32"],
-)
-g = sns.relplot(data=df, kind="line", linewidth=3, aspect=1.3)
-g.set_axis_labels("Number of queries", "KL")
-g.tight_layout()
-g.savefig("cat_tests/kl_plots/queries.png")
-"""
-print("Higher entropy is easier to fit")
-print("Rows Cols {Feats} KL")
-for eps in [1e-4, 1e-3, 1e-2]:
-    print(f"Smoothing eps: {eps}")
-    print()
-"""
+# run analysis
+run_hmm()
+#run_plot_losses()
+#run_keys()
+#run_queries()
+#run_temp()
+#run_rank()
