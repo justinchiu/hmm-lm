@@ -134,8 +134,9 @@ num_classes_grid = [128]
 
 device = torch.device("cuda:0")
 #num_steps = 20000
-num_steps = 4000 # first try for hmm
+#num_steps = 4000 # first try for hmm
 #num_steps = 2000
+num_steps = 500
 
 def init_optimizer(model):
     parameters = list(model.parameters())
@@ -758,7 +759,6 @@ def run_hmm():
         feature_dim = C // 4,
         emb_dim = emb_dim,
         plot_losses = True,
-        check_svs = 4,
         prefix="hmm",
         use_trange=True,
     )
@@ -771,7 +771,6 @@ def run_hmm():
         learn_temp = True,
         diff_temps = True,
         plot_losses = True,
-        check_svs = 4,
         prefix="hmm",
     )
     print("NMF 4:1")
@@ -781,7 +780,6 @@ def run_hmm():
         feature_dim = 1,
         emb_dim = C // 4,
         plot_losses = True,
-        check_svs = 4,
         nmf = True,
         prefix="hmm",
     )
@@ -792,7 +790,6 @@ def run_hmm():
         feature_dim = 1,
         emb_dim = C // 8,
         plot_losses = True,
-        check_svs = 4,
         nmf = True,
         prefix="hmm",
     )
@@ -804,7 +801,6 @@ def run_hmm():
         emb_dim = emb_dim,
         sm = True,
         plot_losses = True,
-        check_svs = 4,
         prefix="hmm",
     )
 
