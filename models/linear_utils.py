@@ -245,3 +245,9 @@ def project_logits(
         raise ValueError(f"Invalid rff_method: {rff_method}")
 
 
+def logbbmv(x, cA, K):
+    K1K = 2 * K + 1
+    padded_x = F.pad(x, (K, K), value=float("-inf"))
+    unfolded_x = padded_x.unfold(-1, K1K, 1)
+    #return (unfolded_x * cA).sum(-1)
+    return (unfolded_x + cA).logsumexp(-1)

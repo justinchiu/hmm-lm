@@ -39,6 +39,7 @@ def get_args():
         "lhmm",
         "sparsekernelhmm",
         "blhmm",
+        "bandedhmm",
         "sblhmm",
         "msblhmm",
     ], default="chmm",)
@@ -147,6 +148,8 @@ def add_linear_args(parser):
     parser.add_argument("--l2norm", default=1, type=int, help="l2 norm embeddings")
     parser.add_argument("--diffproj", default=0, type=int, help="use different projections")
     parser.add_argument("--eff", default=0, type=int, help="use efficient implementation of fwd")
+
+    parser.add_argument("--band", default=64, type=int, help="upper and lower band length")
 
     parser.add_argument("--feature_dropout", default=0, type=float,)
 

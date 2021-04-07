@@ -14,15 +14,17 @@ from .misc import ResLayer, LogDropoutM
 
 from utils import Pack
 
-from .linear_utils import get_2d_array, project_logits
+from genbmm import BandedMatrix
+
+from .linear_utils import get_2d_array, project_logits, logbbmv
 
 def trans(s):
     return s.transpose(-2, -1).contiguous()
 
 # use bmm for linear hmm
-class BLHmmLm(nn.Module):
+class BandedHmmLm(nn.Module):
     def __init__(self, V, config):
-        super(BLHmmLm, self).__init__()
+        super(BandedHmmLm, self).__init__()
 
         self.config = config
         self.V = V
@@ -37,6 +39,8 @@ class BLHmmLm(nn.Module):
 
         self.C = config.num_classes
         self.D = config.num_features
+        self.K = config.band
+        self.K1K = 2 * self.K + 1
 
         self.word2state = None
 
@@ -96,21 +100,15 @@ class BLHmmLm(nn.Module):
             th.randn(len(V), config.hidden_dim)
         )
 
+        # maybe switch to row?
+        self.col_banded_transition = nn.Parameter(
+            th.randn(self.C, self.K1K),
+        )
+
         self.transition_dropout = config.transition_dropout
         self.feature_dropout = config.feature_dropout
         self.log_dropout = LogDropoutM(config.transition_dropout)
         self.dropout_type = config.dropout_type
-
-        self.keep_counts = config.keep_counts > 0
-        if self.keep_counts:
-            self.register_buffer(
-                "counts",
-                th.zeros(self.C, len(self.V)),
-            )
-            self.register_buffer(
-                "state_counts",
-                th.zeros(self.C, dtype=th.int),
-            )
 
         # init
         for p in self.parameters():
@@ -215,8 +213,6 @@ class BLHmmLm(nn.Module):
             )
             if self.learn_temp == "mul":
                 logits = logits * self.temp
-            #logits = logits.masked_fill(logits != logits, float("-inf"))
-            return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
             fx = fx if keep_mask is None else fx[keep_mask]
             fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
@@ -234,9 +230,17 @@ class BLHmmLm(nn.Module):
                 rff_method = self.config.rff_method,
                 fast = False, # save memory by using genbmm.logbmm
             )[0]
-            return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
+
+        # add the diagonal
+        dense_banded_transition = BandedMatrix(
+            self.col_banded_transition[None], self.K, self.K,
+            fill=float("-inf"),
+        ).to_dense()[0]
+        logits = logits.logaddexp(dense_banded_transition)
+
+        return logits.log_softmax(-1)
 
     def emission(self, mask=None):
         keep_mask = ~mask if mask is not None else None
@@ -501,27 +505,49 @@ class BLHmmLm(nn.Module):
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
+        row_banded_transition = BandedMatrix(
+            self.col_banded_transition[None], self.K, self.K,
+            #fill = float("-inf"),
+            fill = -1e5,
+        ).transpose().data[0]
+
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+        log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
         # O(CD)
         normed_log_phi_w = log_phi_w - log_denominator[:,None]
 
         normalized_phi_w = normed_log_phi_w.exp()
         phi_u = log_phi_u.exp()
 
+        normed_banded_transition = row_banded_transition - log_denominator[:,None]
+        normed_col_banded_transition = BandedMatrix(
+            normed_banded_transition[None],
+            self.K, self.K,
+            #fill = float("-inf"),
+            fill = -1e5,
+        ).transpose().data[0]
+
         alphas = []
         Os = []
         #alpha = start * p_emit[:,0] # {N} x C
         alpha_un = start + logp_emit[:,0]
         Ot = alpha_un.logsumexp(-1, keepdim=True)
-        alpha = (alpha_un - Ot).exp()
+        log_alpha = alpha_un - Ot
+        alpha = log_alpha.exp()
         alphas.append(alpha)
         Os.append(Ot)
         for t in range(T-1):
             gamma = alpha @ normalized_phi_w
-            alpha_un = logp_emit[:,t+1] + (gamma @ phi_u.T).log()
-            Ot = alpha_un.logsumexp(-1, keepdim=True)
-            alpha = (alpha_un - Ot).exp()
+            alpha_un = (gamma @ phi_u.T).log()
+
+            log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            alpha_un1 = alpha_un.logaddexp(log_band_alpha)
+            alpha_un2 = logp_emit[:,t+1] + alpha_un1
+
+            Ot = alpha_un2.logsumexp(-1, keepdim=True)
+            log_alpha = alpha_un2 - Ot
+            alpha = log_alpha.exp()
 
             alphas.append(alpha)
             Os.append(Ot)
@@ -534,6 +560,7 @@ class BLHmmLm(nn.Module):
             evidence = evidence,
             loss = evidence,
         ), alpha.log(), None
+        # ^ alpha.log is wrong, need to use lengths to index
 
 
     def compute_rff_parameters(self):
@@ -555,13 +582,31 @@ class BLHmmLm(nn.Module):
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
+        row_banded_transition = BandedMatrix(
+            self.col_banded_transition[None], self.K, self.K,
+            fill = float("-inf")
+        ).transpose().data[0]
+
+        # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+        log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
         normed_log_phi_w = log_phi_w - log_denominator[:, None]
+
+        normed_banded_transition = row_banded_transition - log_denominator[:,None]
+        normed_col_banded_transition = BandedMatrix(
+            normed_banded_transition[None],
+            self.K, self.K,
+            fill = float("-inf"),
+        ).transpose().data[0]
 
         start = self.start()
         emission = self.emission()
 
-        return start, (normed_log_phi_w.exp(), log_phi_u.exp()), emission
+        return (
+            start,
+            (normed_log_phi_w.exp(), log_phi_u.exp(), normed_col_banded_transition),
+            emission,
+        )
 
     def compute_rff_loss(
         self,
@@ -570,36 +615,44 @@ class BLHmmLm(nn.Module):
         mask=None, lengths=None,
     ):
         N, T = text.shape
-        normalized_phi_w, phi_u = transition
+        normalized_phi_w, phi_u, normed_col_banded_transition = transition
 
         # gather emission
         # N x T x C
-        p_emit = emission[
+        logp_emit = emission[
             th.arange(self.C)[None,None],
             text[:,:,None],
         ]
+
         alphas = []
         Os = []
         #alpha = start * p_emit[:,0] # {N} x C
-        alpha_un = start + p_emit[:,0]
+        alpha_un = start + logp_emit[:,0]
         Ot = alpha_un.logsumexp(-1, keepdim=True)
-        alpha = (alpha_un - Ot).exp()
+        log_alpha = alpha_un - Ot
+        alpha = log_alpha.exp()
         alphas.append(alpha)
         Os.append(Ot)
         for t in range(T-1):
             gamma = alpha @ normalized_phi_w
-            alpha_un = p_emit[:,t+1] + (gamma @ phi_u.T).log()
-            Ot = alpha_un.logsumexp(-1, keepdim=True)
-            alpha = (alpha_un - Ot).exp()
+            alpha_un = (gamma @ phi_u.T).log()
+
+            log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            alpha_un1 = alpha_un.logaddexp(log_band_alpha)
+            alpha_un2 = logp_emit[:,t+1] + alpha_un1
+
+            Ot = alpha_un2.logsumexp(-1, keepdim=True)
+            log_alpha = alpha_un2 - Ot
+            alpha = log_alpha.exp()
 
             alphas.append(alpha)
             Os.append(Ot)
-            #import pdb; pdb.set_trace()
         O = th.cat(Os, -1)
         evidence = O[mask].sum()
+
         return Pack(
             elbo = None,
             evidence = evidence,
             loss = evidence,
         ), alpha.log()
-
+        # ^ alpha wrong, need to index with lengths
