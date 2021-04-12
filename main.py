@@ -35,7 +35,7 @@ from models.fflm import FfLm
 
 import wandb
 
-th.autograd.set_detect_anomaly(True)
+#th.autograd.set_detect_anomaly(True)
 
 valid_schedules = ["reducelronplateau"]
 
@@ -196,7 +196,7 @@ def fast_eval_loop(
         if hasattr(model, "temp"):
             print(f"Model temp {model.temp.item():.2f}")
 
-        """
+        # entropy
         # assert that transition and emission are well-formed
         myt = model.transition()
         bigt = myt.logsumexp(-1).abs().max()
@@ -208,7 +208,18 @@ def fast_eval_loop(
         He = -(emission.exp() * emission).sum()
         Ht = -(myt.exp() * myt).sum()
         print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
-        """
+
+        # svd
+        _,s,_ = myt.exp().svd(compute_uv=False)
+        data = [[i,v] for i,v in enumerate(s.cpu().detach().numpy())]
+        table = wandb.Table(data=data, columns = ["index", "value"]) 
+        wandb.log({
+            "transition_entropy": Ht,
+            "emission_entropy": He,
+            "svd": wandb.plot.line(table, "index", "value", title="Singular Values"),
+        }, step=WANDB_STEP)
+
+
 
         word2state = model.word2state
         for i, batch in enumerate(iter):
@@ -650,7 +661,8 @@ def main():
     #import pdb; pdb.set_trace()
     if args.eval_only:
         # make sure this is uncommented
-        model.load_state_dict(th.load(args.eval_only)["model"])
+        if args.eval_only != "none":
+            model.load_state_dict(th.load(args.eval_only)["model"])
         from utils import dump_transition
         dump_transition(model)
 

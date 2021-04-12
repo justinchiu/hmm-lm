@@ -59,6 +59,8 @@ def get_name(config):
         f"d{config.hidden_dim}",
         #f"cd{config.char_dim}",
         #f"dp{config.dropout}",
+        f"bs{config.band}",
+        f"bo{config.band_only}",
         f"tdp{config.transition_dropout}",
         f"fdp{config.feature_dropout}",
         #f"cdp{config.column_dropout}",

@@ -150,11 +150,11 @@ def add_linear_args(parser):
     parser.add_argument("--eff", default=0, type=int, help="use efficient implementation of fwd")
 
     parser.add_argument("--band", default=64, type=int, help="upper and lower band length")
+    parser.add_argument("--band_only", default=0, type=int, help="only use band")
 
     parser.add_argument("--feature_dropout", default=0, type=float,)
 
     parser.add_argument("--tie_start", default=1, type=int, help="tie start embedding")
 
     parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")
-
     parser.add_argument("--dbg_sparse", default=0, type=int, help="debug sparse kernel hmm")

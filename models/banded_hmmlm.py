@@ -30,7 +30,6 @@ class BandedHmmLm(nn.Module):
         self.V = V
         self.device = config.device
 
-
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
 
@@ -41,6 +40,7 @@ class BandedHmmLm(nn.Module):
         self.D = config.num_features
         self.K = config.band
         self.K1K = 2 * self.K + 1
+        self.band_only = config.band_only
 
         self.word2state = None
 
@@ -131,6 +131,11 @@ class BandedHmmLm(nn.Module):
                         self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
+        # initialize band to be competitive with kernel logits
+        fx = self.state_emb.to(self.device) @ self.projection
+        fy = self.next_state_emb.to(self.device) @ self.projection
+        meanscore  = (fx.exp() @ fy.exp().T).log().mean()
+        self.col_banded_transition.data += meanscore.to(self.col_banded_transition.device)
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
