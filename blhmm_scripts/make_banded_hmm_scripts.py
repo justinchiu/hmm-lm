@@ -5,7 +5,7 @@ import os
 
 def make_script(num_states, num_features, dropout, feat_dropout):
     header = f"""#!/bin/bash
-#SBATCH -J me{num_states}{num_features}{dropout}{feat_dropout}
+#SBATCH -J dp{num_states}{num_features}{dropout}{feat_dropout}
 #SBATCH -p rush
 #SBATCH --nodelist=rush-compute01
 #SBATCH --nodes=1
@@ -20,23 +20,20 @@ source /home/jtc257/scripts/env.sh
 hmmenv
 cd /home/jtc257/python/hmm-lm
 
-python main.py --lr 0.001 --column_dropout 0 \
-    --transition_dropout {dropout} --feature_dropout {feat_dropout}\
-    --dropout_type none \
-    --model blhmm --bsz 128 --num_classes {num_states} \
-    --emb_dim 256 --hidden_dim 256 \
-    --dataset ptb --iterator bucket --parameterization smp \
+main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 \
+    --dropout_type none --model bandedhmm \
+    --bsz 256 --num_classes {num_states} \
+    --emb_dim 256 --hidden_dim 256 --dataset ptb \
+    --iterator bucket --parameterization smp \
     --projection_method static --update_proj 1 \
-    --num_features {num_features} \
-    --anti 0 --l2norm 0 --sm_emit 1 \
-    --eff 1 \
-     --states_per_word 128 --train_spw 128 --assignment brown \
-     --num_clusters 128
+    --num_features {num_features} --anti 0 --l2norm 0 \
+    --sm_emit 1 --eval_bsz 256 \
+    --num_epochs 15 --band {num_features // 2} --eff 1
 """
     return header
 
 def make_filename(num_states, num_features, dropout, feat_dropout):
-    filename = f"me-s{num_states}-f{num_features}-{dropout}-{feat_dropout}.sub"
+    filename = f"bdp-s{num_states}-f{num_features}-{dropout}-{feat_dropout}.sub"
     return filename
 
 #grid_num_states = [8192, 4096, 2048, 1024, 512]
@@ -44,11 +41,28 @@ def make_filename(num_states, num_features, dropout, feat_dropout):
 #grid_num_states = [16384, 8192]
 #grid_num_features = [16384, 8192, 4096]
 
-grid_num_states = [16384]
-grid_num_features = [64, 128, 256]
+grid_num_states = [4096]
+grid_num_features = [2048, 1024, 512]
+# ^ none
+grid_num_states = [8192]
+#grid_num_features = [4096, 2048, 1024, 512]
+grid_num_features = [512]
+# ^ none
+#grid_num_states = [16384]
+#grid_num_features = [4096, 2048]
+#grid_num_features = [8192]
+# ^ none
 
-#grid_dropout_type = ["state"]
-grid_dropout_type = ["none"]
+#grid_num_states = [1024]
+#grid_num_features = [512, 256, 128]
+#
+
+#grid_num_states = [2048]
+#grid_num_features = [1024, 512, 256]
+# ^ RUNNING 
+
+
+grid_dropout_type = ["state"]
 grid_dropout = [0]
 grid_feat_dropout = [0]
 

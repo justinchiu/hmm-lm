@@ -198,7 +198,8 @@ def fast_eval_loop(
 
         # entropy
         # assert that transition and emission are well-formed
-        myt = model.transition()
+        myt = model.transition(print_max=True)
+        #myt = model.transition()
         bigt = myt.logsumexp(-1).abs().max()
         assert bigt < 1e-4, f"{bigt}"
         bige = emission.logsumexp(-1).abs().max()
@@ -405,8 +406,11 @@ def train_loop(
                 start_backward = timep.time()
             loss.backward()
 
-            #print(model.state_emb.grad.max(), model.state_emb.grad.min())
-            #print(model.next_state_emb.grad.max(), model.next_state_emb.grad.min())
+            #print("stateemb")
+            #print(model.state_emb.grad.max().item(), model.state_emb.grad.min().item())
+            #print(model.next_state_emb.grad.max().item(), model.next_state_emb.grad.min().item())
+            #print("colbanded")
+            #print(model.col_banded_transition.grad.max().item(), model.col_banded_transition.grad.min().item())
             #import pdb; pdb.set_trace()
 
             if model.timing:
@@ -599,11 +603,11 @@ def main():
         from models.banded_hmmlm import BandedHmmLm
         model = BandedHmmLm(V, args)
     elif args.model == "sblhmm":
-        #from models.sblhmmlm import SblHmmLm
-        #model = SblHmmLm(V, args)
+        from models.sblhmmlm import SblHmmLm
+        model = SblHmmLm(V, args)
         # single projection doesnt work due to rank issues, try multiple projection
-        from models.msblhmmlm import MsblHmmLm
-        model = MsblHmmLm(V, args)
+        #from models.msblhmmlm import MsblHmmLm
+        #model = MsblHmmLm(V, args)
     elif args.model == "sparsekernelhmm":
         from models.sparse_kernel_hmmlm import SparseKernelHmmLm
         model = SparseKernelHmmLm(V, args)

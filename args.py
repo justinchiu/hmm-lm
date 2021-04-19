@@ -147,10 +147,14 @@ def add_linear_args(parser):
     parser.add_argument("--anti", default=1, type=int, help="antithetic sample for proj")
     parser.add_argument("--l2norm", default=1, type=int, help="l2 norm embeddings")
     parser.add_argument("--diffproj", default=0, type=int, help="use different projections")
+    parser.add_argument("--transmlp", default=0, type=int, help="use transition mlp")
     parser.add_argument("--eff", default=0, type=int, help="use efficient implementation of fwd")
 
     parser.add_argument("--band", default=64, type=int, help="upper and lower band length")
     parser.add_argument("--band_only", default=0, type=int, help="only use band")
+    parser.add_argument("--band_method", default="sum",
+        choices=["sum","product", "only", "none"],
+        help="band mixture method (sum or product of experts, band only, or no band)")
 
     parser.add_argument("--feature_dropout", default=0, type=float,)
 

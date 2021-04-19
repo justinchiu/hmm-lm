@@ -39,6 +39,7 @@ class SblHmmLm(nn.Module):
 
         self.C = config.num_classes
         self.D = config.num_features
+        self.transmlp = config.transmlp
 
         self.hidden_dim = config.hidden_dim
 
@@ -80,11 +81,12 @@ class SblHmmLm(nn.Module):
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
-        self.trans_mlp = nn.Sequential(
-            nn.Linear(config.hidden_dim, config.hidden_dim),
-            ResLayer(config.hidden_dim, config.hidden_dim),
-            ResLayer(config.hidden_dim, config.hidden_dim),
-        )
+        if self.transmlp:
+            self.trans_mlp = nn.Sequential(
+                nn.Linear(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+            )
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -261,27 +263,23 @@ class SblHmmLm(nn.Module):
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
 
-    def transition(self, states=None, feat_mask=None):
+    def transition(self, states=None, feat_mask=None, print_max=None):
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
-        #fx = self.state_emb
-        fx = self.trans_mlp(self.state_emb)
+
+        fx = self.state_emb if states is None else self.state_emb[states]
+        fx = self.trans_mlp(fx) if self.transmlp else fx
+        fy = self.next_state_emb if states is None else self.next_state_emb[states]
+        if self.l2norm:
+            fx = fx / fx.norm(dim=-1, keepdim=True)
+            fy = fy / fy.norm(dim=-1, keepdim=True)
+
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = (fx @ self.next_state_emb.T
-                if states is None
-                else fx[states] @ self.next_state_emb[states].T
-            )
+            logits = fx @ self.next_state_emb.T
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             if self.learn_temp == "mul":
                 logits = logits * self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            fx = fx if states is None else fx[states]
-            fy = self.next_state_emb if states is None else self.next_state_emb[states]
-            # important to renormalize. maybe move this into project_logits
-            if self.l2norm:
-                fx = fx / fx.norm(dim=-1, keepdim=True)
-                fy = fy / fy.norm(dim=-1, keepdim=True)
-
             projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             if self.learn_temp == "mul":
                 projection = projection * self.temp
@@ -529,6 +527,8 @@ class SblHmmLm(nn.Module):
             start_ = timep.time()
 
         state_emb = self.state_emb if states is None else self.state_emb[states]
+        if self.transmlp:
+            state_emb = self.trans_mlp(state_emb)
         next_state_emb = self.next_state_emb if states is None else self.next_state_emb[states]
         if self.l2norm:
             state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
@@ -594,12 +594,13 @@ class SblHmmLm(nn.Module):
 
 
     def compute_rff_parameters(self):
+        state_emb = self.state_emb
+        next_state_emb = self.next_state_emb
+        if self.transmlp:
+            state_emb = self.trans_mlp(state_emb)
         if self.l2norm:
             state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
-        else:
-            state_emb = self.state_emb
-            next_state_emb = self.next_state_emb
 
         # sum vectors and sum matrices
         projection = self.projection

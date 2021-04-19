@@ -31,6 +31,7 @@ class BLHmmLm(nn.Module):
 
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
+        self.transmlp = config.transmlp
 
         self.timing = config.timing > 0
         self.eff = config.eff
@@ -80,6 +81,13 @@ class BLHmmLm(nn.Module):
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
+        if self.transmlp:
+            self.trans_mlp = nn.Sequential(
+                nn.Linear(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+            )
+
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -204,36 +212,28 @@ class BLHmmLm(nn.Module):
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
 
-    def transition(self, mask=None, feat_mask=None):
+    def transition(self, mask=None, feat_mask=None, print_max=None):
         keep_mask = ~mask if mask is not None else None
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
-        fx = self.state_emb
+
+        fx = self.state_emb if keep_mask is None else self.state_emb[keep_mask]
+        fx = self.trans_mlp(fx) if self.transmlp else fx
+        fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+        if self.l2norm:
+            fx = fx / fx.norm(dim=-1, keepdim=True)
+            fy = fy / fy.norm(dim=-1, keepdim=True)
+
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = (fx @ self.next_state_emb.T
-                if mask is None
-                else fx[keep_mask] @ self.next_state_emb[keep_mask].T
-            )
+            logits = fx @ fy.T
             if self.learn_temp == "mul":
                 logits = logits * self.temp
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            fx = fx if keep_mask is None else fx[keep_mask]
-            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
             projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
-            # important to renormalize. maybe move this into project_logits
-            if self.l2norm:
-                fx = fx / fx.norm(dim=-1, keepdim=True)
-                fy = fy / fy.norm(dim=-1, keepdim=True)
             if self.learn_temp == "mul":
                 projection = projection * self.temp
-            logits = project_logits(
-                fx[None],
-                fy[None],
-                projection,
-                rff_method = self.config.rff_method,
-                fast = False, # save memory by using genbmm.logbmm
-            )[0]
+            logits = logbmm((fx @ projection)[None], (fy @ projection).T.contiguous()[None])[0]
             return logits.log_softmax(-1)
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
@@ -277,7 +277,7 @@ class BLHmmLm(nn.Module):
 
     def compute_parameters(self,
         word2state=None,
-        states=None, word_mask=None,       
+        states=None, word_mask=None,
         lpz=None, last_states=None,         
     ):
         # TODO: return struct instead of passing around distributions
@@ -486,6 +486,8 @@ class BLHmmLm(nn.Module):
             start_ = timep.time()
 
         state_emb = self.state_emb if transition_mask is None else self.state_emb[~transition_mask]
+        if self.transmlp:
+            state_emb = self.trans_mlp(state_emb)
         next_state_emb = self.next_state_emb if transition_mask is None else self.next_state_emb[~transition_mask]
         if self.l2norm:
             state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
@@ -537,12 +539,13 @@ class BLHmmLm(nn.Module):
 
 
     def compute_rff_parameters(self):
+        state_emb = self.state_emb
+        next_state_emb = self.next_state_emb
+        if self.transmlp:
+            state_emb = self.trans_mlp(state_emb)
         if self.l2norm:
             state_emb = self.state_emb / self.state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = self.next_state_emb / self.next_state_emb.norm(dim=-1, keepdim=True)
-        else:
-            state_emb = self.state_emb
-            next_state_emb = self.next_state_emb
 
         # sum vectors and sum matrices
         projection = self.projection

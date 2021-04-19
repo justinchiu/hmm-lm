@@ -133,10 +133,11 @@ num_classes_grid = [128, 256, 512]
 num_classes_grid = [128]
 
 device = torch.device("cuda:0")
+device = torch.device("cpu")
 #num_steps = 20000
 #num_steps = 4000 # first try for hmm
-#num_steps = 2000
-num_steps = 500
+num_steps = 2000
+#num_steps = 500
 
 def init_optimizer(model):
     parameters = list(model.parameters())
@@ -192,7 +193,7 @@ def print_stats(model):
         print(f"num sv: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || projrank: {projrank} || emb: {minemb}/{maxemb} || temp {model.temp.item():.2f}")
     else:
         print(f"num sv: {num_sv} || H: {H(lp).mean().item():.2f} || min/max logit: {logits.min().item():.2f}/{logits.max().item():.2f} || proj: {minproj}/{maxproj} || projrank: {projrank} || emb: {minemb}/{maxemb} || st {model.start_temp.min().item():.2f}/{model.start_temp.max().item():.2f} || ct {model.class_temp.min().item():.2f}/{model.class_temp.max().item():.2f}")
-    return s
+    return s.squeeze()
 
 def plot(losses, svs, prefix, name, num_starts, num_classes, num_features=0, learn_temp=False, diff_temps=False, nmf=False):
     fig, ax = plt.subplots()
@@ -772,6 +773,7 @@ def run_hmm():
         diff_temps = True,
         plot_losses = True,
         prefix="hmm",
+        use_trange=True,
     )
     print("NMF 4:1")
     k = run_fit(
@@ -782,6 +784,7 @@ def run_hmm():
         plot_losses = True,
         nmf = True,
         prefix="hmm",
+        use_trange=True,
     )
     print("NMF 8:1")
     k = run_fit(
@@ -792,6 +795,7 @@ def run_hmm():
         plot_losses = True,
         nmf = True,
         prefix="hmm",
+        use_trange=True,
     )
     print("softmax")
     sm = run_fit(
@@ -802,6 +806,7 @@ def run_hmm():
         sm = True,
         plot_losses = True,
         prefix="hmm",
+        use_trange=True,
     )
 
 # run analysis

@@ -32,6 +32,7 @@ class BandedHmmLm(nn.Module):
 
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
+        self.transmlp = config.transmlp
 
         self.timing = config.timing > 0
         self.eff = config.eff
@@ -40,7 +41,7 @@ class BandedHmmLm(nn.Module):
         self.D = config.num_features
         self.K = config.band
         self.K1K = 2 * self.K + 1
-        self.band_only = config.band_only
+        self.band_method = config.band_method
 
         self.word2state = None
 
@@ -84,6 +85,12 @@ class BandedHmmLm(nn.Module):
         self.state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
+        if self.transmlp:
+            self.trans_mlp = nn.Sequential(
+                nn.Linear(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+                ResLayer(config.hidden_dim, config.hidden_dim),
+            )
         self.next_state_emb = nn.Parameter(
             th.randn(self.C, config.hidden_dim),
         )
@@ -131,11 +138,21 @@ class BandedHmmLm(nn.Module):
                         self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
+        # zeros of banded matrix
+        self.band_fill_value = (float("-inf")
+            if self.band_method == "sum" or self.band_method == "only"
+            else 0.)
         # initialize band to be competitive with kernel logits
-        fx = self.state_emb.to(self.device) @ self.projection
-        fy = self.next_state_emb.to(self.device) @ self.projection
-        meanscore  = (fx.exp() @ fy.exp().T).log().mean()
-        self.col_banded_transition.data += meanscore.to(self.col_banded_transition.device)
+        if self.band_method == "sum":
+            # HACKY
+            with th.no_grad():
+                #fx = self.state_emb.to(self.device) @ self.projection
+                #fy = self.next_state_emb.to(self.device) @ self.projection
+                #logits = logbmm(fx[None], fy.T.contiguous()[None])[0]
+                #meanscore = logits.max() * 1.5
+                #print("meanscore", meanscore.item())
+                #self.col_banded_transition.data += meanscore.to(self.col_banded_transition.device)
+                self.col_banded_transition.data += 30
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
@@ -207,27 +224,27 @@ class BandedHmmLm(nn.Module):
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
 
-    def transition(self, mask=None, feat_mask=None):
+    def transition(self, mask=None, feat_mask=None, print_max=False):
         keep_mask = ~mask if mask is not None else None
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
-        fx = self.state_emb
+
+        fx = self.state_emb if keep_mask is None else self.state_emb[keep_mask]
+        fx = self.trans_mlp(fx) if self.transmlp else fx
+        fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
+        if self.l2norm:
+            fx = fx / fx.norm(dim=-1, keepdim=True)
+            fy = fy / fy.norm(dim=-1, keepdim=True)
+
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = (fx @ self.next_state_emb.T
-                if mask is None
-                else fx[keep_mask] @ self.next_state_emb[keep_mask].T
-            )
+            logits = fx @ fy.T
             if self.learn_temp == "mul":
                 logits = logits * self.temp
         elif self.parameterization == "smp" and not self.sm_trans:
-            fx = fx if keep_mask is None else fx[keep_mask]
-            fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
             projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
             # important to renormalize. maybe move this into project_logits
-            if self.l2norm:
-                fx = fx / fx.norm(dim=-1, keepdim=True)
-                fy = fy / fy.norm(dim=-1, keepdim=True)
             if self.learn_temp == "mul":
                 projection = projection * self.temp
+            """
             logits = project_logits(
                 fx[None],
                 fy[None],
@@ -235,15 +252,32 @@ class BandedHmmLm(nn.Module):
                 rff_method = self.config.rff_method,
                 fast = False, # save memory by using genbmm.logbmm
             )[0]
+            """
+            logits = logbmm((fx @ projection)[None], (fy @ projection).T.contiguous()[None])[0]
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
         # add the diagonal
         dense_banded_transition = BandedMatrix(
             self.col_banded_transition[None], self.K, self.K,
-            fill=float("-inf"),
+            fill=self.band_fill_value,
         ).to_dense()[0]
-        logits = logits.logaddexp(dense_banded_transition)
+        if print_max:
+            lmax = logits.max().item()
+            bmax = self.col_banded_transition.max().item()
+            print(f"lmax {lmax:.2f} | bmax {bmax:.2f}")
+            #import pdb; pdb.set_trace()
+
+        if self.band_method == "sum":
+            logits = logits.logaddexp(dense_banded_transition)
+        elif self.band_method == "product":
+            logits = logits + dense_banded_transition
+        elif self.band_method == "only":
+            logits = dense_banded_transition
+        elif self.band_method == "none":
+            pass
+        else:
+            raise ValueError(f"Invalid band_method: {self.band_method}")
 
         return logits.log_softmax(-1)
 
