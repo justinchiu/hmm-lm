@@ -20,7 +20,7 @@ source /home/jtc257/scripts/env.sh
 hmmenv
 cd /home/jtc257/python/hmm-lm
 
-main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 \
+python main.py --lr 0.001 --column_dropout 1 --transition_dropout 0 \
     --dropout_type none --model bandedhmm \
     --bsz 256 --num_classes {num_states} \
     --emb_dim 256 --hidden_dim 256 --dataset ptb \

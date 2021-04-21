@@ -460,6 +460,7 @@ def train_loop(
                 valid_losses, valid_n  = eval_fn(
                     args, V, valid_iter, model,
                 )
+                #import pdb; pdb.set_trace()
                 report(valid_losses, valid_n, "Valid eval", v_start_time)
                 wandb.log({
                     "valid_loss": valid_losses.evidence / valid_n,

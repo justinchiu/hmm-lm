@@ -23,7 +23,7 @@ cd /home/jtc257/python/hmm-lm
 python main.py --lr 0.001 --column_dropout 0 \
     --transition_dropout {dropout} \
     --dropout_type none \
-    --model blhmm --bsz 128 --num_classes {num_states} \
+    --model sblhmm --bsz 128 --num_classes {num_states} \
     --emb_dim 256 --hidden_dim 256 \
     --dataset ptb --iterator bucket --parameterization softmax \
     --l2norm 0 \

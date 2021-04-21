@@ -26,6 +26,8 @@ class SblHmmLm(nn.Module):
     def __init__(self, V, config):
         super(SblHmmLm, self).__init__()
 
+        #self.i = 0
+
         self.config = config
         self.V = V
         self.device = config.device
@@ -274,13 +276,16 @@ class SblHmmLm(nn.Module):
             fy = fy / fy.norm(dim=-1, keepdim=True)
 
         if self.parameterization == "softmax" or self.sm_trans:
-            logits = fx @ self.next_state_emb.T
+            logits = fx @ fy.T
             #logits = logits.masked_fill(logits != logits, float("-inf"))
             if self.learn_temp == "mul":
                 logits = logits * self.temp
             return logits.log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_trans:
-            projection = self.projection if keep_feat_mask is None else self.projection[:,keep_feat_mask]
+            projection = (self.projection
+                if keep_feat_mask is None
+                else self.projection[:,keep_feat_mask]
+            )
             if self.learn_temp == "mul":
                 projection = projection * self.temp
 
@@ -408,12 +413,13 @@ class SblHmmLm(nn.Module):
         N, T = text.shape
 
         if self.training and self.dropout_type != "none":
-            I = (th.distributions.Gumbel(self.zero, self.one)
+            #I = (th.distributions.Gumbel(self.zero, self.one)
+            I = (th.distributions.Gumbel(0, 1)
                 .sample(self.cluster2state.shape)
                 .squeeze(-1)
                 .topk(self.train_states_per_word, dim=-1)
                 .indices
-            )
+            ).to(self.device) # just do it on cpu for now
             states = self.cluster2state.gather(1, I).view(-1)
 
             feat_mask = (th.empty(self.D, device=self.device)
@@ -431,6 +437,9 @@ class SblHmmLm(nn.Module):
         #transition = self.mask_transition(transition_logits, transition_mask)
         transition = self.transition(states, feat_mask).exp()
         emission = self.emission(states)
+        #self.i += 1
+        #if self.i > 1000:
+            #import pdb; pdb.set_trace()
 
         if lpz is not None:
             raise NotImplementedError
