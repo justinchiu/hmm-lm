@@ -189,6 +189,7 @@ def fast_eval_loop(
     total_ll = 0
     total_elbo = 0
     n = 0
+
     with th.no_grad():
         model.train(False)
         lpz = None
@@ -250,7 +251,39 @@ def fast_eval_loop(
             if losses.elbo is not None:
                 total_elbo += losses.elbo.detach()
             n += n_tokens
+
     return Pack(evidence = total_ll, elbo = total_elbo), n
+
+def collect_counts_loop(
+    args, V, iter, model,
+):
+    from models.analysis_utils import CountCollector
+    count_collector = CountCollector(model)
+
+    model.train(False)
+    lpz = None
+
+    word2state = model.word2state
+    for i, batch in enumerate(iter):
+        if hasattr(model, "noise_scale"):
+            model.noise_scale = 0
+
+        text = batch.text
+
+        mask, lengths, n_tokens = get_mask_lengths(text, V)
+        N, T = text.shape
+
+        if lpz is not None and args.iterator == "bptt":
+            #start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
+            raise NotImplementedError()
+
+        if word2state is not None:
+            idx = th.arange(N, device=model.device)
+            last_words = text[idx, lengths-1]
+            last_states = model.word2state[last_words]
+
+        count_collector.collect_counts(text, mask, lengths)
+    return count_collector
 
 def mixed_cached_eval_loop(
     args, V, iter, model,
@@ -704,11 +737,21 @@ def main():
         )
         report(valid_losses, valid_n, f"Valid perf", v_start_time)
 
+        # count states
+        valid_counts = collect_counts_loop(
+            args, V, valid_iter, model,
+        )
+
         t_start_time = time.time()
         test_losses, test_n = eval_fn(
             args, V, test_iter, model,
         )
         report(test_losses, test_n, f"Test perf", t_start_time)
+
+        # count states
+        test_counts = collect_counts_loop(
+            args, V, test_iter, model,
+        )
 
         sys.exit()
 
