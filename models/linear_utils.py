@@ -251,3 +251,12 @@ def logbbmv(x, cA, K):
     unfolded_x = padded_x.unfold(-1, K1K, 1)
     #return (unfolded_x * cA).sum(-1)
     return (unfolded_x + cA).logsumexp(-1)
+
+def bbmv(x, cA, K):
+    K1K = 2 * K + 1
+    padded_x = F.pad(x, (K, K), value=0)
+    unfolded_x = padded_x.unfold(-1, K1K, 1)
+    result = torch.einsum("bzk,zk->bz", unfolded_x, cA)
+    return result
+    #return (unfolded_x * cA).sum(-1) # <=
+    #return (unfolded_x + cA).logsumexp(-1)

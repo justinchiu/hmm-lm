@@ -96,7 +96,6 @@ def get_name(config):
         f"st{config.sm_trans}",
         f"se{config.sm_emit}",
         f"tm{config.transmlp}",
-        f"nl{config.no_layernorm}",
         f"rm{config.rff_method}",
         f"nf{config.num_features}",
         f"ns{config.no_shift}",
@@ -104,6 +103,10 @@ def get_name(config):
         f"l2{config.l2norm}",
         f"dfp{config.diffproj}",
         f"eff{config.eff}",
+        #f"re{config.regularize_eigenvalue}",
+        f"rc{config.regularize_cols}",
+        f"rp{config.regularize_pairs}",
+        f"tme{config.regularize_transition_marginal_entropy}",
     ])
 
 def get_args(args):

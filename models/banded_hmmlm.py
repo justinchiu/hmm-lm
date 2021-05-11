@@ -16,7 +16,7 @@ from utils import Pack
 
 from genbmm import BandedMatrix
 
-from .linear_utils import get_2d_array, project_logits, logbbmv
+from .linear_utils import get_2d_array, project_logits, logbbmv, bbmv
 
 def trans(s):
     return s.transpose(-2, -1).contiguous()
@@ -509,17 +509,25 @@ class BandedHmmLm(nn.Module):
         if lpz is not None:
             start = lpz
         else:
-            start = self.start(start_mask, feat_mask)
+            # no speedup from dropout
+            #start = self.start(start_mask, feat_mask)
+            start = self.start()
         if self.timing:
             start_ = timep.time()
-        emission = self.emission(transition_mask)
+        # no from dropout
+        #emission = self.emission(transition_mask)
+        emission = self.emission()
+        if transition_mask is not None:
+            # mask out emission
+            emission = emission.masked_fill(transition_mask[:,None], float("-inf"))
         if self.timing:
             print(f"total emit time: {timep.time() - start_}")
             start_ = timep.time()
 
         # gather emission
         # N x T x C
-        num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
+        #num_states = self.C if transition_mask is None else (~transition_mask).sum().item()
+        num_states = self.C
         logp_emit = emission[
             th.arange(num_states)[None,None],
             text[:,:,None],
@@ -528,8 +536,10 @@ class BandedHmmLm(nn.Module):
             print(f"total emit index time: {timep.time() - start_}")
             start_ = timep.time()
 
-        state_emb = self.state_emb if transition_mask is None else self.state_emb[~transition_mask]
-        next_state_emb = self.next_state_emb if transition_mask is None else self.next_state_emb[~transition_mask]
+        #state_emb = self.state_emb if transition_mask is None else self.state_emb[~transition_mask]
+        #next_state_emb = self.next_state_emb if transition_mask is None else self.next_state_emb[~transition_mask]
+        state_emb = self.state_emb
+        next_state_emb = self.next_state_emb
         if self.l2norm:
             state_emb = state_emb / state_emb.norm(dim=-1, keepdim=True)
             next_state_emb = next_state_emb / next_state_emb.norm(dim=-1, keepdim=True)
@@ -553,18 +563,31 @@ class BandedHmmLm(nn.Module):
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
         log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
+        #if transition_mask is None:
+            #log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
+        #else:
+            #log_denominator = log_denominator.logaddexp(row_banded_transition[~transition_mask].logsumexp(-1))
         # O(CD)
         normed_log_phi_w = log_phi_w - log_denominator[:,None]
 
         normalized_phi_w = normed_log_phi_w.exp()
         phi_u = log_phi_u.exp()
 
-        normed_banded_transition = row_banded_transition - log_denominator[:,None]
+        # log space
+        #normed_banded_transition = row_banded_transition - log_denominator[:,None]
+        # prob space
+        normed_banded_transition = (row_banded_transition - log_denominator[:,None]).exp()
+        #if transition_mask is None:
+            #normed_banded_transition = (row_banded_transition - log_denominator[:,None]).exp()
+        #else:
+            #normed_banded_transition = (row_banded_transition[~transition_mask] - log_denominator[:,None]).exp()
+
         normed_col_banded_transition = BandedMatrix(
             normed_banded_transition[None],
             self.K, self.K,
             #fill = float("-inf"),
-            fill = -1e5,
+            #fill = -1e5, # <= use this one if log
+            fill = 0, # <= use this one if prob
         ).transpose().data[0]
 
         alphas = []
@@ -580,7 +603,10 @@ class BandedHmmLm(nn.Module):
             gamma = alpha @ normalized_phi_w
             alpha_un = (gamma @ phi_u.T).log()
 
-            log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            #log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            #import pdb; pdb.set_trace()
+            log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
+
             alpha_un1 = alpha_un.logaddexp(log_band_alpha)
             alpha_un2 = logp_emit[:,t+1] + alpha_un1
 
@@ -632,10 +658,12 @@ class BandedHmmLm(nn.Module):
         normed_log_phi_w = log_phi_w - log_denominator[:, None]
 
         normed_banded_transition = row_banded_transition - log_denominator[:,None]
+        normed_banded_transition = normed_banded_transition.exp()
         normed_col_banded_transition = BandedMatrix(
             normed_banded_transition[None],
             self.K, self.K,
-            fill = float("-inf"),
+            #fill = float("-inf"),
+            fill = 0,
         ).transpose().data[0]
 
         start = self.start()
@@ -676,7 +704,8 @@ class BandedHmmLm(nn.Module):
             gamma = alpha @ normalized_phi_w
             alpha_un = (gamma @ phi_u.T).log()
 
-            log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            #log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+            log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
             alpha_un1 = alpha_un.logaddexp(log_band_alpha)
             alpha_un2 = logp_emit[:,t+1] + alpha_un1
 

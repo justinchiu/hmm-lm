@@ -184,6 +184,7 @@ def cached_eval_loop(
 
 def fast_eval_loop(
     args, V, iter, model,
+    do_svd = False,
 ):
     total_ll = 0
     total_elbo = 0
@@ -210,16 +211,16 @@ def fast_eval_loop(
         Ht = -(myt.exp() * myt).sum()
         print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
 
-        # svd
-        _,s,_ = myt.exp().svd(compute_uv=False)
-        data = [[i,v] for i,v in enumerate(s.cpu().detach().numpy())]
-        table = wandb.Table(data=data, columns = ["index", "value"]) 
-        wandb.log({
-            "transition_entropy": Ht,
-            "emission_entropy": He,
-            "svd": wandb.plot.line(table, "index", "value", title="Singular Values"),
-        }, step=WANDB_STEP)
-
+        if do_svd:
+            # svd
+            _,s,_ = myt.exp().svd(compute_uv=False)
+            data = [[i,v] for i,v in enumerate(s.cpu().detach().numpy())]
+            table = wandb.Table(data=data, columns = ["index", "value"]) 
+            wandb.log({
+                "transition_entropy": Ht,
+                "emission_entropy": He,
+                "svd": wandb.plot.line(table, "index", "value", title="Singular Values"),
+            }, step=WANDB_STEP)
 
 
         word2state = model.word2state
@@ -652,6 +653,18 @@ def main():
     num_params, num_trainable_params = count_params(model)
     print(f"Num params, trainable: {num_params:,}, {num_trainable_params:,}")
     wandb.run.summary["num_params"] = num_params
+
+    # load frozen transition
+    if args.frozen_pretrained_transition is not None:
+        past_chp = th.load(args.frozen_pretrained_transition)
+        from models.sblhmmlm import SblHmmLm
+        past_model = SblHmmLm(V, past_chp["args"])
+        past_model.load_state_dict(past_chp["model"])
+        transition = past_model.transition().detach().clone()
+        model.set_frozen_transition(transition)
+        # cleanup
+        del past_model
+        del past_chp
 
     # augment training data
     if "train_features" in args:

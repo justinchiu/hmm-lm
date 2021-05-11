@@ -150,11 +150,40 @@ def add_linear_args(parser):
     parser.add_argument("--transmlp", default=0, type=int, help="use transition mlp")
     parser.add_argument("--eff", default=0, type=int, help="use efficient implementation of fwd")
 
-    parser.add_argument("--band", default=64, type=int, help="upper and lower band length")
+    parser.add_argument("--band", default=0, type=int, help="upper and lower band length")
     parser.add_argument("--band_only", default=0, type=int, help="only use band")
     parser.add_argument("--band_method", default="sum",
         choices=["sum","product", "only", "none"],
         help="band mixture method (sum or product of experts, band only, or no band)")
+
+    parser.add_argument("--regularize_eigenvalue", default="none",
+        choices=["min","ratio", "max", "sum", "prod", "none"],
+        help="regularize eigenvalues")
+
+    parser.add_argument("--regularize_cols", default=0., type=float,
+        help="regularize column of transition matrix")
+    parser.add_argument("--regularize_pairs", default=0, type=int,
+        help="regularize rows of transition matrix to be different")
+
+    # May experiments
+    parser.add_argument("--regularize_transition_entropy", default=0., type=float,
+        help="todo")
+    parser.add_argument("--regularize_transition_marginal_entropy", default=0., type=float,
+        help="todo")
+    # emission
+    parser.add_argument("--emission_dropout", default=0., type=float,
+        help="todo")
+    parser.add_argument("--emission_topk", default=0., type=int,
+        help="todo")
+    parser.add_argument("--emission_sparsemax", default=0., type=int,
+        help="todo")
+    # matching 
+    parser.add_argument("--frozen_pretrained_transition",
+        help="todo")
+    # explicit refinements
+    parser.add_argument("--explicit_refinement", type=int,
+        help="todo")
+
 
     parser.add_argument("--feature_dropout", default=0, type=float,)
 

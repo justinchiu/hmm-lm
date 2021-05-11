@@ -28,6 +28,8 @@ class BLHmmLm(nn.Module):
         self.V = V
         self.device = config.device
 
+        self.i = 0
+
 
         self.sm_emit = config.sm_emit
         self.sm_trans = config.sm_trans
@@ -35,6 +37,10 @@ class BLHmmLm(nn.Module):
 
         self.timing = config.timing > 0
         self.eff = config.eff
+
+        self.regularize_eigenvalue = config.regularize_eigenvalue
+        self.regularize_cols = config.regularize_cols
+        self.regularize_pairs = config.regularize_pairs
 
         self.C = config.num_classes
         self.D = config.num_features
@@ -141,6 +147,12 @@ class BLHmmLm(nn.Module):
                         self._projection_emit.requires_grad = False
             self.projection_method = config.projection_method
 
+        self.use_frozen_transition = False
+
+    def set_frozen_transition(self, transition_matrix=None):
+        self.use_frozen_transition = transition_matrix is not None
+        self.frozen_transition = transition_matrix.to(self.device)
+        self.frozen_transition.requires_grad = False
 
     def init_state(self, bsz):
         return self.start.unsqueeze(0).expand(bsz, self.C)
@@ -213,6 +225,9 @@ class BLHmmLm(nn.Module):
 
 
     def transition(self, mask=None, feat_mask=None, print_max=None):
+        if self.use_frozen_transition:
+            return self.frozen_transition
+
         keep_mask = ~mask if mask is not None else None
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
 
@@ -239,6 +254,29 @@ class BLHmmLm(nn.Module):
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
     def emission(self, mask=None):
+        # special case of emission dropout debugging
+        # assume that (word, state) pairs are dropped out,
+        # so mask: Z x V
+        # and softmax param
+        if self.config.emission_dropout:
+            import pdb; pdb.set_trace()
+            fx = self.terminal_mlp(self.preterminal_emb)
+            return (fx @ self.terminal_emb.T).masked_fill(mask, float("-inf")).log_softmax(-1)
+        if self.config.emission_topk:
+            fx = self.terminal_mlp(self.preterminal_emb)
+            # create mask of non topk elements
+            logits = fx @ self.terminal_emb.T
+            k = self.config.emission_topk
+            topk, indices = logits.topk(k, dim=-1)
+
+            mask = th.zeros(self.C, len(self.V), device=self.device, dtype=th.bool)
+            mask = ~mask.scatter(1, indices, 1)
+            #masked_logits = logits.masked_fill(mask, float("-inf"))
+            masked_logits = logits.masked_fill(mask, -1e5)
+            return masked_logits.log_softmax(-1)
+        if self.config.emission_sparsemax:
+            import pdb; pdb.set_trace()
+
         keep_mask = ~mask if mask is not None else None
         fx = self.terminal_mlp(self.preterminal_emb
             if mask is None else self.preterminal_emb[keep_mask])
@@ -401,8 +439,17 @@ class BLHmmLm(nn.Module):
 
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
-        transition = self.transition(transition_mask, feat_mask).exp()
-        emission = self.emission(transition_mask)
+        log_transition = self.transition(transition_mask, feat_mask)
+        transition = log_transition.exp()
+        if not self.config.emission_dropout:
+            emission = self.emission(transition_mask)
+        else:
+            num_states = transition.shape[0]
+            emission_mask = (th.empty(num_states, self.V, device=self.device)
+                .bernoulli_(self.config.emission_dropout)
+                .bool()
+            )
+            emission = self.emission(emission_mask)
 
         if lpz is not None:
             raise NotImplementedError
@@ -435,10 +482,54 @@ class BLHmmLm(nn.Module):
         O = th.cat(evidences_bmm, -1)
         evidence = O[mask].sum(-1)
 
+        self.i += 1
+        #print(self.i)
+
+        loss = evidence
+        #import pdb; pdb.set_trace()
+        if self.regularize_eigenvalue == "sum":
+            loss = loss + transition.trace()
+        elif self.regularize_eigenvalue == "prod":
+            loss = loss + log_transition.trace()
+        elif self.regularize_eigenvalue != "none":
+            # actually compute spectrum
+            #_,s,_ = transition.svd(compute_uv=False)
+            _,s,_ = transition.svd()
+            if self.regularize_eigenvalue == "min":
+                loss = loss + s[-1]
+            elif self.regularize_eigenvalue == "max":
+                loss = loss - s[0]
+            elif self.regularize_eigenvalue == "ratio":
+                loss = loss + s[-1] - s[0]
+
+        if self.regularize_cols:
+            loss = loss + log_transition.logsumexp(0).clamp(max=-1).sum()
+        if self.regularize_pairs:
+            # approximate pairwise KLs
+            # sample 128 states
+            kl_states = th.randperm(self.C, device=self.device)[:128]
+            #kl_states2 = th.randperm(self.C, device=self.device)[:128]
+            pairwise_kl = (transition[kl_states,None] * (
+                log_transition[kl_states,None] - log_transition[None,kl_states]
+            )).sum(-1).mean()
+            #if self.i == 37:
+                #import pdb; pdb.set_trace()
+            #loss = loss + 0.1 * pairwise_kl
+            loss = loss + pairwise_kl
+
+        # may-6 experiments: regularize transition distribution
+        if self.config.regularize_transition_entropy:
+            H = -(transition * log_transition).sum(-1)
+            loss = loss + self.config.regularize_transition_entropy * H.mean()
+        if self.config.regularize_transition_marginal_entropy:
+            log_marg = log_transition.logsumexp(0).log_softmax(0)
+            Hm = -(log_marg.exp() * log_marg).sum()
+            loss = loss + self.config.regularize_transition_marginal_entropy * Hm
+
         return Pack(
             elbo = None,
             evidence = evidence,
-            loss = evidence,
+            loss = loss,
         ), alpha.log(), None
 
     def score_rff(self, text, lpz=None, last_states=None, mask=None, lengths=None):
