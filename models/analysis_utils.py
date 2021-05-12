@@ -2,7 +2,10 @@
 import torch as th
 import torch_struct as ts
 
-from hmm_runners.hmm import get_fb
+#from hmm_runners.hmm import get_fb
+
+def construct_string(xs):
+    return ", ".join(f"{x:.5f}" for x in xs)
 
 class CountCollector:
     def __init__(self, model):
@@ -13,12 +16,12 @@ class CountCollector:
         self.C = model.C
         self.log_counts = th.empty(self.C, device=self.device).fill_(float("-inf"))
 
-        self.fb = get_fb(self.C)
+        self.batches = 0
+
+        #self.fb = get_fb(self.C)
 
     def collect_counts(self, text, mask=None, length=None):
-        # debugging
-        #text = text[:2, :8].contiguous()
-        #mask = mask[:2, :8].contiguous()
+        self.batches += 1
 
         """
         with th.no_grad():
@@ -77,12 +80,32 @@ class CountCollector:
             evidence = O[mask].sum(-1)
 
             marginals = th.autograd.grad(evidence, log_alphas[:-1])
-            log_marginals = th.stack(marginals, 1).log()
+            # need to clamp at 0, numerical instability results in slightly negative marginals
+            marginals = th.stack(marginals, 1).clamp(min=0)
+            log_marginals = marginals.log()
             log_alphas = th.stack(log_alphas, 1)
 
             self.log_counts = self.log_counts.logaddexp(
                 log_marginals[mask[:,1:]].logsumexp(0)
             ).logaddexp(
                 log_alphas[th.arange(N, device=self.device), length-1].logsumexp(0)
-            )
+            ).detach()
 
+
+    def print_counts(self):
+        state_marginal = self.log_counts.softmax(0)
+        state_log_marginal = self.log_counts.log_softmax(0)
+        top5 = state_marginal.topk(5).values.tolist()
+        bot5 = state_marginal.topk(5, largest=False).values.tolist()
+        mean = state_marginal.mean()
+        median = state_marginal.median()
+
+        top5_string = construct_string(top5)
+        bot5_string = construct_string(bot5)
+
+        H = -(state_marginal * state_log_marginal).sum()
+
+        print(f"H: {H:.4f}")
+        print(f"top5: {top5_string}")
+        print(f"mean: {mean} | med: {median}")
+        print(f"bot5: {bot5_string}")

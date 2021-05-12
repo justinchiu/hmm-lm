@@ -741,6 +741,7 @@ def main():
         valid_counts = collect_counts_loop(
             args, V, valid_iter, model,
         )
+        valid_counts.print_counts()
 
         t_start_time = time.time()
         test_losses, test_n = eval_fn(
@@ -749,9 +750,10 @@ def main():
         report(test_losses, test_n, f"Test perf", t_start_time)
 
         # count states
-        test_counts = collect_counts_loop(
-            args, V, test_iter, model,
-        )
+        #test_counts = collect_counts_loop(
+            #args, V, test_iter, model,
+        #)
+        #test_counts.print_counts()
 
         sys.exit()
 
