@@ -95,17 +95,23 @@ class CountCollector:
     def print_counts(self):
         state_marginal = self.log_counts.softmax(0)
         state_log_marginal = self.log_counts.log_softmax(0)
-        top5 = state_marginal.topk(5).values.tolist()
-        bot5 = state_marginal.topk(5, largest=False).values.tolist()
-        mean = state_marginal.mean()
-        median = state_marginal.median()
-
-        top5_string = construct_string(top5)
-        bot5_string = construct_string(bot5)
 
         H = -(state_marginal * state_log_marginal).sum()
-
         print(f"H: {H:.4f}")
+
+        sorted_probs = state_log_marginal.sort(descending=True).values
+        for k in [128, 256, 512, 1024, 2048]:
+            print(f"mass in top {k} states: {sorted_probs[:k].logsumexp(0).exp().item():.5f}")
+
+        #"""
+        top5 = state_marginal.topk(5).values.tolist()
+        top5_string = construct_string(top5)
         print(f"top5: {top5_string}")
-        print(f"mean: {mean} | med: {median}")
-        print(f"bot5: {bot5_string}")
+
+        #bot5 = state_marginal.topk(5, largest=False).values.tolist()
+        #bot5_string = construct_string(bot5)
+        #print(f"bot5: {bot5_string}")
+
+        #mean = state_marginal.mean()
+        #median = state_marginal.median()
+        #print(f"mean: {mean} | med: {median}")
