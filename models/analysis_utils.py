@@ -20,6 +20,7 @@ class CountCollector:
         #text = text[:2, :8].contiguous()
         #mask = mask[:2, :8].contiguous()
 
+        """
         with th.no_grad():
             log_potentials = ts.LinearChain.hmm(
                 transition = self.transition.t(),
@@ -37,6 +38,10 @@ class CountCollector:
                 log_m[:,0,None].logsumexp(-2),
                 log_m.logsumexp(-1),
             ], 1)
+            log_counts2 = self.log_counts.logaddexp(
+                unary_log_marginals[mask].logsumexp(0)
+            )
+        """
 
         with th.enable_grad():
             start = self.start
@@ -71,8 +76,13 @@ class CountCollector:
             O = th.cat(evidences, -1)
             evidence = O[mask].sum(-1)
 
-            betas = th.autograd.grad(evidence, log_alphas, allow_unused=True)
-            import pdb; pdb.set_trace()
+            marginals = th.autograd.grad(evidence, log_alphas[:-1])
+            log_marginals = th.stack(marginals, 1).log()
+            log_alphas = th.stack(log_alphas, 1)
 
-            meh = 1
+            self.log_counts = self.log_counts.logaddexp(
+                log_marginals[mask[:,1:]].logsumexp(0)
+            ).logaddexp(
+                log_alphas[th.arange(N, device=self.device), length-1].logsumexp(0)
+            )
 
