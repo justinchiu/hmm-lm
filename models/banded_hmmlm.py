@@ -257,27 +257,28 @@ class BandedHmmLm(nn.Module):
         else:
             raise ValueError(f"Invalid parameterization: {self.parameterization}")
 
-        # add the diagonal
-        dense_banded_transition = BandedMatrix(
-            self.col_banded_transition[None], self.K, self.K,
-            fill=self.band_fill_value,
-        ).to_dense()[0]
-        if print_max:
-            lmax = logits.max().item()
-            bmax = self.col_banded_transition.max().item()
-            print(f"lmax {lmax:.2f} | bmax {bmax:.2f}")
-            #import pdb; pdb.set_trace()
+        if self.K > 0:
+            # add the diagonal
+            dense_banded_transition = BandedMatrix(
+                self.col_banded_transition[None], self.K, self.K,
+                fill=self.band_fill_value,
+            ).to_dense()[0]
+            if print_max:
+                lmax = logits.max().item()
+                bmax = self.col_banded_transition.max().item()
+                print(f"lmax {lmax:.2f} | bmax {bmax:.2f}")
+                #import pdb; pdb.set_trace()
 
-        if self.band_method == "sum":
-            logits = logits.logaddexp(dense_banded_transition)
-        elif self.band_method == "product":
-            logits = logits + dense_banded_transition
-        elif self.band_method == "only":
-            logits = dense_banded_transition
-        elif self.band_method == "none":
-            pass
-        else:
-            raise ValueError(f"Invalid band_method: {self.band_method}")
+            if self.band_method == "sum":
+                logits = logits.logaddexp(dense_banded_transition)
+            elif self.band_method == "product":
+                logits = logits + dense_banded_transition
+            elif self.band_method == "only":
+                logits = dense_banded_transition
+            elif self.band_method == "none":
+                pass
+            else:
+                raise ValueError(f"Invalid band_method: {self.band_method}")
 
         return logits.log_softmax(-1)
 
@@ -554,20 +555,17 @@ class BandedHmmLm(nn.Module):
         #log_phi_w = state_emb @ projection - state_emb.square().sum(-1, keepdim=True) / 2
         #log_phi_u = next_state_emb @ projection - next_state_emb.square().sum(-1, keepdim=True) / 2
 
-        row_banded_transition = BandedMatrix(
-            self.col_banded_transition[None], self.K, self.K,
-            #fill = float("-inf"),
-            fill = -1e5,
-        ).transpose().data[0]
+        if self.K > 0:
+            row_banded_transition = BandedMatrix(
+                self.col_banded_transition[None], self.K, self.K,
+                #fill = float("-inf"),
+                fill = -1e5,
+            ).transpose().data[0]
 
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
-        log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
-        #if transition_mask is None:
-            #log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
-        #else:
-            #log_denominator = log_denominator.logaddexp(row_banded_transition[~transition_mask].logsumexp(-1))
-        # O(CD)
+        if self.K > 0:
+            log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
         normed_log_phi_w = log_phi_w - log_denominator[:,None]
 
         normalized_phi_w = normed_log_phi_w.exp()
@@ -576,19 +574,16 @@ class BandedHmmLm(nn.Module):
         # log space
         #normed_banded_transition = row_banded_transition - log_denominator[:,None]
         # prob space
-        normed_banded_transition = (row_banded_transition - log_denominator[:,None]).exp()
-        #if transition_mask is None:
-            #normed_banded_transition = (row_banded_transition - log_denominator[:,None]).exp()
-        #else:
-            #normed_banded_transition = (row_banded_transition[~transition_mask] - log_denominator[:,None]).exp()
+        if self.K > 0:
+            normed_banded_transition = (row_banded_transition - log_denominator[:,None]).exp()
 
-        normed_col_banded_transition = BandedMatrix(
-            normed_banded_transition[None],
-            self.K, self.K,
-            #fill = float("-inf"),
-            #fill = -1e5, # <= use this one if log
-            fill = 0, # <= use this one if prob
-        ).transpose().data[0]
+            normed_col_banded_transition = BandedMatrix(
+                normed_banded_transition[None],
+                self.K, self.K,
+                #fill = float("-inf"),
+                #fill = -1e5, # <= use this one if log
+                fill = 0, # <= use this one if prob
+            ).transpose().data[0]
 
         alphas = []
         Os = []
@@ -605,10 +600,13 @@ class BandedHmmLm(nn.Module):
 
             #log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
             #import pdb; pdb.set_trace()
-            log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
+            if self.K > 0:
+                log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
 
-            alpha_un1 = alpha_un.logaddexp(log_band_alpha)
-            alpha_un2 = logp_emit[:,t+1] + alpha_un1
+                alpha_un1 = alpha_un.logaddexp(log_band_alpha)
+                alpha_un2 = logp_emit[:,t+1] + alpha_un1
+            else:
+                alpha_un2 = logp_emit[:,t+1] + alpha_un
 
             Ot = alpha_un2.logsumexp(-1, keepdim=True)
             log_alpha = alpha_un2 - Ot
@@ -654,7 +652,8 @@ class BandedHmmLm(nn.Module):
 
         # O(CD)
         log_denominator = (log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
-        log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
+        if self.K > 0:
+            log_denominator = log_denominator.logaddexp(row_banded_transition.logsumexp(-1))
         normed_log_phi_w = log_phi_w - log_denominator[:, None]
 
         normed_banded_transition = row_banded_transition - log_denominator[:,None]
@@ -704,10 +703,13 @@ class BandedHmmLm(nn.Module):
             gamma = alpha @ normalized_phi_w
             alpha_un = (gamma @ phi_u.T).log()
 
-            #log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
-            log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
-            alpha_un1 = alpha_un.logaddexp(log_band_alpha)
-            alpha_un2 = logp_emit[:,t+1] + alpha_un1
+            if self.K > 0:
+                #log_band_alpha = logbbmv(log_alpha, normed_col_banded_transition, self.K)
+                log_band_alpha = bbmv(alpha, normed_col_banded_transition, self.K).log()
+                alpha_un1 = alpha_un.logaddexp(log_band_alpha)
+                alpha_un2 = logp_emit[:,t+1] + alpha_un1
+            else:
+                alpha_un2 = logp_emit[:,t+1] + alpha_un
 
             Ot = alpha_un2.logsumexp(-1, keepdim=True)
             log_alpha = alpha_un2 - Ot

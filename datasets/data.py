@@ -16,6 +16,8 @@ import io
 from torchtext.data.utils import RandomShuffler
 from torchtext.data.dataset import Dataset
 
+from datasets.music import get_batch
+
 logger = logging.getLogger(__name__)
 
 
@@ -509,3 +511,71 @@ class BPTTIterator(Iterator):
                 )
             if not self.repeat:
                 return
+
+
+class MusicIterator(Iterator):
+    """Defines an iterator that batches examples of similar lengths together.
+
+    Minimizes amount of padding needed while producing freshly shuffled
+    batches for each new epoch. See pool for the bucketing procedure used.
+    """
+    def data(self):
+        """Return the examples in the dataset in order, sorted, or shuffled."""
+        sequences, seq_lengths = self.dataset
+        if self.sort:
+            #xs = sorted(self.dataset, key=self.sort_key)
+            xs = self.dataset
+        elif self.shuffle:
+            #xs = [self.dataset[i] for i in self.random_shuffler(range(len(self.dataset)))]
+            perm = th.randperm(sequences.shape[0])
+            xs = (sequences[perm], seq_lengths[perm])
+        else:
+            xs = self.dataset
+        return xs
+
+    def create_batches(self):
+        # no pooling.
+        def batch_(data, bsz):
+            sequences, seq_lengths = data
+            for seq, seqlen in zip(sequences.split(bsz), seq_lengths.split(bsz)):
+                yield music.get_batch(sequences=seq, seq_lengths=seqlen, device = self.device)
+
+        self.batches = batch_(self.data(), self.batch_size)
+
+    def __len__(self):
+        return math.ceil(sum(len(x.text) for x in self.dataset) / self.batch_size)
+
+    def __iter__(self):
+        while True:
+            self.init_epoch()
+            for idx, minibatch in enumerate(self.batches):
+                # fast-forward if loaded from state
+                if self._iterations_this_epoch > idx:
+                    continue
+                self.iterations += 1
+                self._iterations_this_epoch += 1
+                if self.sort_within_batch:
+                    # NOTE: `rnn.pack_padded_sequence` requires that a minibatch
+                    # be sorted by decreasing order, which requires reversing
+                    # relative to typical sort keys
+                    if self.sort:
+                        minibatch.reverse()
+                    else:
+                        minibatch.sort(key=self.sort_key, reverse=True)
+                #yield Batch(minibatch, self.dataset, self.device)
+                yield minibatch
+            if not self.repeat:
+                return
+
+if __name__ == "__main__":
+    import datasets.music as music
+    for data in [music.JSB_CHORALES, music.MUSE_DATA, music.NOTTINGHAM, music.PIANO_MIDI]:
+        d = music.load_data(data)
+        d_iter = MusicIterator(
+            dataset = (d["train"]["sequences"], d["train"]["sequence_lengths"]),
+            batch_size = 128,
+            sort_key = lambda x: x[1].sum(),
+        )
+        for b,m,l in d_iter:
+            print(b.shape)
+        # music dataset has extremely long sequences, just use a small batch size.
