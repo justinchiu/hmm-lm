@@ -195,4 +195,4 @@ def add_linear_args(parser):
     parser.add_argument("--dbg_sparse", default=0, type=int, help="debug sparse kernel hmm")
 
 def add_music_args(parser):
-    parser.add_argument("--scalar_emit", default=1, type=int, help="use scalar param emit")
+    parser.add_argument("--scalar_emit", default=0, type=int, help="use scalar param emit")
