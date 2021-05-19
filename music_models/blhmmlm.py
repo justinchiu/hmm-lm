@@ -267,8 +267,8 @@ class BLHmmLm(nn.Module):
         # and softmax param
         if self.config.emission_dropout:
             raise NotImplementedError
-            import pdb; pdb.set_trace()
             fx = self.terminal_mlp(self.preterminal_emb)
+            import pdb; pdb.set_trace()
             return (fx @ self.terminal_emb.T).masked_fill(mask, float("-inf")).log_softmax(-1)
         if self.config.emission_topk:
             fx = self.terminal_mlp(self.preterminal_emb)
@@ -294,7 +294,7 @@ class BLHmmLm(nn.Module):
         fx = self.terminal_mlp(self.preterminal_emb
             if mask is None else self.preterminal_emb[keep_mask])
         if self.parameterization == "softmax" or self.sm_emit:
-            return (fx @ self.terminal_emb.T).log_softmax(-1)
+            return (fx @ self.terminal_emb.T).view(-1, self.num_notes, 2).log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_emit:
             raise NotImplementedError
             # renormalize, important

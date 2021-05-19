@@ -433,7 +433,7 @@ def train_loop(
             if model.timing:
                 print(f"backward time: {timep.time() - start_backward}")
             gradnorm = clip_grad_norm_(parameters, args.clip)
-            if args.schedule not in valid_schedules:
+            if args.schedule not in valid_schedules and scheduler is not None:
                 # sched before opt since we want step = 1?
                 # this is how huggingface does it
                 scheduler.step()
@@ -490,7 +490,8 @@ def train_loop(
                 wandb.log({
                     "lr": optimizer.param_groups[0]["lr"],
                 }, step=WANDB_STEP)
-                scheduler.step(valid_losses.evidence)
+                if scheduler is not None:
+                    scheduler.step(valid_losses.evidence)
 
                 # remove this later?
                 if args.log_counts > 0 and args.keep_counts > 0:
@@ -745,6 +746,8 @@ def main():
             last_epoch=-1,
             verbse = True,
         )
+    elif args.schedule == "none":
+        scheduler = None
     else:
         raise ValueError("Invalid schedule options")
 

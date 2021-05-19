@@ -21,7 +21,7 @@ def get_args():
         choices=["adamw", "sgd"],
         default="adamw",)
     parser.add_argument("--schedule",
-        choices=["reducelronplateau", "noam"],
+        choices=["reducelronplateau", "noam", "none"],
         default="reducelronplateau",)
     parser.add_argument("--warmup_steps", default=500, type=int,)
     parser.add_argument("--patience", default=4, type=int,)
