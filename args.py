@@ -74,6 +74,8 @@ def get_args():
     # add linear args
     add_linear_args(parser)
 
+    add_music_args(parser)
+
     return parser.parse_args()
 
 def add_nn_args(parser):
@@ -191,3 +193,6 @@ def add_linear_args(parser):
 
     parser.add_argument("--dbg_double", default=0, type=int, help="double precision (for testing)")
     parser.add_argument("--dbg_sparse", default=0, type=int, help="debug sparse kernel hmm")
+
+def add_music_args(parser):
+    parser.add_argument("--scalar_emit", default=1, type=int, help="use scalar param emit")

@@ -16,7 +16,7 @@ import io
 from torchtext.data.utils import RandomShuffler
 from torchtext.data.dataset import Dataset
 
-from datasets.music import get_batch
+import datasets.music as music
 
 logger = logging.getLogger(__name__)
 
@@ -543,7 +543,9 @@ class MusicIterator(Iterator):
         self.batches = batch_(self.data(), self.batch_size)
 
     def __len__(self):
-        return math.ceil(sum(len(x.text) for x in self.dataset) / self.batch_size)
+        sequences = self.dataset[0]
+        num_seqs = sequences.shape[0]
+        return math.ceil(num_seqs / self.batch_size)
 
     def __iter__(self):
         while True:

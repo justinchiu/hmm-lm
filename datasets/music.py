@@ -87,7 +87,7 @@ if not os.path.exists(base_path):
 
 
 # ingest training/validation/test data from disk
-def load_data(dataset):
+def load_data(dataset,device=torch.device("cpu")):
     # download and process dataset if it does not exist
     process_data(base_path, dataset)
     file_loc = os.path.join(base_path, dataset.filename)
@@ -95,8 +95,8 @@ def load_data(dataset):
         dset = pickle.load(f)
         for k, v in dset.items():
             sequences = v["sequences"]
-            dset[k]["sequences"] = pad_sequence(sequences, batch_first=True).type(torch.Tensor)
-            dset[k]["sequence_lengths"] = v["sequence_lengths"].to(device=torch.Tensor().device)
+            dset[k]["sequences"] = pad_sequence(sequences, batch_first=True).type(torch.int64).to(device)
+            dset[k]["sequence_lengths"] = v["sequence_lengths"].type(torch.int64).to(device=device)
     return dset
 
 
@@ -123,9 +123,9 @@ def pad_and_reverse(rnn_output, seq_lengths):
 # this function returns a 0/1 mask that can be used to mask out a mini-batch
 # composed of sequences of length `seq_lengths`
 def get_mini_batch_mask(mini_batch, seq_lengths):
-    mask = torch.zeros(mini_batch.shape[0:2])
+    mask = torch.zeros(mini_batch.shape[0:2], dtype=torch.bool)
     for b in range(mini_batch.shape[0]):
-        mask[b, 0:seq_lengths[b]] = torch.ones(seq_lengths[b])
+        mask[b, 0:seq_lengths[b]] = torch.ones(seq_lengths[b], dtype=torch.bool)
     return mask
 
 

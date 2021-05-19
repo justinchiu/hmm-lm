@@ -14,7 +14,6 @@ import torch as th
 from torch.nn.utils.clip_grad import clip_grad_norm_
 
 import torch_struct as ts
-from models.autoregressive import Autoregressive
 
 from torch.optim import AdamW, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
@@ -29,9 +28,6 @@ from utils import set_seed, get_config, get_name, get_mask_lengths
 from utils import Pack
 from utils import plot_counts, print_gpu_mem
 
-from models.lstmlm import LstmLm
-from models.fflm import FfLm
-
 import wandb
 
 #th.autograd.set_detect_anomaly(True)
@@ -42,6 +38,8 @@ WANDB_STEP = -1
 
 BEST_VALID = -math.inf
 PREV_SAVE = None
+
+V = 88
 
 def max_diff(log_p):
     P = log_p.exp()
@@ -87,7 +85,7 @@ def report(losses, n, prefix, start_time=None):
     str_list = [
         f"{prefix}: log_prob = {loss:.2f}",
         f"xent(word) = {-loss / n:.2f}",
-        f"ppl = {math.exp(-loss / n):.2f}",
+        #f"ppl = {math.exp(-loss / n):.2f}",
     ]
     if elbo is not None:
         str_list.append(f"elbo = {elbo / n:.2f}")
@@ -116,11 +114,15 @@ def eval_loop(
             model.train(False)
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
-            mask, lengths, n_tokens = get_mask_lengths(batch.text, V)
+
+            text, mask, lengths = batch
+            n_tokens = mask.sum()
+
             if args.iterator != "bptt":
                 lpz, last_states = None, None
+
             losses, lpz, _ = model.score(
-                batch.text,
+                text,
                 lpz=lpz, last_states = last_states,
                 mask=mask, lengths=lengths,
             )
@@ -159,7 +161,8 @@ def cached_eval_loop(
 
             text = batch.text
 
-            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            text, mask, lengths = batch
+            n_tokens = mask.sum()
             N, T = text.shape
 
             if lpz is not None and args.iterator == "bptt":
@@ -228,10 +231,9 @@ def fast_eval_loop(
             if hasattr(model, "noise_scale"):
                 model.noise_scale = 0
 
-            text = batch.text
-
-            mask, lengths, n_tokens = get_mask_lengths(text, V)
-            N, T = text.shape
+            text, mask, lengths = batch
+            n_tokens = mask.sum()
+            N, T, num_notes = text.shape
 
             if lpz is not None and args.iterator == "bptt":
                 #start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
@@ -269,7 +271,8 @@ def collect_counts_loop(
 
         text = batch.text
 
-        mask, lengths, n_tokens = get_mask_lengths(text, V)
+        text, mask, lengths = batch
+        n_tokens = mask.sum()
         N, T = text.shape
 
         if lpz is not None and args.iterator == "bptt":
@@ -324,7 +327,8 @@ def mixed_cached_eval_loop(
 
             text = batch.text
 
-            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            text, mask, lengths = batch
+            n_tokens = mask.sum()
             N, T = text.shape
 
             if lpz is not None and args.iterator == "bptt":
@@ -371,7 +375,6 @@ def train_loop(
             WANDB_STEP += 1
             optimizer.zero_grad()
 
-            text = batch.textp1 if "lstm" in args.model else batch.text
             if args.iterator == "bucket":
                 lpz = None
                 last_states = None
@@ -387,7 +390,10 @@ def train_loop(
                     "noise_scale": noise_scale,
                 }, step=WANDB_STEP)
 
-            mask, lengths, n_tokens = get_mask_lengths(text, V)
+            text, mask, lengths = batch
+            n_tokens = mask.sum()
+            N, T, num_notes = text.shape
+
             if model.timing:
                 start_forward = timep.time()
 
@@ -531,56 +537,29 @@ def main():
         th.set_default_tensor_type(th.cuda.DoubleTensor)
         # reminder: never use 'as th' again
 
-    TEXT = torchtext.data.Field(batch_first = True)
-    ## DBG
-    #TEXT = torchtext.data.Field(batch_first = True, lower=True)
-
-    if args.dataset == "ptb":
-        Dataset = PennTreebank
-    elif args.dataset == "wikitext103":
-        Dataset = WikiText103
-    elif args.dataset == "wikitext2":
-        # shuffling the articles is annoying
-        Dataset = WikiText2
-        #Dataset = torchtext.datasets.WikiText2
-    elif args.dataset == "wsj":
-        Dataset = Wsj
-
-    train, valid, test = Dataset.splits(
-        TEXT,
-        newline_eos = True,
-    )
-
-    TEXT.build_vocab(train)
-    V = TEXT.vocab
-
-    def batch_size_tokens(new, count, sofar):
-        return max(len(new.text), sofar)
-    def batch_size_sents(new, count, sofar):
-        return count
-
-    if args.iterator == "bucket":
-        # independent sentences...bad
-        train_iter, valid_iter, test_iter = BucketIterator.splits(
-            (train, valid, test),
-            batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
-            #batch_size = args.bsz,
-            device = device,
-            sort_key = lambda x: len(x.text),
-            batch_size_fn = batch_size_tokens if args.bsz_fn == "tokens" else batch_size_sents,
+    """
+    for data in [music.JSB_CHORALES, music.MUSE_DATA, music.NOTTINGHAM, music.PIANO_MIDI]:
+        d = music.load_data(data)
+        d_iter = MusicIterator(
+            dataset = (d["train"]["sequences"], d["train"]["sequence_lengths"]),
+            batch_size = 128,
+            sort_key = lambda x: x[1].sum(),
         )
-    elif args.iterator == "bptt":
-        #train_iter, valid_iter, text_iter = BPTTIterator.splits(
-        train_iter, valid_iter, test_iter = BPTTIterator.splits(
-            (train, valid, test),
-            batch_sizes = [args.bsz, args.eval_bsz, args.eval_bsz],
-            #batch_size = args.bsz,
+        for b,m,l in d_iter:
+            print(b.shape)
+    """
+    dataset = music.JSB_CHORALES
+    data = music.load_data(dataset)
+    def get_iter(data, split, bsz):
+        return MusicIterator(
+            dataset = (data[split]["sequences"], data[split]["sequence_lengths"]),
+            batch_size = bsz,
+            sort_key = lambda x: x[1].sum(),
             device = device,
-            bptt_len = args.bptt,
-            sort = False,
         )
-    else:
-        raise ValueError(f"Invalid iterator {args.iterator}")
+    train_iter = get_iter(data, "train", args.bsz)
+    valid_iter = get_iter(data, "valid", args.eval_bsz)
+    test_iter = get_iter(data, "test", args.eval_bsz)
 
     if args.no_shuffle_train:
         train_iter.shuffle = False
@@ -593,7 +572,7 @@ def main():
     """
     name = get_name(args)
     import tempfile
-    wandb.init(project="linear-hmm", name=name, config=args, dir=tempfile.mkdtemp())
+    wandb.init(project="music-hmm", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
 
     print(" ".join(sys.argv))
@@ -609,10 +588,10 @@ def main():
         from models.lhmmlm import LHmmLm
         model = LHmmLm(V, args)
     elif args.model == "blhmm":
-        from models.blhmmlm import BLHmmLm
+        from music_models.blhmmlm import BLHmmLm
         model = BLHmmLm(V, args)
     elif args.model == "bandedhmm":
-        from models.banded_hmmlm import BandedHmmLm
+        from music_models.banded_hmmlm import BandedHmmLm
         model = BandedHmmLm(V, args)
     elif args.model == "sblhmm":
         from models.sblhmmlm import SblHmmLm
