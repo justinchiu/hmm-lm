@@ -196,3 +196,5 @@ def add_linear_args(parser):
 
 def add_music_args(parser):
     parser.add_argument("--scalar_emit", default=0, type=int, help="use scalar param emit")
+    parser.add_argument("--music_dataset",
+        choices=["jsb", "muse", "nottingham", "piano"], default="jsb")

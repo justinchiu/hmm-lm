@@ -45,9 +45,9 @@ def get_config(path, device):
         pack.device = device
         return pack
 
-def get_name(config):
+def get_name(config, music=False):
     return "_".join([
-        config.dataset,
+        config.dataset if not music else config.music_dataset,
         config.iterator,
         config.model,
         f"k{config.num_classes}",

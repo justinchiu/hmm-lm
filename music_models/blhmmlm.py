@@ -116,6 +116,9 @@ class BLHmmLm(nn.Module):
             self.terminal_emb = nn.Parameter(
                 th.randn(self.num_notes * 2, config.hidden_dim)
             )
+            self.emit_bias = nn.Parameter(
+                th.zeros(self.num_notes * 2)
+            )
 
         self.transition_dropout = config.transition_dropout
         self.feature_dropout = config.feature_dropout
@@ -294,7 +297,7 @@ class BLHmmLm(nn.Module):
         fx = self.terminal_mlp(self.preterminal_emb
             if mask is None else self.preterminal_emb[keep_mask])
         if self.parameterization == "softmax" or self.sm_emit:
-            return (fx @ self.terminal_emb.T).view(-1, self.num_notes, 2).log_softmax(-1)
+            return (fx @ self.terminal_emb.T + self.emit_bias).view(-1, self.num_notes, 2).log_softmax(-1)
         elif self.parameterization == "smp" and not self.sm_emit:
             raise NotImplementedError
             # renormalize, important

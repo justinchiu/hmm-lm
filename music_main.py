@@ -549,8 +549,13 @@ def main():
         for b,m,l in d_iter:
             print(b.shape)
     """
-    dataset = music.JSB_CHORALES
-    data = music.load_data(dataset)
+    data_map = {
+        "jsb": music.JSB_CHORALES,
+        "muse": music.MUSE_DATA,
+        "nottingham": music.NOTTINGHAM,
+        "piano": music.PIANO_MIDI,
+    }
+    data = music.load_data(data_map[args.music_dataset])
     def get_iter(data, split, bsz):
         return MusicIterator(
             dataset = (data[split]["sequences"], data[split]["sequence_lengths"]),
@@ -571,7 +576,7 @@ def main():
     # for now, until migrate to argparse
     config.model = args.type
     """
-    name = get_name(args)
+    name = get_name(args, music=True)
     import tempfile
     wandb.init(project="music-hmm", name=name, config=args, dir=tempfile.mkdtemp())
     args.name = name
