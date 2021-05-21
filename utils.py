@@ -104,9 +104,9 @@ def get_name(config, music=False):
         f"dfp{config.diffproj}",
         f"eff{config.eff}",
         #f"re{config.regularize_eigenvalue}",
-        f"rc{config.regularize_cols}",
-        f"rp{config.regularize_pairs}",
-        f"tme{config.regularize_transition_marginal_entropy}",
+        #f"rc{config.regularize_cols}",
+        #f"rp{config.regularize_pairs}",
+        #f"tme{config.regularize_transition_marginal_entropy}",
     ])
 
 def get_args(args):

@@ -59,7 +59,7 @@ def update_best_valid(
     if valid_losses.evidence > BEST_VALID:
         # do not save on dryruns
         if not wandb.run._settings._offline:
-            save_f = f"wandb_checkpoints/{name}/{WANDB_STEP}_{-valid_losses.evidence / valid_n:.2f}.pth"
+            save_f = f"wandb_checkpoints/{name}/{WANDB_STEP}_{-valid_losses.evidence / valid_n:.3f}.pth"
             print(f"Saving model to {save_f}")
             Path(save_f).parent.mkdir(parents=True, exist_ok=True)
             th.save({
@@ -68,7 +68,8 @@ def update_best_valid(
                 "scheduler": scheduler.state_dict(),
                 "args": model.config,
             }, save_f)
-            if PREV_SAVE is not None:
+            if PREV_SAVE is not None and PREV_SAVE != save_f:
+                # dont remove overwritten file
                 Path(PREV_SAVE).unlink()
             PREV_SAVE = save_f
 
