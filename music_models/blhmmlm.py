@@ -553,7 +553,7 @@ class BLHmmLm(nn.Module):
         ), alpha.log(), None
 
     def score_rff(self, text, lpz=None, last_states=None, mask=None, lengths=None):
-        N, T = text.shape
+        N, T, num_notes = text.shape
         C = self.C
         D = self.D
 
@@ -684,7 +684,7 @@ class BLHmmLm(nn.Module):
         word2state=None,
         mask=None, lengths=None,
     ):
-        N, T = text.shape
+        N, T, num_notes = text.shape
         normalized_phi_w, phi_u = transition
 
         # gather emission
@@ -693,7 +693,7 @@ class BLHmmLm(nn.Module):
             th.arange(self.C)[None,None,:,None],
             th.arange(88)[None,None,None],
             text[:,:,None],
-        ]
+        ].sum(-1)
         alphas = []
         Os = []
         #alpha = start * p_emit[:,0] # {N} x C
