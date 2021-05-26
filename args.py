@@ -85,7 +85,7 @@ def add_nn_args(parser):
 
 def add_chmm_args(parser):
     parser.add_argument_group("chmm")
-    parser.add_argument("--num_layers", default=1, type=int,)
+    parser.add_argument("--num_layers", default=2, type=int,)
     parser.add_argument("--emb_dim", default=256, type=int,)
     parser.add_argument("--hidden_dim", default=256, type=int,)
     parser.add_argument("--char_dim", default=16, type=int,)

@@ -61,7 +61,7 @@ class BLHmmLm(nn.Module):
             th.randn(config.hidden_dim),
         )
         self.start_mlp = nn.Sequential(
-            nn.Linear(config.hidden_dim, config.hidden_dim),
+            nn.Linear(config.hidden_dim, config.hidden_dim), # extra linear layer...
             ResLayer(config.hidden_dim, config.hidden_dim),
             ResLayer(config.hidden_dim, config.hidden_dim),
         )
@@ -89,7 +89,7 @@ class BLHmmLm(nn.Module):
         )
         if self.transmlp:
             self.trans_mlp = nn.Sequential(
-                nn.Linear(config.hidden_dim, config.hidden_dim),
+                nn.Linear(config.hidden_dim, config.hidden_dim), # extra linear layer...
                 ResLayer(config.hidden_dim, config.hidden_dim),
                 ResLayer(config.hidden_dim, config.hidden_dim),
             )

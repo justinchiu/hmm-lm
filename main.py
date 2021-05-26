@@ -182,9 +182,12 @@ def cached_eval_loop(
             n += n_tokens
     return Pack(evidence = total_ll, elbo = total_elbo), n
 
+
+
+
+
 def fast_eval_loop(
     args, V, iter, model,
-    do_svd = False,
 ):
     total_ll = 0
     total_elbo = 0
@@ -212,16 +215,6 @@ def fast_eval_loop(
         Ht = -(myt.exp() * myt).sum()
         print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
 
-        if do_svd:
-            # svd
-            _,s,_ = myt.exp().svd(compute_uv=False)
-            data = [[i,v] for i,v in enumerate(s.cpu().detach().numpy())]
-            table = wandb.Table(data=data, columns = ["index", "value"]) 
-            wandb.log({
-                "transition_entropy": Ht,
-                "emission_entropy": He,
-                "svd": wandb.plot.line(table, "index", "value", title="Singular Values"),
-            }, step=WANDB_STEP)
 
 
         word2state = model.word2state
@@ -714,8 +707,9 @@ def main():
         # make sure this is uncommented
         if args.eval_only != "none":
             model.load_state_dict(th.load(args.eval_only)["model"])
-        from utils import dump_transition
+        from utils import dump_transition, dump_svd
         dump_transition(model)
+        dump_svd(model)
 
         v_start_time = time.time()
         #valid_losses, valid_n = eval_loop(

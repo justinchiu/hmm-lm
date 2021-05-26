@@ -29,6 +29,7 @@ class BLHmmLm(nn.Module):
         self.device = config.device
 
         self.num_notes = num_notes
+        self.num_layers = config.num_layers
 
         self.i = 0
 
@@ -109,9 +110,14 @@ class BLHmmLm(nn.Module):
             self.preterminal_emb = nn.Parameter(
                 th.randn(self.C, config.hidden_dim),
             )
+            mlp_layers = [
+                ResLayer(config.hidden_dim, config.hidden_dim)
+                for _ in range(self.num_layers)
+            ]
             self.terminal_mlp = nn.Sequential(
-                ResLayer(config.hidden_dim, config.hidden_dim),
-                ResLayer(config.hidden_dim, config.hidden_dim),
+                *mlp_layers
+                #ResLayer(config.hidden_dim, config.hidden_dim),
+                #ResLayer(config.hidden_dim, config.hidden_dim),
             )
             self.terminal_emb = nn.Parameter(
                 th.randn(self.num_notes * 2, config.hidden_dim)

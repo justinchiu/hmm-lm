@@ -228,3 +228,27 @@ def dump_transition(hmm):
     name = get_name(hmm.config)
     np.save(f"transitions/{name}-transition.npy", transition.detach().cpu().numpy())
 
+def dump_svd(model):
+    name = get_name(model.config)
+    start, transition, emission = model.compute_parameters(model.word2state)
+    myt = model.transition(print_max=True)
+    mye = emission
+
+    _,Ts,_ = myt.exp().svd(compute_uv=False)
+    _,Es,_ = mye.exp().svd(compute_uv=False)
+
+    """
+    Tdata = [[i,v] for i,v in enumerate(Ts.cpu().detach().numpy())]
+    Edata = [[i,v] for i,v in enumerate(Es.cpu().detach().numpy())]
+
+    table = wandb.Table(data=data, columns = ["index", "value"]) 
+    wandb.log({
+        "transition_entropy": Ht,
+        "emission_entropy": He,
+        "svd": wandb.plot.scatter(table, "index", "value", title="Singular Values"),
+    }, step=WANDB_STEP)
+    """
+
+    np.save(f"svd/{name}-svd-transition.npy", Ts.detach().cpu().numpy())
+    np.save(f"svd/{name}-svd-emission.npy", Es.detach().cpu().numpy())
+
