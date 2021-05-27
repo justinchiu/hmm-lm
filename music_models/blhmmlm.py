@@ -247,7 +247,8 @@ class BLHmmLm(nn.Module):
         keep_mask = ~mask if mask is not None else None
         keep_feat_mask = ~feat_mask if feat_mask is not None else None
 
-        fx = self.state_emb if keep_mask is None else self.state_emb[keep_mask]
+        #fx = self.state_emb if keep_mask is None else self.state_emb[keep_mask]
+        fx = self.state_emb
         fx = self.trans_mlp(fx) if self.transmlp else fx
         fy = self.next_state_emb if keep_mask is None else self.next_state_emb[keep_mask]
         if self.l2norm:
@@ -464,7 +465,7 @@ class BLHmmLm(nn.Module):
         #transition_logits = self.transition_logits()
         #transition = self.mask_transition(transition_logits, transition_mask)
         log_transition = self.transition(transition_mask, feat_mask)
-        transition = log_transition.exp()
+        transition = log_transition[~transition_mask].exp()
         if not self.config.emission_dropout:
             emission = self.emission(transition_mask)
         else:
@@ -476,9 +477,8 @@ class BLHmmLm(nn.Module):
             emission = self.emission(emission_mask)
 
         if lpz is not None:
-            raise NotImplementedError
             # have to handle masking, but ok for now since not bptt.
-            start = (lpz[:,:,None] + transition[None]).logsumexp(1)
+            start = (lpz[:,:,None] + log_transition[None,~last_states]).logsumexp(1)
         else:
             start = self.start(start_mask)
 
@@ -556,7 +556,7 @@ class BLHmmLm(nn.Module):
             elbo = None,
             evidence = evidence,
             loss = loss,
-        ), alpha.log(), None
+        ), alpha.log().detach(), transition_mask
 
     def score_rff(self, text, lpz=None, last_states=None, mask=None, lengths=None):
         N, T, num_notes = text.shape
@@ -580,10 +580,6 @@ class BLHmmLm(nn.Module):
         else:
             raise ValueError(f"Unsupported dropout type {self.dropout_type}")
 
-        if lpz is not None:
-            start = lpz
-        else:
-            start = self.start(start_mask, feat_mask)
         if self.timing:
             start_ = timep.time()
         emission = self.emission(transition_mask)
@@ -629,6 +625,19 @@ class BLHmmLm(nn.Module):
         normalized_phi_w = normed_log_phi_w.exp()
         phi_u = log_phi_u.exp()
 
+        if lpz is not None:
+            # have to handle masking, but ok for now since not bptt.
+            start_state_emb = self.state_emb[~last_states]
+            if self.transmlp:
+                start_state_emb = self.trans_mlp(start_state_emb)
+            start_log_phi_w = (start_state_emb @ projection)
+            start_log_denominator = (start_log_phi_w + log_phi_u.logsumexp(0, keepdim=True)).logsumexp(-1)
+            start_normed_log_phi_w = start_log_phi_w - start_log_denominator[:,None]
+            start_gamma = lpz.exp() @ start_normed_log_phi_w.exp()
+            start = (start_gamma @ phi_u.T).log()
+        else:
+            start = self.start(start_mask)
+
         alphas = []
         Os = []
         #alpha = start * p_emit[:,0] # {N} x C
@@ -653,7 +662,7 @@ class BLHmmLm(nn.Module):
             elbo = None,
             evidence = evidence,
             loss = evidence,
-        ), alpha.log(), None
+        ), alpha.log(), transition_mask
 
 
     def compute_rff_parameters(self):

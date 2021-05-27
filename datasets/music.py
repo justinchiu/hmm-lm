@@ -23,6 +23,8 @@ import pickle
 from collections import namedtuple
 from urllib.request import urlopen
 
+import math
+
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
@@ -190,15 +192,45 @@ def get_batch(sequences, seq_lengths, device=None):
 
     return mini_batch, mini_batch_mask, sorted_seq_lengths
 
+def make_flat_pad(sequences, sequence_lengths, bsz, device=None):
+    xs = [
+        note
+        for bar in [seq[:len] for seq, len in zip(sequences, sequence_lengths)]
+        for note in bar
+    ]
+    num_notes = len(xs)
+    #num_batch = math.ceil((num_notes/ bsz - 1) / bptt_len)
+
+    pad = torch.zeros(88)
+    num_pad = int(math.ceil(num_notes / bsz) * bsz - num_notes)
+
+    xs = torch.stack(xs + ([pad] * num_pad)).type(torch.long)
+    mask = torch.ones(num_notes + num_pad, dtype=torch.bool)
+    if num_pad > 0:
+        mask[-num_pad:] = 0
+
+    return xs, mask 
+
 
 if __name__ == "__main__":
     datasets = [JSB_CHORALES, PIANO_MIDI, MUSE_DATA, NOTTINGHAM]
     jsb_data = load_data(JSB_CHORALES)
+    piano_data = load_data(PIANO_MIDI)
+    muse_data = load_data(MUSE_DATA)
+    nott_data = load_data(NOTTINGHAM)
 
     batch, mask, lengths = get_batch(
         #mini_batch_indices = torch.arange(0, 5),
         sequences = jsb_data["train"]["sequences"][:5],
         seq_lengths = jsb_data["train"]["sequence_lengths"][:5],
+    )
+
+    bsz = 2
+    bptt_len = 128
+    xs, mask = make_flat_pad(
+        muse_data["train"]["sequences"],
+        muse_data["train"]["sequence_lengths"],
+        bsz,
     )
 
     import pdb; pdb.set_trace()

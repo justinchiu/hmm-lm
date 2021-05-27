@@ -569,6 +569,36 @@ class MusicIterator(Iterator):
             if not self.repeat:
                 return
 
+class MusicBPTTIterator(Iterator):
+    def __init__(self, dataset, batch_size, bptt_len, **kwargs):
+        self.bptt_len = bptt_len
+        xs, mask = dataset
+        self.num_notes = mask.sum().item()
+        super(MusicBPTTIterator, self).__init__(dataset, batch_size, **kwargs)
+
+    def __len__(self):
+        return math.ceil((self.num_notes/ self.batch_size - 1) / self.bptt_len)
+
+    def __iter__(self):
+        # no shuffling for now, simplicity ;)
+        data, mask = self.dataset
+
+        data = data.view(self.batch_size, -1, 88)
+        mask = mask.view(self.batch_size, -1)
+        max_len = data.shape[1]
+
+        while True:
+            for i in range(1, len(self) * self.bptt_len, self.bptt_len):
+                self.iterations += 1
+                seq_len = min(self.bptt_len, max_len - i)
+                batch_text = data[:,i:i + seq_len]
+                batch_mask = mask[:,i:i + seq_len]
+                batch_lens = batch_mask.sum(-1)
+                yield batch_text, batch_mask, batch_lens
+            if not self.repeat:
+                return
+
+
 if __name__ == "__main__":
     import datasets.music as music
     for data in [music.JSB_CHORALES, music.MUSE_DATA, music.NOTTINGHAM, music.PIANO_MIDI]:

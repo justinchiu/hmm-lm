@@ -20,7 +20,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 import torchtext
 import datasets.music as music
-from datasets.data import MusicIterator
+from datasets.data import MusicIterator, MusicBPTTIterator
 
 from args import get_args
 
@@ -187,7 +187,6 @@ def cached_eval_loop(
 
 def fast_eval_loop(
     args, V, iter, model,
-    do_svd = False,
 ):
     total_ll = 0
     total_elbo = 0
@@ -215,18 +214,6 @@ def fast_eval_loop(
         Ht = -(myt.exp() * myt).sum()
         print(f"Total transition entropy {Ht:.2f} || Total emission entropy {He.sum():.2f}")
 
-        if do_svd:
-            # svd
-            _,s,_ = myt.exp().svd(compute_uv=False)
-            data = [[i,v] for i,v in enumerate(s.cpu().detach().numpy())]
-            table = wandb.Table(data=data, columns = ["index", "value"]) 
-            wandb.log({
-                "transition_entropy": Ht,
-                "emission_entropy": He,
-                "svd": wandb.plot.line(table, "index", "value", title="Singular Values"),
-            }, step=WANDB_STEP)
-
-
         word2state = model.word2state
         for i, batch in enumerate(iter):
             if hasattr(model, "noise_scale"):
@@ -237,8 +224,12 @@ def fast_eval_loop(
             N, T, num_notes = text.shape
 
             if lpz is not None and args.iterator == "bptt":
-                #start = (lpz[:,:,None] + transition[last_states,:]).logsumexp(1)
-                raise NotImplementedError()
+                if not args.eff:
+                    start = (lpz[:,:,None] + transition[None]).logsumexp(1)
+                else:
+                    phi_w, phi_u = transition
+                    start_gamma = lpz.exp() @ phi_w
+                    start = (start_gamma @ phi_u.T).log()
 
             losses, lpz = model.compute_loss(
                 text, start, transition, emission, word2state,
@@ -558,12 +549,25 @@ def main():
     }
     data = music.load_data(data_map[args.music_dataset])
     def get_iter(data, split, bsz):
-        return MusicIterator(
-            dataset = (data[split]["sequences"], data[split]["sequence_lengths"]),
-            batch_size = bsz,
-            sort_key = lambda x: x[1].sum(),
-            device = device,
-        )
+        if args.iterator == "bucket":
+            return MusicIterator(
+                dataset = (data[split]["sequences"], data[split]["sequence_lengths"]),
+                batch_size = bsz,
+                sort_key = lambda x: x[1].sum(),
+                device = device,
+            )
+        elif args.iterator == "bptt":
+            return MusicBPTTIterator(
+                dataset = music.make_flat_pad(
+                    data[split]["sequences"],
+                    data[split]["sequence_lengths"],
+                    bsz,
+                ),
+                batch_size = bsz,
+                bptt_len = args.bptt,
+                sort_key = lambda x: x[1].sum(),
+                device = device,
+            )
     train_iter = get_iter(data, "train", args.bsz)
     valid_iter = get_iter(data, "valid", args.eval_bsz)
     test_iter = get_iter(data, "test", args.eval_bsz)
