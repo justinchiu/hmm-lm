@@ -65,7 +65,7 @@ def update_best_valid(
             th.save({
                 "model": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "scheduler": scheduler.state_dict(),
+                "scheduler": scheduler.state_dict() if scheduler is not None else None,
                 "args": model.config,
             }, save_f)
             if PREV_SAVE is not None and PREV_SAVE != save_f:
