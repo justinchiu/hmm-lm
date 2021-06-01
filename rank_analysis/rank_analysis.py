@@ -31,5 +31,5 @@ for path in dir.glob("*.npy"):
 
     print("Processed:")
     print(path)
-    print("Saved to: {graphpath}")
-    print("Num singular values > 1e-5: {(singular_values > 1e-5).sum()}")
+    print(f"Saved to: {graphpath}")
+    print(f"Num singular values > 1e-5: {(singular_values > 1e-5).sum()}")

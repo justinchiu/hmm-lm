@@ -1,104 +1,104 @@
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 2016
 Processed:
 svd/ptb_bucket_blhmm_k2048_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k2048_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.png
+Num singular values > 1e-5: 1794
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 3186
 Processed:
 svd/ptb_bucket_blhmm_k2048_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k2048_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.png
+Num singular values > 1e-5: 1642
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 1020
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf8192_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf8192_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 7487
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf8192_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf8192_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 2572
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 507
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.png
+Num singular values > 1e-5: 3388
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 1604
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 790
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.png
+Num singular values > 1e-5: 9107
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 1171
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.png
+Num singular values > 1e-5: 9187
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 1559
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 5113
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 4980
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 2940
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.png
+Num singular values > 1e-5: 2992
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 6509
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-emission.png
+Num singular values > 1e-5: 5349
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-transition.png
+Num singular values > 1e-5: 791
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf1024_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 5033
 Processed:
 svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k16384_ed256_d256_bs0_bmsum_tdp0.1_fdp0.1_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf4096_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 7139
 Processed:
 svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k8192_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b128_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psoftmax_up0_ltnone_pmstatic_st0_se0_tm0_rmlog_nf512_ns0_a0_l20_dfp0_eff0-svd-transition.png
+Num singular values > 1e-5: 5330
 Processed:
 svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.npy
-Saved to: {graphpath}
-Num singular values > 1e-5: {(singular_values > 1e-5).sum()}
+Saved to: svd/ptb_bucket_blhmm_k4096_ed256_d256_bs0_bmsum_tdp0.1_fdp0_dtstate_b256_adamw_lr0.001_c5_tw_n5_r0_ns0_eword_sind_ts1_psmp_up1_ltnone_pmstatic_st0_se1_tm0_rmlog_nf2048_ns0_a0_l20_dfp0_eff1-svd-emission.png
+Num singular values > 1e-5: 3300
