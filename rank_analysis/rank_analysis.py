@@ -25,7 +25,16 @@ for path in dir.glob("*.npy"):
     )
     g.set_axis_labels("Index", "Singular values")
     g.tight_layout()
-    graphpath = str(path.with_suffix(".png"))
+
+    stem = path.stem.split("_")
+    k = stem[3]
+    pm = stem[22]
+    nf = stem[30]
+    matrix = stem[-1].split("-")[-1]
+    if pm == "psmp":
+        graphpath = dir / f"{k}-{pm}-{nf}-{matrix}.png"
+    else:
+        graphpath = dir / f"{k}-{pm}-{matrix}.png"
     g.savefig(graphpath)
     plt.close()
 
